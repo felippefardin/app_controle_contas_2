@@ -47,6 +47,7 @@ function verificar_acesso_admin() {
     // --- FIM DA MODIFICAÇÃO ---
 }
 
+
 // ------------------------------
 // 🔰 CSRF PROTECTION
 // ------------------------------

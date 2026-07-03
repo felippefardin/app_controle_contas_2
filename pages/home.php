@@ -6,6 +6,8 @@ require_once '../includes/session_init.php';
 require_once '../database.php';
 require_once '../includes/utils.php';
 
+
+
 // [MANTIDO] 🔒 Lógica de Segurança e Sessão Original
 if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true) {
     header("Location: ../pages/login.php?erro=nao_logado");
