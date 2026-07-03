@@ -66,8 +66,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $mail->setFrom($_ENV['MAIL_FROM_ADDRESS'], $_ENV['MAIL_FROM_NAME']);
                         $mail->addAddress($email_usuario, $nome_usuario);
 
-                        $appUrl = rtrim($_ENV['APP_URL'] ?? 'http://localhost/app-controle-contas', '/'); 
-                        $link = $appUrl . "/pages/nova_senha.php?token=" . $token;
+                        $appUrl = rtrim($_ENV['APP_URL'] ?? 'http://localhost/app_controle_contas_2', '/');
+$link = $appUrl . "/pages/nova_senha.php?token=" . $token;
 
                         $mail->isHTML(true);
                         $mail->Subject = 'Recuperação de Senha - App Controle';
