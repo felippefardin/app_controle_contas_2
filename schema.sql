@@ -95,7 +95,7 @@ CREATE TABLE `contas_receber` (
   CONSTRAINT `fk_cr_categoria` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_cr_pessoa` FOREIGN KEY (`id_pessoa_fornecedor`) REFERENCES `pessoas_fornecedores` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_cr_usuario` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Contas a Pagar 
 CREATE TABLE IF NOT EXISTS `contas_pagar` (

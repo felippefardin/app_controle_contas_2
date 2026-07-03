@@ -283,8 +283,16 @@ try {
     $safeDbUser = $rootConn->real_escape_string($dbUser);
     $safeDbPass = $rootConn->real_escape_string($dbPassword);
 
+ // Cria o banco de dados se não existir
     $rootConn->query("CREATE DATABASE IF NOT EXISTS `$safeDbName` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-    $rootConn->query("CREATE USER '$safeDbUser'@'localhost' IDENTIFIED BY '$safeDbPass'");
+    
+    // Cria o usuário apenas se ele não existir (evita o erro fatal)
+    $rootConn->query("CREATE USER IF NOT EXISTS '$safeDbUser'@'localhost' IDENTIFIED BY '$safeDbPass'");
+    
+    // Atualiza a senha para garantir que o sistema tem a senha correta gerada agora
+    $rootConn->query("ALTER USER '$safeDbUser'@'localhost' IDENTIFIED BY '$safeDbPass'");
+    
+    // Dá as permissões
     $rootConn->query("GRANT ALL PRIVILEGES ON `$safeDbName`.* TO '$safeDbUser'@'localhost'");
     $rootConn->query("FLUSH PRIVILEGES");
 
@@ -314,6 +322,7 @@ try {
 
 } catch (Exception $e) {
     $conn->rollback();
+    die("Erro técnico: " . $e->getMessage() . " - Arquivo: " . $e->getFile() . " Linha: " . $e->getLine());
     return_error("Erro ao registrar: " . $e->getMessage(), $form_data);
 }
 ?>

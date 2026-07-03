@@ -9,7 +9,7 @@ Este script:
   ✅ Garante que cada tenant tenha:
      - Colunas: email, plano, valor, status, data_criacao
      - Chave estrangeira para usuarios(id)
-     - Charset utf8mb4 e collation utf8mb4_unicode_ci
+     - Charset utf8mb4 e collation utf8mb4_0900_ai_ci
 -------------------------------------------------------------
 */
 
@@ -96,7 +96,7 @@ while ($row = $result->fetch_array()) {
         }
 
         // 🧠 Ajusta charset e collation da tabela
-        $tenantConn->query("ALTER TABLE assinaturas CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        $tenantConn->query("ALTER TABLE assinaturas CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
         echo "✨ Charset e collation atualizados.\n";
 
         $tenantConn->close();
