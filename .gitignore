@@ -21,6 +21,7 @@ banco-dados/*
 Thumbs.db
 .idea/
 .vscode/
+.env
 
 # --- Logs e Arquivos Temporários ---
 *.log
