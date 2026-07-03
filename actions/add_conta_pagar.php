@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Lógica para Fornecedor (Se não selecionou ID, mas digitou nome, cria um novo)
     if (!$fornecedor_id && !empty($nome_fornecedor_novo)) {
         // Verifica se já existe pelo nome
-        $stmtCheck = $conn->prepare("SELECT id FROM pessoas_fornecedores WHERE nome = ? AND usuario_id = ? AND tipo = 'fornecedor'");
+        $stmtCheck = $conn->prepare("SELECT id FROM pessoas_fornecedores WHERE nome = ? AND id_usuario = ? AND tipo = 'fornecedor'");
         $stmtCheck->bind_param("si", $nome_fornecedor_novo, $usuario_id);
         $stmtCheck->execute();
         $resCheck = $stmtCheck->get_result();
@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $fornecedor_id = $row['id'];
         } else {
             // Cadastra novo
-            $stmtNew = $conn->prepare("INSERT INTO pessoas_fornecedores (usuario_id, nome, tipo) VALUES (?, ?, 'fornecedor')");
+            $stmtNew = $conn->prepare("INSERT INTO pessoas_fornecedores (id_usuario, nome, tipo) VALUES (?, ?, 'fornecedor')");
             $stmtNew->bind_param("is", $usuario_id, $nome_fornecedor_novo);
             if ($stmtNew->execute()) {
                 $fornecedor_id = $stmtNew->insert_id;
