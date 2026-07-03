@@ -25,75 +25,41 @@ $db_pass_master = $_ENV['DB_PASSWORD'] ?? '';
 $db_name_master = $_ENV['DB_DATABASE'] ?? 'app_controle_contas';
 
 // -------------------------
-// Conexão MASTER
+// Funções de Conexão
 // -------------------------
 function getMasterConnection()
 {
     global $db_host_master, $db_user_master, $db_pass_master, $db_name_master;
-
     try {
         $conn = mysqli_init();
-        mysqli_real_connect(
-            $conn,
-            $db_host_master,
-            $db_user_master,
-            $db_pass_master,
-            $db_name_master
-        );
+        mysqli_real_connect($conn, $db_host_master, $db_user_master, $db_pass_master, $db_name_master);
         $conn->set_charset("utf8mb4");
         return $conn;
-
     } catch (mysqli_sql_exception $e) {
         error_log("Erro MASTER: " . $e->getMessage());
         die("Erro ao conectar ao banco master.");
     }
 }
 
-// -------------------------
-// Conexão TENANT (Via Sessão)
-// -------------------------
 function getTenantConnection()
 {
-    if (!isset($_SESSION['tenant_db'])) {
-        return null;
-    }
-
+    if (!isset($_SESSION['tenant_db'])) return null;
     $db = $_SESSION['tenant_db'];
-
     try {
         $conn = mysqli_init();
-        mysqli_real_connect(
-            $conn,
-            $db['db_host'],
-            $db['db_user'],
-            $db['db_password'],
-            $db['db_database']
-        );
+        mysqli_real_connect($conn, $db['db_host'], $db['db_user'], $db['db_password'], $db['db_database']);
         $conn->set_charset("utf8mb4");
         return $conn;
-
     } catch (mysqli_sql_exception $e) {
         error_log("Erro TENANT: " . $e->getMessage());
         return null;
     }
 }
 
-// -------------------------
-// ✅ NOVA FUNÇÃO: Conexão TENANT por Nome (Para Redefinição de Senha)
-// -------------------------
 function getTenantConnectionByName($dbName)
 {
-    // 1. Conecta ao Master para buscar as credenciais (Host, User, Pass)
     $connMaster = getMasterConnection();
-    
-    // Busca na tabela tenants usando o nome do banco como chave
     $stmt = $connMaster->prepare("SELECT db_host, db_user, db_password FROM tenants WHERE db_database = ? LIMIT 1");
-    if (!$stmt) {
-        error_log("Erro ao preparar query no Master (getTenantConnectionByName): " . $connMaster->error);
-        $connMaster->close();
-        return null;
-    }
-
     $stmt->bind_param("s", $dbName);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -101,35 +67,22 @@ function getTenantConnectionByName($dbName)
     $stmt->close();
     $connMaster->close();
 
-    if (!$tenantData) {
-        error_log("Tenant não encontrado para o banco: " . $dbName);
-        return null;
-    }
+    if (!$tenantData) return null;
 
-    // 2. Tenta conectar ao banco do cliente usando as credenciais recuperadas
     try {
         $conn = mysqli_init();
-        mysqli_real_connect(
-            $conn,
-            $tenantData['db_host'],
-            $tenantData['db_user'],
-            $tenantData['db_password'],
-            $dbName
-        );
+        mysqli_real_connect($conn, $tenantData['db_host'], $tenantData['db_user'], $tenantData['db_password'], $dbName);
         $conn->set_charset("utf8mb4");
         return $conn;
-
     } catch (mysqli_sql_exception $e) {
-        error_log("Erro ao conectar ao tenant via nome ($dbName): " . $e->getMessage());
         return null;
     }
 }
 
 // -------------------------
-// Garantir banco do TENANT
+// Função para Garantir banco do TENANT
 // -------------------------
-$conn->query("CREATE DATABASE `$db_database` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-{
+function ensureTenantDatabaseExists($db_host, $db_user, $db_password, $db_database) {
     try {
         $conn = mysqli_init();
         mysqli_real_connect($conn, $db_host, $db_user, $db_password);
@@ -148,99 +101,36 @@ $conn->query("CREATE DATABASE `$db_database` CHARACTER SET utf8mb4 COLLATE utf8m
 }
 
 // -------------------------
-// FUNÇÕES DE TENANT
+// FUNÇÕES DE UTILITÁRIOS
 // -------------------------
-
 if (!function_exists('log_debug')) {
-    function log_debug($msg) {
-        error_log("[TENANT_UTILS] " . $msg);
-    }
+    function log_debug($msg) { error_log("[TENANT_UTILS] " . $msg); }
 }
 
 if (!function_exists('getTenantByUserId')) {
     function getTenantByUserId($userId) {
         $conn = getMasterConnection();
-
-        $sql = "SELECT * FROM tenants WHERE usuario_id = ? LIMIT 1";
-        $stmt = $conn->prepare($sql);
+        $stmt = $conn->prepare("SELECT * FROM tenants WHERE usuario_id = ? LIMIT 1");
         $stmt->bind_param("i", $userId);
         $stmt->execute();
         $tenant = $stmt->get_result()->fetch_assoc();
         $stmt->close();
         $conn->close();
-
-        if ($tenant) log_debug("Tenant encontrado para usuario_id={$userId}: {$tenant['tenant_id']}");
-        else log_debug("Nenhum tenant encontrado para usuario_id={$userId}");
-
         return $tenant ?: null;
-    }
-}
-
-if (!function_exists('validarStatusAssinatura')) {
-    function validarStatusAssinatura($tenant) {
-        if (!$tenant) return "erro";
-
-        if (isset($tenant['status_assinatura']) && $tenant['status_assinatura'] === 'ativo') {
-            return "ok";
-        }
-
-        if (isset($tenant['status_assinatura']) && in_array($tenant['status_assinatura'], ['inativo','cancelado'])) {
-            return $tenant['status_assinatura'];
-        }
-
-        if (isset($tenant['status_assinatura']) && $tenant['status_assinatura'] === 'trial') {
-            if (empty($tenant['data_inicio_teste'])) return "ok";
-
-            try {
-                $inicio = new DateTime($tenant['data_inicio_teste']);
-                $hoje   = new DateTime();
-                $dias_passados = $inicio->diff($hoje)->days;
-
-                $dias_trial_permitidos = 15;
-                if (isset($tenant['plano_atual']) && $tenant['plano_atual'] === 'trimestral') {
-                    $dias_trial_permitidos = 30;
-                }
-
-                if ($dias_passados > $dias_trial_permitidos) return "trial_expirado";
-
-            } catch (Exception $e) {
-                log_debug("Erro ao validar data_inicio_teste: " . $e->getMessage());
-                return "ok";
-            }
-        }
-
-        return "ok";
     }
 }
 
 if (!function_exists('carregarTenantNaSessao')) {
     function carregarTenantNaSessao($tenant) {
         if (!$tenant) return false;
-
         $_SESSION['tenant_id'] = $tenant['tenant_id'];
         $_SESSION['tenant_db'] = [
-            "db_host"     => $tenant['db_host'],
-            "db_user"     => $tenant['db_user'],
+            "db_host" => $tenant['db_host'],
+            "db_user" => $tenant['db_user'],
             "db_password" => $tenant['db_password'],
             "db_database" => $tenant['db_database']
         ];
-
-        log_debug("Credenciais do tenant salvas na sessão: " . ($tenant['db_database'] ?? 'n/a'));
         return true;
-    }
-}
-
-if (!function_exists('getTenantById')) {
-    function getTenantById($tenant_id, $masterConn) {
-        if (!$masterConn) return null;
-
-        $stmt = $masterConn->prepare("SELECT * FROM tenants WHERE tenant_id = ? LIMIT 1");
-        $stmt->bind_param("s", $tenant_id);
-        $stmt->execute();
-        $tenant = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-
-        return $tenant;
     }
 }
 ?>
