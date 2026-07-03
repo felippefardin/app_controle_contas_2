@@ -36,8 +36,35 @@ function getTenantConnection() {
     if (!isset($_SESSION['tenant_db'])) return null;
     $db = $_SESSION['tenant_db'];
     $conn = new mysqli($db['db_host'], $db['db_user'], $db['db_password'], $db['db_database']);
-    if ($conn->connect_error) return null;
+    if ($conn->connect_error) {
+    die(
+        "Erro ao conectar no banco do tenant:<br><br>" .
+        $conn->connect_error .
+        "<br><br>Banco: " . $db['db_database'] .
+        "<br>Host: " . $db['db_host'] .
+        "<br>Usuário: " . $db['db_user']
+    );
+}
     $conn->set_charset("utf8mb4");
     return $conn;
+}
+
+function getTenantById($tenantId, $conn)
+{
+    $stmt = $conn->prepare("
+        SELECT *
+        FROM tenants
+        WHERE tenant_id = ?
+        LIMIT 1
+    ");
+
+    $stmt->bind_param("s", $tenantId);
+    $stmt->execute();
+
+    $resultado = $stmt->get_result()->fetch_assoc();
+
+    $stmt->close();
+
+    return $resultado;
 }
 ?>
