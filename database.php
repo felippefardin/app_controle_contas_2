@@ -128,7 +128,7 @@ function getTenantConnectionByName($dbName)
 // -------------------------
 // Garantir banco do TENANT
 // -------------------------
-function ensureTenantDatabaseExists($db_host, $db_user, $db_password, $db_database)
+$conn->query("CREATE DATABASE `$db_database` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 {
     try {
         $conn = mysqli_init();

@@ -8,7 +8,7 @@ CREATE TABLE `caixa_diario` (
   `usuario_id` int NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `data` (`data`,`usuario_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `categorias` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -21,7 +21,7 @@ CREATE TABLE `categorias` (
   KEY `id_pai` (`id_pai`),
   CONSTRAINT `categorias_ibfk_1` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id`) ON DELETE CASCADE,
   CONSTRAINT `categorias_ibfk_2` FOREIGN KEY (`id_pai`) REFERENCES `categorias` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `codigos_confirmacao` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -30,7 +30,7 @@ CREATE TABLE `codigos_confirmacao` (
   `criado_em` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `usado` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `contas_bancarias` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -43,7 +43,7 @@ CREATE TABLE `contas_bancarias` (
   PRIMARY KEY (`id`),
   KEY `id_usuario` (`id_usuario`),
   CONSTRAINT `contas_bancarias_ibfk_1` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 CREATE TABLE `contas_pagar` (
@@ -71,7 +71,7 @@ CREATE TABLE `contas_pagar` (
   CONSTRAINT `contas_pagar_ibfk_1` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id`) ON DELETE SET NULL,
   CONSTRAINT `contas_pagar_ibfk_2` FOREIGN KEY (`id_pessoa_fornecedor`) REFERENCES `pessoas_fornecedores` (`id`),
   CONSTRAINT `fk_contas_pagar_usuario` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=120 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=120 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 
@@ -105,7 +105,7 @@ CREATE TABLE `contas_receber` (
   CONSTRAINT `contas_receber_ibfk_1` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id`) ON DELETE SET NULL,
   CONSTRAINT `contas_receber_ibfk_2` FOREIGN KEY (`id_pessoa_fornecedor`) REFERENCES `pessoas_fornecedores` (`id`),
   CONSTRAINT `fk_contas_receber_usuario` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=88 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=88 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `contas_receber_baixadas` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -125,7 +125,7 @@ CREATE TABLE `contas_receber_baixadas` (
   `id_pessoa` int DEFAULT NULL,
   `status` varchar(20) DEFAULT 'baixada',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 
@@ -136,7 +136,7 @@ CREATE TABLE `lembretes_enviados` (
   `conta_id` int NOT NULL,
   `data_envio` datetime NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 CREATE TABLE `pessoas_fornecedores` (
@@ -151,7 +151,7 @@ CREATE TABLE `pessoas_fornecedores` (
   PRIMARY KEY (`id`),
   KEY `id_usuario` (`id_usuario`),
   CONSTRAINT `pessoas_fornecedores_ibfk_1` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 CREATE TABLE `recuperacao_senha` (
@@ -165,7 +165,7 @@ CREATE TABLE `recuperacao_senha` (
   `data_geracao` datetime NOT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_recuperacao_usuario` (`usuario_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=31 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=31 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 CREATE TABLE `solicitacoes_exclusao` (
@@ -176,7 +176,7 @@ CREATE TABLE `solicitacoes_exclusao` (
   PRIMARY KEY (`id`),
   KEY `fk_solicitacoes_exclusao_usuario` (`id_usuario`),
   CONSTRAINT `fk_solicitacoes_exclusao_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `usuarios` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -201,7 +201,7 @@ CREATE TABLE `usuarios` (
   UNIQUE KEY `email` (`email`),
   UNIQUE KEY `ux_usuarios_email` (`email`),
   UNIQUE KEY `email_2` (`email`)
-) ENGINE=InnoDB AUTO_INCREMENT=50 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=50 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 CREATE TABLE `usuarios_backup` (
@@ -216,7 +216,7 @@ CREATE TABLE `usuarios_backup` (
   `tipo` enum('admin','padrao') DEFAULT 'padrao',
   `foto` varchar(255) DEFAULT 'default-profile.png',
   `cpf_clean` varchar(11) DEFAULT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 CREATE TABLE `produtos` (
@@ -234,7 +234,7 @@ CREATE TABLE `produtos` (
   `cfop` varchar(4) DEFAULT NULL COMMENT 'Código Fiscal de Operações e Prestações',
   PRIMARY KEY (`id`),
   KEY `id_usuario` (`id_usuario`)
-) ENGINE=MyISAM AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 CREATE TABLE `movimento_estoque` (
@@ -250,7 +250,7 @@ CREATE TABLE `movimento_estoque` (
   KEY `id_produto` (`id_produto`),
   KEY `id_usuario` (`id_usuario`),
   KEY `id_pessoa_fornecedor` (`id_pessoa_fornecedor`)
-) ENGINE=MyISAM AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 CREATE TABLE `venda_items` (
@@ -264,7 +264,7 @@ CREATE TABLE `venda_items` (
   PRIMARY KEY (`id`),
   KEY `id_venda` (`id_venda`),
   KEY `id_produto` (`id_produto`)
-) ENGINE=MyISAM AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 
@@ -281,7 +281,7 @@ CREATE TABLE `vendas` (
   PRIMARY KEY (`id`),
   KEY `id_usuario` (`id_usuario`),
   KEY `id_cliente` (`id_cliente`)
-) ENGINE=MyISAM AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 CREATE TABLE `empresa_config` (
@@ -304,7 +304,7 @@ CREATE TABLE `empresa_config` (
   `certificado_senha` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `cnpj` (`cnpj`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 CREATE TABLE `compra_items` (
@@ -316,7 +316,7 @@ CREATE TABLE `compra_items` (
   PRIMARY KEY (`id`),
   KEY `id_compra` (`id_compra`),
   KEY `id_produto` (`id_produto`)
-) ENGINE=MyISAM AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `compras` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -328,7 +328,7 @@ CREATE TABLE `compras` (
   PRIMARY KEY (`id`),
   KEY `id_usuario` (`id_usuario`),
   KEY `id_fornecedor` (`id_fornecedor`)
-) ENGINE=MyISAM AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `notas_fiscais` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -341,7 +341,7 @@ CREATE TABLE `notas_fiscais` (
   `mensagem_erro` text,
   `data_emissao` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `solicitacoes_exclusao` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -351,7 +351,7 @@ CREATE TABLE `solicitacoes_exclusao` (
   PRIMARY KEY (`id`),
   KEY `fk_solicitacoes_exclusao_usuario` (`id_usuario`),
   CONSTRAINT `fk_solicitacoes_exclusao_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `tenants` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -368,6 +368,6 @@ CREATE TABLE `tenants` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `admin_email` (`admin_email`),
   UNIQUE KEY `subdominio` (`subdominio`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
