@@ -58,7 +58,7 @@ $sql_suporte_inicial = "
     FROM solicitacoes_suporte_inicial s
     JOIN tenants t ON s.tenant_id = t.id
     WHERE s.status = 'pendente'
-    ORDER BY s.data_solicitacao DESC
+    ORDER BY s.criado_em DESC
 ";
 $res_suporte_inicial = $master_conn->query($sql_suporte_inicial);
 ?>
