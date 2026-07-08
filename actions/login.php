@@ -164,6 +164,7 @@ try {
     exit;
 
 } catch (Exception $e) {
+    die("Erro detalhado: " . $e->getMessage());
     
     error_log("Erro Login: " . $e->getMessage());
     redirect_with_error("Erro interno no servidor. Tente novamente mais tarde.", $email);
