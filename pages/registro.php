@@ -1,7 +1,8 @@
 <?php 
 // pages/registro.php
 require_once __DIR__ . '/../includes/session_init.php';
-require_once __DIR__ . '/../includes/utils.php'; // Flash messages
+require_once __DIR__ . '/../includes/utils.php';
+require_once __DIR__ . '/../database.php'; // Flash messages
 
 // --- RECUPERA DADOS ANTIGOS EM CASO DE ERRO ---
 $old = $_SESSION['form_data'] ?? [];

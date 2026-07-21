@@ -39,6 +39,16 @@ if (isset($_GET['tenant_id'])) {
             exit;
         }
         
+        // --- INÍCIO DA VERIFICAÇÃO DE SEGURANÇA (DEBUG) ---
+        $check_table = $tenant_conn->query("SHOW TABLES LIKE 'usuarios'");
+        if ($check_table->num_rows == 0) {
+            $res = $tenant_conn->query("SHOW TABLES");
+            $tabelas = $res->fetch_all();
+            die("<strong>Erro Fatal:</strong> A tabela 'usuarios' não foi encontrada no banco '{$tenant_info['db_database']}'.<br>
+                 <strong>Tabelas existentes no banco:</strong> <pre>" . print_r($tabelas, true) . "</pre>");
+        }
+        // --- FIM DA VERIFICAÇÃO ---
+
         // Busca o proprietário do tenant para impersonar
         $sql_user = "SELECT * FROM usuarios WHERE nivel_acesso = 'proprietario' LIMIT 1";
         $user_result = $tenant_conn->query($sql_user);
@@ -49,29 +59,23 @@ if (isset($_GET['tenant_id'])) {
             session_unset();
             
             // Restaura o backup do admin e define dados do tenant
-            $_SESSION['super_admin_original'] = $backup_super_admin; // Flag que indica impersonação
-            // Mantém a sessão super_admin ativa para verificações de segurança no dashboard se voltar
+            $_SESSION['super_admin_original'] = $backup_super_admin;
             $_SESSION['super_admin'] = $backup_super_admin; 
             
             $_SESSION['tenant_id'] = $tenant_id;
             $_SESSION['tenant_db'] = $tenant_info;
             
-            // --- CORREÇÃO CRÍTICA AQUI ---
-            // Define usuario_logado como TRUE (Booleano), pois home.php verifica "=== true"
             $_SESSION['usuario_logado'] = true; 
             
-            // Define os dados do usuário impersonado
             $_SESSION['usuario_id']     = $proprietario['id'];
             $_SESSION['nome']           = $proprietario['nome'];
             $_SESSION['email']          = $proprietario['email'];
-            $_SESSION['nivel_acesso']   = 'proprietario'; // Permite passar no verificar_acesso_admin
+            $_SESSION['nivel_acesso']   = 'proprietario';
             
             $tenant_conn->close();
             
-            // Salva sessão e redireciona
             session_write_close();
             
-            // Vai direto para a home, pois o admin já "selecionou" a conta ao clicar em gerenciar
             header('Location: ../pages/home.php');
             exit;
         } else {
