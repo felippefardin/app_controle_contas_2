@@ -158,7 +158,7 @@ try {
     $tenantConn->query("DELETE FROM usuarios WHERE email = 'admin@cliente.com'");
     $stmtTenantUser = $tenantConn->prepare(
         "INSERT INTO usuarios (nome, tipo_pessoa, documento, telefone, email, senha, perfil, tipo, nivel_acesso, status, is_master, tenant_id)
-         VALUES (?, ?, ?, ?, ?, ?, 'admin', 'admin', 'admin', 'ativo', 1, ?)"
+         VALUES (?, ?, ?, ?, ?, ?, 'admin', 'admin', 'proprietario', 'ativo', 1, ?)"
     );
     $stmtTenantUser->bind_param("ssssssi", $nome, $tipo_pessoa, $documento, $telefone, $email, $senha_hash, $new_tenant_id);
     $stmtTenantUser->execute();

@@ -12,9 +12,13 @@ $dotenv->safeLoad();
 $modo = $_ENV['MERCADOPAGO_MODE'] ?? 'sandbox';
 $mp_access_token = ($modo === 'producao') ? $_ENV['MP_ACCESS_TOKEN_PRODUCAO'] : $_ENV['MP_ACCESS_TOKEN_SANDBOX'];
 $mp_back_url     = ($modo === 'producao') ? $_ENV['MP_BACK_URL_PRODUCAO']     : $_ENV['MP_BACK_URL_SANDBOX'];
+$payer_email = ($modo === 'sandbox') ? ($_ENV['MP_TEST_PAYER_EMAIL'] ?? '') : $_SESSION['email'];
 
 if (empty($mp_access_token)) {
     die("Erro: Token do Mercado Pago não configurado no .env");
+}
+if (empty($payer_email)) {
+    die("Erro: E-mail do comprador de teste não configurado no .env");
 }
 
 if (!isset($_SESSION['usuario_logado']) || !$_SESSION['tenant_id']) {
@@ -36,7 +40,7 @@ $valor_plano = match($plano) {
 $external_reference = $tenant_id . ($id_conta_receber ? "|" . $id_conta_receber : "");
 
 $data = [
-    "payer_email" => $_SESSION['email'],
+    "payer_email" => $payer_email,
     "back_url" => $mp_back_url,
     "reason" => "Assinatura " . ucfirst($plano) . " - App Controle",
     "external_reference" => $external_reference,

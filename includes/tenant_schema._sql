@@ -96,15 +96,19 @@ CREATE TABLE IF NOT EXISTS contas_pagar (
   numero VARCHAR(20) DEFAULT NULL,
   valor DECIMAL(10,2) DEFAULT NULL,
   id_categoria INT DEFAULT NULL,
+  id_pessoa_fornecedor INT DEFAULT NULL,
   status ENUM('pendente','baixada') DEFAULT 'pendente',
   forma_pagamento VARCHAR(50) DEFAULT NULL,
   data_baixa DATE DEFAULT NULL,
+  baixado_por INT DEFAULT NULL,
   juros DECIMAL(10,2) DEFAULT 0.00,
   comprovante VARCHAR(255) DEFAULT NULL,
   descricao TEXT DEFAULT NULL,
   PRIMARY KEY (id),
   KEY usuario_id (usuario_id),
-  KEY id_categoria (id_categoria)
+  KEY id_categoria (id_categoria),
+  KEY id_pessoa_fornecedor (id_pessoa_fornecedor),
+  KEY baixado_por (baixado_por)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Contas a Receber
@@ -116,15 +120,19 @@ CREATE TABLE IF NOT EXISTS contas_receber (
   numero VARCHAR(20) DEFAULT NULL,
   valor DECIMAL(10,2) DEFAULT NULL,
   id_categoria INT DEFAULT NULL,
+  id_pessoa_fornecedor INT DEFAULT NULL,
   status ENUM('pendente','baixada') DEFAULT 'pendente',
   forma_pagamento VARCHAR(50) DEFAULT NULL,
   data_baixa DATE DEFAULT NULL,
+  baixado_por INT DEFAULT NULL,
   juros DECIMAL(10,2) DEFAULT 0.00,
   comprovante VARCHAR(255) DEFAULT NULL,
   descricao VARCHAR(255) DEFAULT NULL,
   PRIMARY KEY (id),
   KEY usuario_id (usuario_id),
-  KEY id_categoria (id_categoria)
+  KEY id_categoria (id_categoria),
+  KEY id_pessoa_fornecedor (id_pessoa_fornecedor),
+  KEY baixado_por (baixado_por)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Produtos

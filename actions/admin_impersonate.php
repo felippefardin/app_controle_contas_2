@@ -18,7 +18,7 @@ if (isset($_GET['tenant_id'])) {
     $master_conn = getMasterConnection();
     
     // Busca dados do tenant
-    $sql = "SELECT db_host, db_database, db_user, db_password FROM tenants WHERE id = ?";
+    $sql = "SELECT tenant_id, db_host, db_database, db_user, db_password FROM tenants WHERE id = ?";
     $stmt = $master_conn->prepare($sql);
     $stmt->bind_param('i', $tenant_id);
     $stmt->execute();
@@ -62,7 +62,8 @@ if (isset($_GET['tenant_id'])) {
             $_SESSION['super_admin_original'] = $backup_super_admin;
             $_SESSION['super_admin'] = $backup_super_admin; 
             
-            $_SESSION['tenant_id'] = $tenant_id;
+            $_SESSION['tenant_id'] = $tenant_info['tenant_id'];
+            $_SESSION['tenant_id_master'] = $tenant_id;
             $_SESSION['tenant_db'] = $tenant_info;
             
             $_SESSION['usuario_logado'] = true; 
