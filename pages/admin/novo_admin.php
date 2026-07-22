@@ -12,6 +12,7 @@ $mensagem = '';
 $classeMsg = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    require_csrf();
     $nome = trim($_POST['nome']);
     $email = trim($_POST['email']);
     $senha = trim($_POST['senha']);
@@ -57,6 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+    <?php require __DIR__ . '/../../includes/csrf_client.php'; ?>
     <meta charset="UTF-8">
     <title>Novo Super Admin</title>
     <style>

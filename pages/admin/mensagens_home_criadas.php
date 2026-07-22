@@ -10,10 +10,11 @@ if (!isset($_SESSION['super_admin'])) {
 
 $master_conn = getMasterConnection();
 $msg_feedback = "";
+if ($_SERVER['REQUEST_METHOD'] === 'POST') require_csrf();
 
 // --- LOGICA DE EXCLUSÃO ---
-if (isset($_GET['delete'])) {
-    $id_delete = intval($_GET['delete']);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete'])) {
+    $id_delete = intval($_POST['delete']);
     
     // Buscar arquivo para deletar fisicamente
     $busca_arq = $master_conn->query("SELECT arquivo FROM mensagens_home WHERE id = $id_delete");
@@ -98,6 +99,7 @@ $mensagens = $master_conn->query("SELECT * FROM mensagens_home ORDER BY data_exi
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+    <?php require __DIR__ . '/../../includes/csrf_client.php'; ?>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mensagens do Sistema</title>
@@ -236,7 +238,7 @@ $mensagens = $master_conn->query("SELECT * FROM mensagens_home ORDER BY data_exi
                         <td><?= mb_strimwidth(htmlspecialchars($m['mensagem']), 0, 50, "...") ?></td>
                         <td>Por data</td>
                         <td>
-                            <a href="?delete=<?= $m['id'] ?>" class="btn btn-danger" onclick="return confirm('Excluir esta mensagem?')"><i class="fas fa-trash"></i></a>
+                            <form method="post" style="display:inline" onsubmit="return confirm('Excluir esta mensagem?')"><button name="delete" value="<?= (int)$m['id'] ?>" class="btn btn-danger" type="submit"><i class="fas fa-trash"></i></button></form>
                         </td>
                     </tr>
                     <?php endwhile; ?>

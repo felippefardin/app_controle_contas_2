@@ -1,6 +1,8 @@
 <?php
 require_once '../includes/session_init.php';
 require_once '../database.php';
+require_super_admin();
+require_csrf();
 
 if (empty($_SESSION['super_admin']) || $_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(403);

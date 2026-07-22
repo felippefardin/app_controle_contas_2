@@ -1,6 +1,7 @@
 <?php
 require_once '../includes/session_init.php';
 require_once '../database.php';
+require_tenant_admin();
 require_once '../includes/utils.php'; // Importa utils
 
 /* ============================================================
@@ -230,10 +231,10 @@ body { margin: 0; padding: 0; background: #121212; font-family: Arial, sans-seri
                             
                             <?php if ($is_admin && $u['id'] != $id_usuario): ?>
                                 <?php if ($u['status'] === 'ativo'): ?>
-                                    <a href="../actions/toggle_status.php?id=<?= $u['id'] ?>" class="action-btn btn-toggle-off" title="Inativar" onclick="return confirm('Inativar este usuário?');"><i class="fas fa-ban"></i></a>
+                                    <form action="../actions/toggle_status.php" method="post" style="display:inline" onsubmit="return confirm('Inativar este usuário?');"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="id" value="<?= (int)$u['id'] ?>"><button type="submit" class="action-btn btn-toggle-off" title="Inativar"><i class="fas fa-ban"></i></button></form>
                                 <?php else: ?>
                                     <?php if ($pode_adicionar): ?>
-                                        <a href="../actions/toggle_status.php?id=<?= $u['id'] ?>" class="action-btn btn-toggle-on" title="Reativar"><i class="fas fa-check"></i></a>
+                                        <form action="../actions/toggle_status.php" method="post" style="display:inline"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="id" value="<?= (int)$u['id'] ?>"><button type="submit" class="action-btn btn-toggle-on" title="Reativar"><i class="fas fa-check"></i></button></form>
                                     <?php else: ?>
                                         <button class="action-btn btn-toggle-off" disabled style="opacity:.5;"><i class="fas fa-check"></i></button>
                                     <?php endif; ?>

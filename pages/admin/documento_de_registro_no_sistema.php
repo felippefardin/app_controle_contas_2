@@ -2,13 +2,7 @@
 require_once '../../includes/session_init.php';
 require_once '../../database.php';
 
-$isSuperAdmin = !empty($_SESSION['super_admin']);
-$isAdmin = ($_SESSION['perfil'] ?? '') === 'admin'
-    || in_array($_SESSION['nivel_acesso'] ?? '', ['admin', 'master'], true);
-if (!$isSuperAdmin && !$isAdmin) {
-    header('Location: ../login.php');
-    exit;
-}
+require_super_admin();
 
 $admin = $_SESSION['super_admin'] ?? [
     'email' => $_SESSION['email'] ?? $_SESSION['usuario_email'] ?? 'Administrador'
@@ -18,6 +12,7 @@ $mensagem = '';
 $mensagemTipo = 'success';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'excluir') {
+    require_csrf();
     $id = (int)($_POST['id'] ?? 0);
     $stmt = $conn->prepare('SELECT caminho_arquivo FROM termos_consentimento WHERE id = ?');
     $stmt->bind_param('i', $id);
@@ -60,6 +55,7 @@ if ($busca !== '') {
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+    <?php require __DIR__ . '/../../includes/csrf_client.php'; ?>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Documentos LGPD</title>

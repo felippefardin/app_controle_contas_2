@@ -10,6 +10,7 @@ if ($nivel !== 'admin' && $nivel !== 'master' && $nivel !== 'proprietario') {
     header('Location: usuarios.php');
     exit;
 }
+require_tenant_admin();
 
 // --- BUSCA O PLANO ATUAL ---
 $connMaster = getMasterConnection();
@@ -28,7 +29,7 @@ $itens_basicos = [
     'contas_pagar_baixadas.php' => 'Contas Pagas',
     'contas_receber.php' => 'Contas a Receber',
     'contas_receber_baixadas.php' => 'Contas Recebidas',
-    'lembretes.php' => 'Lembretes',
+    'lembrete.php' => 'Lembretes',
     'perfil.php' => 'Perfil',
     'trocar_usuario.php' => 'Trocar Usuário',
     'usuarios.php' => 'Gestão de Usuários'

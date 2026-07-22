@@ -274,13 +274,13 @@ if (isset($_GET['status']) && $_GET['status'] == 'email_enviado') {
             <button type="submit">Acessar Sistema</button>
         </form>
 
-       <a href="../actions/enviar_link_email_perfil.php?email=<?= urlencode($email) ?>&origem=selecionar_usuario" 
-          class="btn-padrao-link" 
+       <form action="../actions/enviar_link_email_perfil.php" method="post" style="display:inline" onsubmit="return confirm('Deseja enviar um link de redefinição de senha para o seu e-mail cadastrado?');">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+          <button type="submit" class="btn-padrao-link"
           style="background-color: #17a2b8; color: white; margin-left: 10px; display: inline-block; padding: 10px 15px; text-decoration: none; border-radius: 5px; margin-top: 15px;" 
-          
-          onclick="return confirm('Deseja enviar um link de redefinição de senha para o seu e-mail cadastrado (<?= htmlspecialchars($email ?? 'email.nao.encontrado@error.com') ?>)?');">
           Redefinir por E-mail
-       </a>
+          </button>
+       </form>
     </div>
 
     <script>

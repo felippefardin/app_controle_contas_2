@@ -3,6 +3,7 @@ require_once '../includes/session_init.php';
 include('../database.php');
 
 require_super_admin();
+require_csrf();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);

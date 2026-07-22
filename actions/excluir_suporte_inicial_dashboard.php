@@ -1,6 +1,8 @@
 <?php
 require_once '../includes/session_init.php';
 require_once '../database.php';
+require_super_admin();
+require_csrf();
 
 // Verifica se é Super Admin
 if (!isset($_SESSION['super_admin'])) {

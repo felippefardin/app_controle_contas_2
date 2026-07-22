@@ -1,6 +1,8 @@
 <?php
 require_once '../includes/session_init.php';
 require_once '../database.php';
+require_page_permission('vendas.php', true);
+require_csrf(true);
 
 header('Content-Type: application/json');
 

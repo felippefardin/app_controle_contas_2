@@ -65,6 +65,7 @@ $res_suporte_inicial = $master_conn->query($sql_suporte_inicial);
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+    <?php require __DIR__ . '/../../includes/csrf_client.php'; ?>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel Master</title>
@@ -190,7 +191,11 @@ $res_suporte_inicial = $master_conn->query($sql_suporte_inicial);
                         <td data-label="Status"><?= htmlspecialchars($tenant['status_assinatura'] ?? '-'); ?></td>
                         <td data-label="Cadastro"><?= !empty($tenant['data_criacao']) ? date('d/m/y', strtotime($tenant['data_criacao'])) : '-'; ?></td>
                         <td data-label="Ação">
-                            <a class="btn-gerenciar" href="../../actions/admin_impersonate.php?tenant_id=<?= $tenant['id']; ?>"><i class="fas fa-external-link-alt"></i> Acessar</a>
+                            <form action="../../actions/admin_impersonate.php" method="post" style="display:inline">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+                                <input type="hidden" name="tenant_id" value="<?= (int)$tenant['id'] ?>">
+                                <button class="btn-gerenciar" type="submit"><i class="fas fa-external-link-alt"></i> Acessar</button>
+                            </form>
                             <?php if(!empty($tenant['usuario_id'])): ?>
                                 <button class="btn-chat" onclick="iniciarSuporte(<?= $tenant['usuario_id']; ?>, '<?= htmlspecialchars($tenant['email'] ?? '') ?>')" title="Iniciar Chat Online com <?= htmlspecialchars($tenant['email']) ?>">
                                     <i class="fas fa-comments"></i> Chat

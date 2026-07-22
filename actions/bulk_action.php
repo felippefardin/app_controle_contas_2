@@ -6,6 +6,7 @@ require_once '../database.php';
 if (!isset($_SESSION['usuario_logado'])) {
     die(json_encode(['status' => 'error', 'message' => 'Não autorizado']));
 }
+require_csrf(true);
 
 $conn = getTenantConnection();
 $data = json_decode(file_get_contents('php://input'), true);
@@ -18,6 +19,8 @@ if (!$data || empty($data['ids'])) {
 $ids = $data['ids']; // Array de IDs
 $tipo = $data['tipo']; // 'pagar', 'receber'
 $acao = $data['acao']; // 'baixar', 'excluir'
+$permission = $tipo === 'pagar' ? 'contas_pagar.php' : 'contas_receber.php';
+require_page_permission($permission, true);
 $ids_sanitized = implode(',', array_map('intval', $ids));
 
 // CONFIGURAÇÃO DA QUERY

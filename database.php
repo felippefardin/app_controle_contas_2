@@ -4,10 +4,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/vendor/autoload.php';
-
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/includes/session_init.php';
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 

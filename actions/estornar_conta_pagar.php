@@ -8,7 +8,8 @@ if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true)
     exit;
 }
 
-$id_conta = isset($_GET['id']) ? intval($_GET['id']) : 0;
+require_csrf();
+$id_conta = isset($_POST['id']) ? intval($_POST['id']) : 0;
 $id_usuario = get_data_owner_id();
 
 if ($id_conta > 0) {

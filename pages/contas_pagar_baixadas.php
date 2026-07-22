@@ -247,7 +247,7 @@ $result = $conn->query($sql);
             
             echo "<td>
                 <div style='display:flex; gap:5px;'>
-                    <a href='../actions/estornar_conta_pagar.php?id={$row['id']}' class='btn-action btn-estornar' onclick=\"return confirm('Tem certeza que deseja estornar esta conta?');\"><i class='fa-solid fa-undo'></i> Estornar</a>
+                    <form action='../actions/estornar_conta_pagar.php' method='post' style='display:inline' onsubmit=\"return confirm('Tem certeza que deseja estornar esta conta?');\"><input type='hidden' name='csrf_token' value='".htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8')."'><input type='hidden' name='id' value='".(int)$row['id']."'><button type='submit' class='btn-action btn-estornar'><i class='fa-solid fa-undo'></i> Estornar</button></form>
                     
                     <button 
                         class='btn-action btn-excluir' 

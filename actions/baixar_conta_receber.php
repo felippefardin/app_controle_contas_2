@@ -46,9 +46,10 @@ if ($caminho_comprovante) {
     $types .= "s";
 }
 
-$sql .= " WHERE id=?";
+$sql .= " WHERE id=? AND usuario_id=?";
 $params[] = $id_conta;
-$types .= "i";
+$params[] = $usuario_id;
+$types .= "ii";
 
 $stmt = $conn->prepare($sql);
 $stmt->bind_param($types, ...$params);

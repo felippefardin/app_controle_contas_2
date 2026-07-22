@@ -36,19 +36,6 @@ CREATE TABLE IF NOT EXISTS usuarios (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Inserindo usuário administrador padrão
-INSERT INTO usuarios (nome, tipo_pessoa, email, role, senha, perfil, tipo, nivel_acesso, is_master)
-VALUES (
-  'Administrador',
-  'fisica',
-  'admin@cliente.com',
-  'super_admin',
-  '$2y$10$KIEA.y8uqOQf6Wb0N0aMbeREjRtOEzWqzNwHfsH5HdwnIBqedwJKG', -- senha: admin123
-  'admin',
-  'admin',
-  'admin',
-  1
-);
-
 -- Tabela de Clientes e Fornecedores
 CREATE TABLE IF NOT EXISTS pessoas_fornecedores (
   id INT NOT NULL AUTO_INCREMENT,

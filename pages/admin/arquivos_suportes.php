@@ -66,6 +66,7 @@ $msg = $_GET['msg'] ?? '';
 <!doctype html>
 <html lang="pt-BR">
 <head>
+    <?php require __DIR__ . '/../../includes/csrf_client.php'; ?>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Arquivo de Suportes</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">

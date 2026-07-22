@@ -12,6 +12,7 @@ if (!isset($_SESSION['super_admin'])) {
     header('Location: ../pages/login.php');
     exit;
 }
+require_csrf();
 
 // Carrega variáveis de ambiente
 try {

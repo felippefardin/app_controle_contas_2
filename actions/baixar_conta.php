@@ -16,9 +16,14 @@ if (!$conn) {
     exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    exit('Método não permitido.');
+}
+
 // 2. CAPTURA DADOS
 $usuario_id = get_data_owner_id();
-$id_conta = isset($_POST['id_conta']) ? (int)$_POST['id_conta'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
+$id_conta = isset($_POST['id_conta']) ? (int)$_POST['id_conta'] : 0;
 $data_baixa = isset($_POST['data_baixa']) ? $_POST['data_baixa'] : date('Y-m-d');
 $forma_pagamento = isset($_POST['forma_pagamento']) ? $_POST['forma_pagamento'] : 'outros';
 
@@ -78,13 +83,13 @@ if (isset($_FILES['comprovante']) && $_FILES['comprovante']['error'] === UPLOAD_
 
 // 4. ATUALIZA A TABELA
 if ($caminho_comprovante) {
-    $sql = "UPDATE contas_pagar SET status='baixada', data_baixa=?, baixado_por=?, forma_pagamento=?, comprovante=? WHERE id=?";
+    $sql = "UPDATE contas_pagar SET status='baixada', data_baixa=?, baixado_por=?, forma_pagamento=?, comprovante=? WHERE id=? AND usuario_id=?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("sissi", $data_baixa, $usuario_id, $forma_pagamento, $caminho_comprovante, $id_conta);
+    $stmt->bind_param("sissii", $data_baixa, $usuario_id, $forma_pagamento, $caminho_comprovante, $id_conta, $usuario_id);
 } else {
-    $sql = "UPDATE contas_pagar SET status='baixada', data_baixa=?, baixado_por=?, forma_pagamento=? WHERE id=?";
+    $sql = "UPDATE contas_pagar SET status='baixada', data_baixa=?, baixado_por=?, forma_pagamento=? WHERE id=? AND usuario_id=?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("sisi", $data_baixa, $usuario_id, $forma_pagamento, $id_conta);
+    $stmt->bind_param("sisii", $data_baixa, $usuario_id, $forma_pagamento, $id_conta, $usuario_id);
 }
 
 if ($stmt->execute()) {

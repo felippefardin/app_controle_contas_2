@@ -15,6 +15,8 @@ if ($nivel !== 'admin' && $nivel !== 'master' && $nivel !== 'proprietario') {
     header('Location: ../pages/usuarios.php');
     exit;
 }
+require_tenant_admin();
+require_csrf();
 
 $conn = getTenantConnection();
 

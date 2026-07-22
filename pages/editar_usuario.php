@@ -1,6 +1,7 @@
 <?php
 require_once '../includes/session_init.php';
 require_once '../database.php';
+require_tenant_admin();
 require_once '../includes/utils.php'; 
 
 // Verifica Permissão do logado

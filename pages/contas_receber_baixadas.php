@@ -277,10 +277,12 @@ $result = $conn->query($sql);
       <p>Tem certeza que deseja estornar o recebimento de <b id="estornar-nome"></b>?</p>
       <p style="color: #aaa; font-size: 0.9em;">A conta voltará para a lista de <strong>Contas a Receber (Pendentes)</strong>.</p>
       
-      <div style="margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
-        <a id="btn-confirm-estorno" href="#" class='btn-action btn-estornar' style='padding: 10px 20px; font-size:16px; text-decoration:none;'>Sim, Estornar</a>
+      <form action="../actions/estornar_conta_receber.php" method="post" style="margin-top:20px;display:flex;justify-content:center;gap:10px">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="id" id="estornar-id">
+        <button type="submit" class='btn-action btn-estornar' style='padding:10px 20px;font-size:16px'>Sim, Estornar</button>
         <button onclick="document.getElementById('estornarModal').style.display='none'" class='btn-action' style='background-color: #555; padding: 10px 20px; font-size:16px; border:none;'>Cancelar</button>
-      </div>
+      </form>
     </div>
 </div>
 
@@ -295,7 +297,7 @@ function openDeleteModal(button) {
 
 function openEstornarModal(id, nome) {
     document.getElementById('estornar-nome').innerText = nome;
-    document.getElementById('btn-confirm-estorno').href = "../actions/estornar_conta_receber.php?id=" + id;
+    document.getElementById('estornar-id').value = id;
     document.getElementById('estornarModal').style.display = 'flex';
 }
 

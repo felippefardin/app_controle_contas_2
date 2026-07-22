@@ -11,6 +11,7 @@ if (!isset($_SESSION['super_admin'])) {
 
 $master_conn = getMasterConnection();
 $msg = "";
+if ($_SERVER['REQUEST_METHOD'] === 'POST') require_csrf();
 
 // ==========================================================
 // 1. CRIAR CUPOM (COM TRY-CATCH PARA ERRO DE DUPLICIDADE)
@@ -96,8 +97,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['ac
 // ==========================================================
 // 3. EXCLUIR
 // ==========================================================
-if (isset($_GET['excluir'])) {
-    $id = intval($_GET['excluir']);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'excluir') {
+    $id = intval($_POST['id'] ?? 0);
     try {
         $master_conn->query("DELETE FROM cupons_desconto WHERE id = $id");
         header("Location: cupom_desconto.php");
@@ -124,6 +125,7 @@ while($row = $clientes_res->fetch_assoc()) { $clientes[] = $row; }
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+    <?php require __DIR__ . '/../../includes/csrf_client.php'; ?>
     <meta charset="UTF-8">
     <title>Gerenciar Cupons</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -243,9 +245,10 @@ while($row = $clientes_res->fetch_assoc()) { $clientes[] = $row; }
                             <button type="button" class="btn-promo" onclick="abrirModalPromo(<?= $c['id'] ?>, '<?= $c['codigo'] ?>', '<?= ($c['tipo_desconto']=='porcentagem' ? intval($c['valor']).'%' : 'R$'.$c['valor']) ?>')" title="Enviar Promoção">
                                 <i class="fas fa-paper-plane"></i> Enviar para Clientes
                             </button>
-                            <a href="?excluir=<?= $c['id'] ?>" onclick="return confirm('Excluir este cupom?')" style="color: #e74c3c; margin-left: 10px;" title="Excluir">
-                                <i class="fas fa-trash"></i>
-                            </a>
+                            <form method="post" style="display:inline" onsubmit="return confirm('Excluir este cupom?')">
+                                <input type="hidden" name="acao" value="excluir"><input type="hidden" name="id" value="<?= (int)$c['id'] ?>">
+                                <button type="submit" style="color:#e74c3c;margin-left:10px;background:none;border:0" title="Excluir"><i class="fas fa-trash"></i></button>
+                            </form>
                         </td>
                     </tr>
                     <?php endwhile; ?>
@@ -285,9 +288,10 @@ while($row = $clientes_res->fetch_assoc()) { $clientes[] = $row; }
                             <div style="font-size:.75rem;color:#aaa"><?= $c['uso_unico_tenant'] ? '1 por cliente' : 'reutilizÃ¡vel' ?> · <?= $c['aplicar_extras'] ? 'inclui extras' : 'somente plano' ?></div>
                         </td>
                         <td>
-                            <a href="?excluir=<?= $c['id'] ?>" onclick="return confirm('Excluir este cupom?')" style="color: #e74c3c;" title="Excluir">
-                                <i class="fas fa-trash"></i>
-                            </a>
+                            <form method="post" style="display:inline" onsubmit="return confirm('Excluir este cupom?')">
+                                <input type="hidden" name="acao" value="excluir"><input type="hidden" name="id" value="<?= (int)$c['id'] ?>">
+                                <button type="submit" style="color:#e74c3c;background:none;border:0" title="Excluir"><i class="fas fa-trash"></i></button>
+                            </form>
                         </td>
                     </tr>
                     <?php endwhile; ?>

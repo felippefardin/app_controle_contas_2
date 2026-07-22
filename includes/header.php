@@ -22,6 +22,7 @@ $classeBody = ($temaAtual === 'light') ? 'light-mode' : '';
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
 <title>App Controle de Contas</title>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -47,9 +48,12 @@ $classeBody = ($temaAtual === 'light') ? 'light-mode' : '';
         <?php endif; ?>
 
         <?php if (isset($_SESSION['super_admin_original'])): ?>
-            <a href="../actions/retornar_super_admin.php" class="btn" style="background-color: #ff9800; color: white; margin-right: 10px;">
-                <i class="fas fa-user-shield"></i> Voltar Admin
-            </a>
+            <form action="../actions/retornar_super_admin.php" method="post" style="display:inline">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+                <button type="submit" class="btn" style="background-color: #ff9800; color: white; margin-right: 10px;">
+                    <i class="fas fa-user-shield"></i> Voltar Admin
+                </button>
+            </form>
         <?php endif; ?>
         <a href="../pages/home.php" class="btn btn-home">
             <i class="fas fa-home"></i> Home
@@ -62,6 +66,33 @@ $classeBody = ($temaAtual === 'light') ? 'light-mode' : '';
 </header>
 
 <script>
+// Inclui o token nas submissões e requisições internas sem depender de cada tela.
+document.addEventListener('DOMContentLoaded', () => {
+    const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    document.querySelectorAll('form').forEach(form => {
+        if ((form.method || 'get').toLowerCase() !== 'post' || form.querySelector('input[name="csrf_token"]')) return;
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'csrf_token';
+        input.value = token;
+        form.appendChild(input);
+    });
+});
+
+const nativeFetch = window.fetch.bind(window);
+window.fetch = (resource, options = {}) => {
+    const method = String(options.method || 'GET').toUpperCase();
+    const target = typeof resource === 'string' ? resource : resource.url;
+    const url = new URL(target, window.location.href);
+    if (method !== 'GET' && url.origin === window.location.origin) {
+        const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        const headers = new Headers(options.headers || {});
+        headers.set('X-CSRF-Token', token);
+        options = {...options, headers};
+    }
+    return nativeFetch(resource, options);
+};
+
 // ===============================
 // TOGGLE DE TEMA (PERSISTENTE)
 // ===============================

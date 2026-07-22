@@ -1,6 +1,8 @@
 <?php
 require_once '../includes/session_init.php';
 require_once '../database.php';
+require_tenant_admin();
+require_csrf();
 require_once '../includes/utils.php'; // Importa utils
 
 // 1. Verifica Sessão
@@ -34,8 +36,9 @@ if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_tok
 
 $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
 $id_proprio = $_SESSION['usuario_id'];
+$ownerId = get_data_owner_id();
 
-if ($id && $id != $id_proprio) {
+if ($id && $id != $id_proprio && $id != $ownerId) {
     $conn = getTenantConnection();
     if (!$conn) {
         set_flash_message('danger', 'Erro de conexão com o banco.');

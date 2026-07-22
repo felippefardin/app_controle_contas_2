@@ -5,6 +5,8 @@ require_once '../includes/utils.php';
 
 $nivel_logado = $_SESSION['nivel_acesso'] ?? 'padrao';
 $is_admin = in_array($nivel_logado, ['admin', 'master', 'proprietario']);
+require_tenant_admin();
+require_csrf();
 
 if (!isset($_POST['id'])) { 
     header('Location: ../pages/usuarios.php'); 
@@ -12,6 +14,12 @@ if (!isset($_POST['id'])) {
 }
 
 $id = intval($_POST['id']);
+$ownerId = get_data_owner_id();
+if ($id === $ownerId) {
+    set_flash_message('danger', 'O usuário proprietário não pode ser rebaixado ou alterado por esta tela.');
+    header('Location: ../pages/usuarios.php');
+    exit;
+}
 $nome = trim($_POST['nome']);
 $email = trim($_POST['email']);
 $cpf = preg_replace('/[^0-9]/', '', $_POST['cpf'] ?? '');
@@ -55,13 +63,15 @@ if ($stmt->execute()) {
         $connMaster = getMasterConnection();
         if ($connMaster && !$connMaster->connect_error) {
             if (!empty($senha)) {
-                $sqlMaster = "UPDATE usuarios SET nome=?, email=?, senha=? WHERE email=?";
+                $sqlMaster = "UPDATE usuarios SET nome=?, email=?, senha=? WHERE email=? AND tenant_id=?";
                 $stmtM = $connMaster->prepare($sqlMaster);
-                $stmtM->bind_param("ssss", $nome, $email, $senha_hash, $emailAntigo);
+                $tenantId = (string)($_SESSION['tenant_id'] ?? '');
+                $stmtM->bind_param("sssss", $nome, $email, $senha_hash, $emailAntigo, $tenantId);
             } else {
-                $sqlMaster = "UPDATE usuarios SET nome=?, email=? WHERE email=?";
+                $sqlMaster = "UPDATE usuarios SET nome=?, email=? WHERE email=? AND tenant_id=?";
                 $stmtM = $connMaster->prepare($sqlMaster);
-                $stmtM->bind_param("sss", $nome, $email, $emailAntigo);
+                $tenantId = (string)($_SESSION['tenant_id'] ?? '');
+                $stmtM->bind_param("ssss", $nome, $email, $emailAntigo, $tenantId);
             }
             $stmtM->execute();
             $stmtM->close();

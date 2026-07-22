@@ -1,6 +1,7 @@
 <?php
 require_once '../includes/session_init.php';
 include('../database.php');
+require_csrf();
 
 // ❗️ CORREÇÃO 1: Verificar se o usuário está logado (se a sessão é 'true')
 if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true) {
@@ -50,6 +51,10 @@ if (password_verify($senha_fornecida, $usuario_selecionado['senha'])) {
  $_SESSION['nome']  = $usuario_selecionado['nome'];
  $_SESSION['email']= $usuario_selecionado['email']; // O e-mail do usuário do tenant
  $_SESSION['nivel_acesso'] = $usuario_selecionado['nivel_acesso'];
+ $permissoes = json_decode((string)($usuario_selecionado['permissoes'] ?? '[]'), true);
+ $_SESSION['permissoes'] = is_array($permissoes) ? $permissoes : [];
+ session_regenerate_id(true);
+ $_SESSION['session_regenerated_at'] = time();
             // $_SESSION['usuario_logado'] continua a ser 'true' (como definido no login.php)
 
  header('Location: ../pages/home.php');

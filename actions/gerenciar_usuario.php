@@ -1,6 +1,8 @@
 <?php
 require_once '../includes/session_init.php';
 require_once '../database.php';
+require_tenant_admin();
+require_csrf();
 
 header('Content-Type: application/json');
 
@@ -11,7 +13,7 @@ if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true)
 }
 
 $nivel = $_SESSION['nivel_acesso'] ?? 'padrao';
-if ($nivel !== 'admin' && $nivel !== 'master') {
+if (!in_array($nivel, ['admin', 'master', 'proprietario'], true)) {
     echo json_encode(['success' => false, 'message' => 'Permissão negada.']);
     exit;
 }
@@ -24,6 +26,7 @@ if (!$conn) {
 
 $acao = $_POST['acao'] ?? '';
 $id_usuario_atual = $_SESSION['usuario_id'];
+$ownerId = get_data_owner_id();
 
 try {
     // --- LÓGICA DE SALVAR (INSERIR OU EDITAR) ---
@@ -49,6 +52,9 @@ try {
             throw new Exception("Este e-mail já está em uso.");
         }
 
+        if ($id && $id === $ownerId) {
+            throw new Exception('O usuário proprietário não pode ser alterado por esta tela.');
+        }
         if ($id) {
             // --- ATUALIZAR EXISTENTE ---
             if (!empty($senha)) {
@@ -88,7 +94,7 @@ try {
     // --- LÓGICA DE EXCLUIR ---
     elseif ($acao === 'excluir') {
         $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
-        if (!$id || $id == $id_usuario_atual) {
+        if (!$id || $id == $id_usuario_atual || $id == $ownerId) {
             throw new Exception("ID inválido ou tentativa de excluir a si mesmo.");
         }
 
@@ -105,7 +111,7 @@ try {
     // --- LÓGICA DE TOGGLE STATUS (ATIVAR/DESATIVAR) ---
     elseif ($acao === 'toggle_status') {
         $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
-        if (!$id || $id == $id_usuario_atual) {
+        if (!$id || $id == $id_usuario_atual || $id == $ownerId) {
             throw new Exception("Operação inválida.");
         }
 
