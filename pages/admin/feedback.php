@@ -2,6 +2,8 @@
 require_once '../../includes/session_init.php';
 include('../../database.php');
 
+require_super_admin();
+
 // Verifique permissão admin
 
 $conn = getMasterConnection();

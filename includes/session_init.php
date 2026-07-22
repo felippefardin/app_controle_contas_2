@@ -57,6 +57,43 @@ if (empty($_SESSION['csrf_token'])) {
 
 $csrf_token = $_SESSION['csrf_token'];
 
+function is_authenticated(): bool
+{
+    return ($_SESSION['usuario_logado'] ?? false) === true || !empty($_SESSION['super_admin']);
+}
+
+function is_super_admin(): bool
+{
+    return !empty($_SESSION['super_admin']) && is_array($_SESSION['super_admin']);
+}
+
+function require_authenticated(bool $json = false): void
+{
+    if (is_authenticated()) return;
+    if ($json) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['status' => 'error', 'msg' => 'Autenticação necessária.']);
+    } else {
+        header('Location: ../pages/login.php?erro=nao_logado');
+    }
+    exit;
+}
+
+function require_super_admin(bool $json = false): void
+{
+    if (is_super_admin()) return;
+    if ($json) {
+        http_response_code(403);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['status' => 'error', 'msg' => 'Acesso administrativo negado.']);
+    } else {
+        http_response_code(403);
+        exit('Acesso negado.');
+    }
+    exit;
+}
+
 /**
  * Retorna o proprietario dos dados compartilhados da empresa.
  * O usuario_id continua identificando quem esta operando o sistema.

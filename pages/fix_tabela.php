@@ -2,6 +2,8 @@
 require_once '../includes/session_init.php';
 require_once '../database.php';
 
+require_super_admin();
+
 // Garante que está logado para pegar a conexão certa
 if (!isset($_SESSION['usuario_logado'])) {
     die("Por favor, faça login antes de acessar esta página.");

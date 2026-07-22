@@ -2,6 +2,8 @@
 require_once '../../includes/session_init.php';
 include('../../database.php');
 
+require_super_admin();
+
 $conn = getMasterConnection();
 
 // Filtro
@@ -9,9 +11,14 @@ $busca = $_GET['busca'] ?? '';
 $filtro_exclusao = isset($_GET['filtro_exclusao']);
 
 $where = "WHERE status = 'resolvido'";
+$params = [];
+$types = '';
 
 if (!empty($busca)) {
-    $where .= " AND (protocolo LIKE '%$busca%' OR nome LIKE '%$busca%')";
+    $where .= " AND (protocolo LIKE ? OR nome LIKE ?)";
+    $like = '%' . $busca . '%';
+    $params = [$like, $like];
+    $types = 'ss';
 }
 
 // Filtro de 5 anos
@@ -22,7 +29,10 @@ if ($filtro_exclusao) {
 $query = "SELECT *, 
           (resolvido_em <= DATE_SUB(NOW(), INTERVAL 5 YEAR)) as elegivel_exclusao 
           FROM suporte_login $where ORDER BY resolvido_em DESC";
-$result = $conn->query($query);
+$stmt = $conn->prepare($query);
+if ($params) $stmt->bind_param($types, ...$params);
+$stmt->execute();
+$result = $stmt->get_result();
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
