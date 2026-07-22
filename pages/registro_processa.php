@@ -19,6 +19,7 @@ try {
 }
 
 require_once __DIR__ . '/../includes/utils.php';
+require_once __DIR__ . '/../includes/migration_runner.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use Dotenv\Dotenv;
@@ -181,6 +182,7 @@ try {
     while ($tenantConn->more_results() && $tenantConn->next_result()) {
         // Consome os resultados das instruções do arquivo SQL.
     }
+    run_migrations_for_connection($tenantConn, 'tenant');
     $tenantConn->query("DELETE FROM usuarios WHERE email = 'admin@cliente.com'");
     $stmtTenantUser = $tenantConn->prepare(
         "INSERT INTO usuarios (nome, tipo_pessoa, documento, telefone, email, senha, perfil, tipo, nivel_acesso, status, is_master, tenant_id)
