@@ -1,121 +1,147 @@
 <?php
-// actions/checkout_plano.php
-session_start();
-require_once '../database.php';
-require_once '../includes/utils.php';
-require_once '../includes/cupom_service.php';
 
-use Dotenv\Dotenv;
-$dotenv = Dotenv::createImmutable(__DIR__ . '/../');
-$dotenv->safeLoad();
+declare(strict_types=1);
 
-// 🔹 SELEÇÃO DE AMBIENTE
-$modo = $_ENV['MERCADOPAGO_MODE'] ?? 'sandbox';
-$mp_access_token = ($modo === 'producao') ? $_ENV['MP_ACCESS_TOKEN_PRODUCAO'] : $_ENV['MP_ACCESS_TOKEN_SANDBOX'];
-$mp_back_url     = ($modo === 'producao') ? $_ENV['MP_BACK_URL_PRODUCAO']     : $_ENV['MP_BACK_URL_SANDBOX'];
-$payer_email = ($modo === 'sandbox') ? ($_ENV['MP_TEST_PAYER_EMAIL'] ?? '') : $_SESSION['email'];
+require_once __DIR__ . '/../database.php';
+require_once __DIR__ . '/../includes/utils.php';
+require_once __DIR__ . '/../includes/cupom_service.php';
+require_once __DIR__ . '/../includes/mercadopago_security.php';
 
-if (empty($mp_access_token)) {
-    die("Erro: Token do Mercado Pago não configurado no .env");
+require_tenant_admin();
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    exit('Método não permitido.');
 }
-if (empty($payer_email)) {
-    die("Erro: E-mail do comprador de teste não configurado no .env");
+require_csrf();
+
+$planos = ['basico' => 19.00, 'plus' => 39.00, 'essencial' => 59.00];
+$plano = strtolower(trim((string) ($_POST['plano'] ?? '')));
+if (!isset($planos[$plano])) {
+    http_response_code(422);
+    exit('Plano inválido.');
 }
 
-if (!isset($_SESSION['usuario_logado']) || !$_SESSION['tenant_id']) {
-    header("Location: ../pages/login.php");
+$tenantId = trim((string) ($_SESSION['tenant_id'] ?? ''));
+$usuarioId = (int) ($_SESSION['usuario_id'] ?? 0);
+$contaId = filter_var($_POST['id_conta'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+$contaId = $contaId === false ? null : (int) $contaId;
+$codigoCupom = strtoupper(trim((string) ($_POST['cupom'] ?? '')));
+$payerEmail = mp_mode() === 'sandbox'
+    ? trim((string) ($_ENV['MP_TEST_PAYER_EMAIL'] ?? ''))
+    : trim((string) ($_SESSION['email'] ?? ''));
+
+if ($tenantId === '' || $payerEmail === '' || mp_access_token() === '' || mp_back_url() === '') {
+    error_log('Checkout MP: configuração incompleta ou tenant não identificado.');
+    header('Location: ../pages/minha_assinatura.php?erro=configuracao_pagamento');
     exit;
 }
-
-$plano = $_POST['plano'] ?? 'basico';
-$id_conta_receber = $_POST['id_conta'] ?? ''; 
-$tenant_id = $_SESSION['tenant_id'];
-$codigo_cupom = strtoupper(trim($_POST['cupom'] ?? ''));
-
-$valor_plano = match($plano) {
-    'plus' => 39.00,
-    'essencial' => 59.00,
-    default => 19.00
-};
 
 $conn = getMasterConnection();
-$tenant = buscarTenantCupom($conn, $tenant_id);
-if (!$tenant) die('Erro: conta não identificada.');
-$valor_extras = max(0, (int)($tenant['usuarios_extras'] ?? 0)) * 4.00;
-$cupom = null;
-$cupom_passivo = false;
-if ($codigo_cupom !== '') {
-    $validacao = validarCupomPassivo($conn, $codigo_cupom, (int)$tenant['id']);
-    if (!$validacao['ok']) die('Cupom recusado: ' . htmlspecialchars($validacao['msg']));
-    $cupom = $validacao['cupom'];
-    $cupom_passivo = true;
-} else {
-    $cupom = buscarPromocaoInterna($conn, (int)$tenant['id']);
+$tenant = buscarTenantCupom($conn, $tenantId);
+if (!$tenant) {
+    http_response_code(404);
+    exit('Conta não identificada.');
 }
+
+$valorExtras = max(0, (int) ($tenant['usuarios_extras'] ?? 0)) * 4.00;
+$cupom = null;
+$cupomPassivo = false;
+if ($codigoCupom !== '') {
+    $validacao = validarCupomPassivo($conn, $codigoCupom, (int) $tenant['id']);
+    if (!$validacao['ok']) {
+        header('Location: ../pages/minha_assinatura.php?erro=cupom_recusado');
+        exit;
+    }
+    $cupom = $validacao['cupom'];
+    $cupomPassivo = true;
+} else {
+    $cupom = buscarPromocaoInterna($conn, (int) $tenant['id']);
+}
+
 $calculo = $cupom
-    ? calcularDescontoCupom($valor_plano, $valor_extras, $cupom)
-    : ['original' => $valor_plano + $valor_extras, 'final' => $valor_plano + $valor_extras, 'desconto' => 0];
-$valor_cobranca = max(0.01, $calculo['final']);
-$cupom_id = $cupom ? (int)$cupom['id'] : 0;
+    ? calcularDescontoCupom($planos[$plano], $valorExtras, $cupom)
+    : ['original' => $planos[$plano] + $valorExtras, 'final' => $planos[$plano] + $valorExtras, 'desconto' => 0];
+$valorCobranca = max(0.01, (float) $calculo['final']);
+$cupomId = $cupom ? (int) $cupom['id'] : null;
 
-// 🔹 REFERÊNCIA FORMATADA: "TENANT_ID|ID_CONTA"
-$external_reference = $tenant_id . '|' . $id_conta_receber . '|' . ($cupom_passivo ? $cupom_id : 0);
+// Reutiliza um checkout recente, evitando duas assinaturas por clique duplo/atualização.
+$reuse = $conn->prepare("SELECT init_point FROM checkout_assinaturas
+    WHERE tenant_id=? AND plano=? AND status IN ('pendente','criando')
+      AND COALESCE(conta_receber_id, 0)=? AND COALESCE(cupom_id, 0)=?
+      AND criado_em >= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+    ORDER BY id DESC LIMIT 1");
+$contaBusca = $contaId ?? 0;
+$cupomBusca = $cupomId ?? 0;
+$reuse->bind_param('ssii', $tenantId, $plano, $contaBusca, $cupomBusca);
+$reuse->execute();
+$existing = $reuse->get_result()->fetch_assoc();
+$reuse->close();
+if (!empty($existing['init_point'])) {
+    header('Location: ' . $existing['init_point']);
+    exit;
+}
 
-$data = [
-    "payer_email" => $payer_email,
-    "back_url" => $mp_back_url,
-    "reason" => "Assinatura " . ucfirst($plano) . ($cupom ? " - Cupom " . $cupom['codigo'] : '') . " - App Controle",
-    "external_reference" => $external_reference,
-    "auto_recurring" => [
-        "frequency" => 1,
-        "frequency_type" => "months",
-        "transaction_amount" => $valor_cobranca,
-        "currency_id" => "BRL"
+$checkoutToken = bin2hex(random_bytes(32));
+$idempotencyKey = bin2hex(random_bytes(32));
+$statusCheckout = 'criando';
+$valorOriginal = (float) $calculo['original'];
+$insert = $conn->prepare('INSERT INTO checkout_assinaturas
+    (checkout_token, tenant_id, plano, conta_receber_id, cupom_id, idempotency_key, valor_original, valor_final, status, solicitado_por)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+$insert->bind_param('sssiisddsi', $checkoutToken, $tenantId, $plano, $contaId, $cupomId, $idempotencyKey, $valorOriginal, $valorCobranca, $statusCheckout, $usuarioId);
+$insert->execute();
+$checkoutId = (int) $conn->insert_id;
+$insert->close();
+
+$payload = [
+    'payer_email' => $payerEmail,
+    'back_url' => mp_back_url(),
+    'reason' => 'Assinatura ' . ucfirst($plano) . ($cupom ? ' - Cupom ' . $cupom['codigo'] : '') . ' - App Controle',
+    'external_reference' => $checkoutToken,
+    'auto_recurring' => [
+        'frequency' => 1,
+        'frequency_type' => 'months',
+        'transaction_amount' => $valorCobranca,
+        'currency_id' => 'BRL',
     ],
-    "status" => "pending"
+    'status' => 'pending',
 ];
 
-$ch = curl_init("https://api.mercadopago.com/preapproval");
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_POST, true);
-curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    "Content-Type: application/json",
-    "Authorization: Bearer " . $mp_access_token
-]);
+try {
+    $result = mp_api_request('POST', '/preapproval', $payload, $idempotencyKey);
+    $mp = $result['body'];
+    if (empty($mp['id']) || empty($mp['init_point'])) throw new RuntimeException('Checkout incompleto.');
 
-$response = curl_exec($ch);
-$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-curl_close($ch);
+    $mpId = (string) $mp['id'];
+    $initPoint = (string) $mp['init_point'];
+    $statusCheckout = 'pendente';
+    $update = $conn->prepare('UPDATE checkout_assinaturas SET status=?, mp_preapproval_id=?, init_point=? WHERE id=?');
+    $update->bind_param('sssi', $statusCheckout, $mpId, $initPoint, $checkoutId);
+    $update->execute();
+    $update->close();
 
-$mp_response = json_decode($response, true);
-
-if (isset($mp_response['init_point'])) {
-    $stmt = $conn->prepare("UPDATE tenants SET plano_atual = ?, id_assinatura_mp = ? WHERE tenant_id = ?");
-    $stmt->bind_param("sss", $plano, $mp_response['id'], $tenant_id);
-    $stmt->execute();
-    $stmt->close();
-    if ($cupom_passivo) {
+    if ($cupomPassivo && $cupomId !== null) {
         $statusUso = 'pendente';
-        $stmtUso = $conn->prepare("INSERT INTO cupom_utilizacoes (cupom_id, tenant_id, mp_preapproval_id, status, valor_original, valor_final) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE mp_preapproval_id=VALUES(mp_preapproval_id), status='pendente', valor_original=VALUES(valor_original), valor_final=VALUES(valor_final)");
-        $tenantDbId = (int)$tenant['id'];
-        $mpPreapprovalId = (string)$mp_response['id'];
-        $valorOriginal = (float)$calculo['original'];
-        $valorFinal = (float)$calculo['final'];
-        $stmtUso->bind_param('iissdd', $cupom_id, $tenantDbId, $mpPreapprovalId, $statusUso, $valorOriginal, $valorFinal);
-        $stmtUso->execute();
-        $stmtUso->close();
+        $tenantDbId = (int) $tenant['id'];
+        $stmt = $conn->prepare("INSERT INTO cupom_utilizacoes
+            (cupom_id, tenant_id, mp_preapproval_id, status, valor_original, valor_final)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE status='pendente', valor_original=VALUES(valor_original), valor_final=VALUES(valor_final)");
+        $stmt->bind_param('iissdd', $cupomId, $tenantDbId, $mpId, $statusUso, $valorOriginal, $valorCobranca);
+        $stmt->execute();
+        $stmt->close();
     }
     $conn->close();
-
-    header("Location: " . $mp_response['init_point']);
+    header('Location: ' . $initPoint);
     exit;
-} else {
-    // 🔹 PREVINE TELA EM BRANCO: Exibe o erro real da API
-    echo "<h3>Erro ao gerar checkout</h3>";
-    echo "<p>Código HTTP: $httpCode</p>";
-    echo "<pre>";
-    print_r($mp_response);
-    echo "</pre>";
+} catch (Throwable $e) {
+    error_log('Checkout MP falhou: ' . $e->getMessage());
+    $statusCheckout = 'erro';
+    $update = $conn->prepare('UPDATE checkout_assinaturas SET status=? WHERE id=?');
+    $update->bind_param('si', $statusCheckout, $checkoutId);
+    $update->execute();
+    $update->close();
+    $conn->close();
+    header('Location: ../pages/minha_assinatura.php?erro=checkout_indisponivel');
     exit;
 }

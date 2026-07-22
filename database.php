@@ -4,7 +4,9 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/vendor/autoload.php';
-require_once __DIR__ . '/includes/session_init.php';
+if (!defined('APP_SKIP_SESSION') || APP_SKIP_SESSION !== true) {
+    require_once __DIR__ . '/includes/session_init.php';
+}
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
