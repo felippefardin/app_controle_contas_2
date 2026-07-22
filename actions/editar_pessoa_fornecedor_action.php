@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $id_registro = (int)$_POST['id'];
-    $id_usuario = $_SESSION['usuario_id'];
+    $id_usuario = get_data_owner_id();
     
     $nome = $_POST['nome'];
     $cpf_cnpj = $_POST['cpf_cnpj'];

@@ -23,6 +23,9 @@ if (isset($_GET['delete'])) {
         }
     }
 
+    $master_conn->query("DELETE v FROM mensagens_home_visualizacoes v INNER JOIN mensagens_home_agendamentos a ON a.id = v.agendamento_id WHERE a.mensagem_id = $id_delete");
+    $master_conn->query("DELETE FROM mensagens_home_visualizacoes WHERE mensagem_id = $id_delete");
+    $master_conn->query("DELETE FROM mensagens_home_agendamentos WHERE mensagem_id = $id_delete");
     $master_conn->query("DELETE FROM mensagens_home WHERE id = $id_delete");
     header("Location: mensagens_home_criadas.php?msg=deleted");
     exit;
@@ -32,16 +35,36 @@ if (isset($_GET['delete'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['btn_salvar'])) {
     $titulo = $master_conn->real_escape_string($_POST['titulo']);
     $mensagem = $master_conn->real_escape_string($_POST['mensagem']);
-    $data_exibicao = $_POST['data_exibicao'];
-    $qtd_logins = intval($_POST['quantidade_logins']);
+    $datas_post = $_POST['datas_exibicao'] ?? [];
+    $limites_post = $_POST['quantidades_logins'] ?? [];
+    $agendamentos = [];
+    foreach ($datas_post as $indice => $data) {
+        $data = trim($data);
+        $limite = max(1, (int)($limites_post[$indice] ?? 1));
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $data)) $agendamentos[$data] = $limite;
+    }
+    if (!$agendamentos) $msg_feedback = "<div class='alert error'><i class='fas fa-times'></i> Adicione pelo menos uma data válida.</div>";
+    $data_exibicao = array_key_first($agendamentos);
+    $qtd_logins = $agendamentos[$data_exibicao] ?? 1;
     $link_botao = $master_conn->real_escape_string($_POST['link_botao']);
     $texto_botao = $master_conn->real_escape_string($_POST['texto_botao']);
 
-    // Upload de Arquivo
+    // Upload de Arquivo: somente PDF, JPEG ou PNG, validado pelo conteúdo real.
     $arquivo_nome = NULL;
+    $upload_valido = true;
     if (isset($_FILES['arquivo']) && $_FILES['arquivo']['error'] === 0) {
-        $ext = pathinfo($_FILES['arquivo']['name'], PATHINFO_EXTENSION);
-        $novo_nome = uniqid('msg_') . "." . $ext;
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($_FILES['arquivo']['tmp_name']);
+        $tiposPermitidos = [
+            'application/pdf' => 'pdf',
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+        ];
+        if (!isset($tiposPermitidos[$mime]) || $_FILES['arquivo']['size'] > 10 * 1024 * 1024) {
+            $upload_valido = false;
+            $msg_feedback = "<div class='alert error'><i class='fas fa-times'></i> Anexo inválido. Envie PDF, JPEG ou PNG com até 10 MB.</div>";
+        } else {
+        $ext = $tiposPermitidos[$mime];
+        $novo_nome = uniqid('msg_', true) . "." . $ext;
         $diretorio = "../../assets/uploads/mensagens/";
         
         if (!is_dir($diretorio)) mkdir($diretorio, 0755, true);
@@ -49,14 +72,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['btn_salvar'])) {
         if (move_uploaded_file($_FILES['arquivo']['tmp_name'], $diretorio . $novo_nome)) {
             $arquivo_nome = $novo_nome;
         }
+        }
     }
 
     $sql = "INSERT INTO mensagens_home (titulo, mensagem, data_exibicao, quantidade_logins, arquivo, link_botao, texto_botao) 
             VALUES ('$titulo', '$mensagem', '$data_exibicao', $qtd_logins, " . ($arquivo_nome ? "'$arquivo_nome'" : "NULL") . ", '$link_botao', '$texto_botao')";
 
-    if ($master_conn->query($sql)) {
+    if ($agendamentos && $upload_valido && $master_conn->query($sql)) {
+        $mensagem_id = $master_conn->insert_id;
+        $stmtAgenda = $master_conn->prepare("INSERT INTO mensagens_home_agendamentos (mensagem_id, data_exibicao, quantidade_logins) VALUES (?, ?, ?)");
+        foreach ($agendamentos as $dataAgenda => $limiteAgenda) {
+            $stmtAgenda->bind_param('isi', $mensagem_id, $dataAgenda, $limiteAgenda);
+            $stmtAgenda->execute();
+        }
+        $stmtAgenda->close();
         $msg_feedback = "<div class='alert success'><i class='fas fa-check'></i> Mensagem agendada com sucesso!</div>";
-    } else {
+    } elseif ($upload_valido && $agendamentos) {
         $msg_feedback = "<div class='alert error'><i class='fas fa-times'></i> Erro ao salvar: " . $master_conn->error . "</div>";
     }
 }
@@ -92,6 +123,11 @@ $mensagens = $master_conn->query("SELECT * FROM mensagens_home ORDER BY data_exi
         .btn-primary { background-color: #00bfff; }
         .btn-primary:hover { background-color: #009acd; }
         .btn-danger { background-color: #e74c3c; padding: 5px 10px; font-size: 0.8rem; }
+        .schedule-extra { display:grid; gap:10px; margin:10px 0 15px; }
+        .schedule-row { display:grid; grid-template-columns:1fr 1fr auto; gap:10px; align-items:end; padding:12px; background:#252525; border:1px solid #3b3b3b; border-radius:6px; }
+        .btn-add { background:#27ae60; margin-bottom:15px; }
+        .schedule-tags { display:flex; flex-wrap:wrap; gap:6px; }
+        .schedule-tag { background:#273b44; border:1px solid #00bfff; color:#d9f5ff; padding:5px 8px; border-radius:12px; font-size:.78rem; }
         
         /* Table */
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
@@ -126,13 +162,16 @@ $mensagens = $master_conn->query("SELECT * FROM mensagens_home ORDER BY data_exi
                     </div>
                     <div class="col form-group">
                         <label>Data de Exibição</label>
-                        <input type="date" name="data_exibicao" required min="<?= date('Y-m-d') ?>">
+                        <input type="date" name="datas_exibicao[]" required min="<?= date('Y-m-d') ?>">
                     </div>
                     <div class="col form-group">
                         <label>Limite de Visualizações por Usuário</label>
-                        <input type="number" name="quantidade_logins" value="1" min="1" required title="Quantas vezes o usuário verá este pop-up?">
+                        <input type="number" name="quantidades_logins[]" value="1" min="1" required title="Quantas vezes o usuário verá este pop-up nesta data?">
                     </div>
                 </div>
+
+                <div id="scheduleExtra" class="schedule-extra"></div>
+                <button type="button" class="btn btn-add" onclick="adicionarData()"><i class="fas fa-plus"></i> Adicionar outra data</button>
 
                 <div class="form-group">
                     <label>Conteúdo da Mensagem</label>
@@ -177,9 +216,15 @@ $mensagens = $master_conn->query("SELECT * FROM mensagens_home ORDER BY data_exi
                 <tbody>
                     <?php while($m = $mensagens->fetch_assoc()): ?>
                     <tr>
-                        <td><?= date('d/m/Y', strtotime($m['data_exibicao'])) ?></td>
+                        <td><div class="schedule-tags"><?php
+                            $agenda = $master_conn->query('SELECT data_exibicao, quantidade_logins FROM mensagens_home_agendamentos WHERE mensagem_id=' . (int)$m['id'] . ' ORDER BY data_exibicao');
+                            while ($a = $agenda->fetch_assoc()): ?>
+                            <span class="schedule-tag"><?= date('d/m/Y', strtotime($a['data_exibicao'])) ?> · <?= (int)$a['quantidade_logins'] ?>x</span>
+                            <?php endwhile; ?></div></td>
                         <td>
-                            <?php if($m['arquivo']): ?>
+                            <?php if($m['arquivo'] && strtolower(pathinfo($m['arquivo'], PATHINFO_EXTENSION)) === 'pdf'): ?>
+                                <a href="../../assets/uploads/mensagens/<?= rawurlencode($m['arquivo']) ?>" target="_blank" class="btn btn-primary" title="Abrir PDF"><i class="fas fa-file-pdf"></i> PDF</a>
+                            <?php elseif($m['arquivo']): ?>
                                 <a href="../../assets/uploads/mensagens/<?= $m['arquivo'] ?>" target="_blank">
                                     <img src="../../assets/uploads/mensagens/<?= $m['arquivo'] ?>" class="preview-img" alt="Anexo">
                                 </a>
@@ -189,7 +234,7 @@ $mensagens = $master_conn->query("SELECT * FROM mensagens_home ORDER BY data_exi
                         </td>
                         <td><?= htmlspecialchars($m['titulo']) ?></td>
                         <td><?= mb_strimwidth(htmlspecialchars($m['mensagem']), 0, 50, "...") ?></td>
-                        <td><?= $m['quantidade_logins'] ?>x</td>
+                        <td>Por data</td>
                         <td>
                             <a href="?delete=<?= $m['id'] ?>" class="btn btn-danger" onclick="return confirm('Excluir esta mensagem?')"><i class="fas fa-trash"></i></a>
                         </td>
@@ -199,5 +244,10 @@ $mensagens = $master_conn->query("SELECT * FROM mensagens_home ORDER BY data_exi
             </table>
         </div>
     </div>
+    <script>
+        function adicionarData(){
+            document.getElementById('scheduleExtra').insertAdjacentHTML('beforeend', `<div class="schedule-row"><div><label>Data de exibição</label><input type="date" name="datas_exibicao[]" min="<?= date('Y-m-d') ?>" required></div><div><label>Limite nesta data</label><input type="number" name="quantidades_logins[]" value="1" min="1" required></div><button type="button" class="btn btn-danger" onclick="this.closest('.schedule-row').remove()"><i class="fas fa-trash"></i></button></div>`);
+        }
+    </script>
 </body>
 </html>

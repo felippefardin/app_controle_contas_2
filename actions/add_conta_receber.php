@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $usuario_id = $_SESSION['usuario_id'] ?? null;
+    $usuario_id = get_data_owner_id() ?? null;
 
     if (!$usuario_id) {
         set_flash_message('danger', 'Sessão expirada. Faça login novamente.');

@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $id_usuario = $_SESSION['usuario_id']; 
+    $id_usuario = get_data_owner_id(); 
 
     // Dados do formulário
     $nome = trim($_POST['nome']);

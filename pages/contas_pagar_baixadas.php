@@ -12,7 +12,7 @@ if ($conn === null) {
     die("Falha ao obter a conexão com o banco de dados do cliente.");
 }
 
-$usuarioId = $_SESSION['usuario_id'];
+$usuarioId = get_data_owner_id();
 include('../includes/header.php');
 
 // Exibe a mensagem centralizada
@@ -68,7 +68,7 @@ $result = $conn->query($sql);
 
     h2 { text-align: center; color: #00bfff; margin-bottom: 20px; }
     
-    /* === FORMULÁRIO DE BUSCA === */
+    /* === FORMULÃRIO DE BUSCA === */
     form.search-form {
       display: flex; 
       flex-wrap: wrap; /* Permite quebrar linha em telas menores */
@@ -172,7 +172,7 @@ $result = $conn->query($sql);
     .modal-content { background-color: #1f1f1f; padding: 25px; border-radius: 10px; width: 100%; max-width: 500px; text-align: center; position: relative; border: 1px solid #444; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
     .close-btn { position: absolute; top: 10px; right: 20px; font-size: 28px; cursor: pointer; color: #aaa; }
 
-    /* === RESPONSIVIDADE MOBILE ESPECÍFICA === */
+    /* === RESPONSIVIDADE MOBILE ESPECÃFICA === */
     @media (max-width: 768px) {
         body { padding: 10px; }
         

@@ -5,7 +5,7 @@ require_once '../database.php';
 require_once '../includes/utils.php'; // Importa utils para o Flash Message e CSS
 
 // ----------------------------
-// 1. VERIFICA SE USUÁRIO ESTÁ LOGADO
+// 1. VERIFICA SE USUÃRIO ESTÃ LOGADO
 // ----------------------------
 if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true) { 
     header('Location: login.php');
@@ -18,9 +18,9 @@ if ($conn === null) {
 }
 
 // ----------------------------
-// 2. DADOS DO USUÁRIO
+// 2. DADOS DO USUÃRIO
 // ----------------------------
-$id_usuario = $_SESSION['usuario_id'];
+$id_usuario = get_data_owner_id();
 $perfil     = $_SESSION['nivel_acesso'];
 
 // ----------------------------
@@ -110,7 +110,7 @@ body {
     width: 100%;
 }
 
-/* TÍTULOS */
+/* TÃTULOS */
 h1, h2 {
     color: #00bfff;
     border-bottom: 2px solid #00bfff;
@@ -126,7 +126,7 @@ label {
 }
 
 /* =========================================
-   CAMPOS DE FORMULÁRIO
+   CAMPOS DE FORMULÃRIO
 ========================================= */
 .form-control,
 .select2-container .select2-selection--single {
@@ -380,6 +380,13 @@ label {
     color: #fff;
 }
 
+.meta-actions { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+.meta-status { margin-top:8px; color:#bbb; font-size:.9rem; text-align:center; }
+.meta-status.atingida { color:#69db7c; font-weight:700; }
+.meta-history-table { width:100%; color:#eee; }
+.meta-history-table th,.meta-history-table td { padding:9px; border-bottom:1px solid #444; white-space:nowrap; }
+.meta-history-table th { color:#00bfff; }
+
 .progress {
     height: 25px;
     background-color: #1a1a1a;
@@ -461,12 +468,15 @@ label {
 
     <div class="meta-widget">
         <div class="meta-header">
-            <span class="meta-header-titulo"><i class="fas fa-bullseye"></i> Meta de Vendas (Mês)</span>
-            <?php if ($perfil === 'admin' || $perfil === 'proprietario'): ?>
-                <span id="btn-editar-meta" class="meta-header-editar" data-toggle="modal" data-target="#modalMetaVendas" title="Definir Meta do Mês">
-                    <i class="fas fa-pencil-alt"></i> Definir Meta
-                </span>
-            <?php endif; ?>
+            <span class="meta-header-titulo"><i class="fas fa-bullseye"></i> Meta de Vendas — ciclo atual</span>
+            <div class="meta-actions">
+                <span class="meta-header-editar" data-toggle="modal" data-target="#modalHistoricoMetas" title="Consultar metas anteriores"><i class="fas fa-history"></i> Histórico</span>
+                <?php if ($perfil === 'admin' || $perfil === 'proprietario'): ?>
+                    <span id="btn-editar-meta" class="meta-header-editar" data-toggle="modal" data-target="#modalMetaVendas" title="Criar uma nova meta e arquivar a atual">
+                        <i class="fas fa-plus"></i> Nova meta
+                    </span>
+                <?php endif; ?>
+            </div>
         </div>
         <div class="progress">
             <div id="meta-progress-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
@@ -474,6 +484,7 @@ label {
         <div class="meta-header-valores text-center mt-2">
             <span id="meta-valores-texto">Atual: R$ 0,00 / Meta: R$ 0,00</span>
         </div>
+        <div id="meta-status-texto" class="meta-status">Nenhuma meta ativa.</div>
     </div>
 
     <div id="alert-container"></div>
@@ -563,7 +574,7 @@ label {
     <div class="modal-dialog" role="document">
         <div class="modal-content" style="background-color: #222; color: #eee;">
             <div class="modal-header" style="border-bottom: 1px solid #444;">
-                <h5 class="modal-title" id="modalMetaLabel">Definir Meta de Vendas do Mês</h5>
+                <h5 class="modal-title" id="modalMetaLabel">Criar novo ciclo de meta</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close" style="color: #fff;">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -574,6 +585,7 @@ label {
                         <label for="valor_meta_input">Valor da Meta (R$)</label>
                         <input type="text" class="form-control" id="valor_meta_input" name="meta" placeholder="Ex: 10000,00" style="background-color: #333; color: #eee; border: 1px solid #555;">
                     </div>
+                    <div class="alert alert-info" style="background:#17394a;color:#d9f3ff;border-color:#24647f">Ao criar uma nova meta, a atual será encerrada e guardada no histórico com o total alcançado. O novo ciclo começa imediatamente.</div>
                 </form>
             </div>
             <div class="modal-footer" style="border-top: 1px solid #444;">
@@ -584,6 +596,23 @@ label {
     </div>
 </div>
 <?php endif; ?>
+
+<div class="modal fade" id="modalHistoricoMetas" tabindex="-1" role="dialog" aria-labelledby="modalHistoricoMetasLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content" style="background-color:#222;color:#eee;">
+            <div class="modal-header" style="border-bottom:1px solid #444;">
+                <h5 class="modal-title" id="modalHistoricoMetasLabel"><i class="fas fa-history"></i> Histórico de metas</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Fechar" style="color:#fff"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body" style="overflow:auto">
+                <table class="meta-history-table">
+                    <thead><tr><th>Ciclo</th><th>Meta</th><th>Realizado</th><th>Resultado</th><th>Início</th><th>Atingida em</th><th>Encerramento</th><th>Criada por</th></tr></thead>
+                    <tbody id="historico-metas-body"><tr><td colspan="8">Carregando...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="modalNovoCliente" tabindex="-1" role="dialog" aria-hidden="true" style="z-index: 1050;">
     <div class="modal-dialog" role="document">
@@ -695,21 +724,27 @@ $(document).ready(function() {
 
                 const meta = parseFloat(data.meta);
                 const atual = parseFloat(data.atual);
-                let percentual = 0;
-
-                if (meta > 0) {
-                    percentual = Math.min(100, (atual / meta) * 100);
-                }
+                const percentualReal = parseFloat(data.percentual || 0);
+                const larguraBarra = Math.min(100, percentualReal);
 
                 $('#meta-valores-texto').text(`Atual: R$ ${data.atual_formatado} / Meta: R$ ${data.meta_formatada}`);
 
                 $('#meta-progress-bar')
-                    .css('width', percentual + '%')
-                    .attr('aria-valuenow', percentual)
-                    .text(percentual.toFixed(1) + '%');
+                    .css('width', larguraBarra + '%')
+                    .attr('aria-valuenow', percentualReal)
+                    .text(percentualReal.toFixed(1) + '%');
+
+                const status = $('#meta-status-texto').removeClass('atingida');
+                if (!data.meta_id) {
+                    status.text('Nenhuma meta ativa. Crie uma meta para iniciar o primeiro ciclo.');
+                } else if (data.atingida) {
+                    status.addClass('atingida').text(`Meta atingida! A contagem continua. Excedente: R$ ${data.excedente_formatado}.`);
+                } else {
+                    status.text(`Ciclo iniciado em ${new Date(data.inicio_em.replace(' ', 'T')).toLocaleString('pt-BR')}.`);
+                }
 
                 if (userPerfil === 'admin' || userPerfil === 'proprietario') {
-                    $('#valor_meta_input').val(data.meta_formatada.replace(/\./g, '')); 
+                    $('#valor_meta_input').val('');
                 }
 
             } else {
@@ -723,6 +758,27 @@ $(document).ready(function() {
     }
 
     carregarMetaVendas();
+
+    function carregarHistoricoMetas() {
+        const body = $('#historico-metas-body').html('<tr><td colspan="8">Carregando...</td></tr>');
+        fetch('../actions/get_historico_metas.php')
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) throw new Error(data.message || 'Falha ao carregar histórico.');
+            if (!data.metas.length) {
+                body.html('<tr><td colspan="8">Nenhuma meta registrada.</td></tr>');
+                return;
+            }
+            body.empty();
+            data.metas.forEach(metaItem => {
+                const situacao = metaItem.status === 'ativa' ? '<span class="badge badge-primary">Ativa</span>' : (metaItem.atingida ? '<span class="badge badge-success">Atingida</span>' : '<span class="badge badge-warning">Não atingida</span>');
+                body.append(`<tr><td>#${metaItem.id} ${situacao}</td><td>R$ ${metaItem.meta}</td><td>R$ ${metaItem.realizado}</td><td>${metaItem.percentual}%</td><td>${metaItem.inicio}</td><td>${metaItem.atingida || '-'}</td><td>${metaItem.encerramento || '-'}</td><td>${$('<div>').text(metaItem.criador).html()}</td></tr>`);
+            });
+        })
+        .catch(err => body.html(`<tr><td colspan="8">${$('<div>').text(err.message).html()}</td></tr>`));
+    }
+
+    $('#modalHistoricoMetas').on('show.bs.modal', carregarHistoricoMetas);
 
     /* ================================
        MODAL DE META (ADMIN)
@@ -753,6 +809,7 @@ $(document).ready(function() {
                     showAlert(data.message, 'success');
                     $('#modalMetaVendas').modal('hide');
                     carregarMetaVendas();
+                    carregarHistoricoMetas();
 
                 } else {
                     showAlert('Erro: ' + data.message, 'danger');
@@ -780,7 +837,7 @@ $(document).ready(function() {
     });
 
     /* ================================
-       AJAX: CADASTRO RÁPIDO DE CLIENTE
+       AJAX: CADASTRO RÃPIDO DE CLIENTE
        ================================== */
     $('#form-novo-cliente').on('submit', function(e) {
         e.preventDefault();
@@ -879,7 +936,7 @@ $(document).ready(function() {
         }
 
         if (qtd > estoque) {
-            showAlert(`⚠️ Estoque máximo disponível: ${estoque}`, 'warning');
+            showAlert(`âš ï¸ Estoque máximo disponível: ${estoque}`, 'warning');
             $(this).val(estoque);
             qtd = estoque;
         }
@@ -901,7 +958,7 @@ $(document).ready(function() {
     });
 
     /* ================================
-       MÁSCARA DE DESCONTO
+       MÃSCARA DE DESCONTO
        ================================== */
     $('#desconto').mask('000.000.000,00', {reverse: true});
     $('#desconto').on('input', atualizarTotal);
@@ -1010,7 +1067,7 @@ $(document).ready(function() {
 
         const urlEmissao = '../actions/testar_emissao_mock.php';
 
-        showAlert('⏳ Gerando NFC-e de Simulação...', 'info');
+        showAlert('â³ Gerando NFC-e de Simulação...', 'info');
 
         fetch(urlEmissao, {
             method: 'POST',
@@ -1024,7 +1081,7 @@ $(document).ready(function() {
                     window.open('../actions/gerar_danfe.php?chave=' + data.chave, '_blank');
                 }, 1500);
             } else
-                showAlert('❌ Erro na simulação da NFC-e: ' + data.message, 'danger');
+                showAlert('âŒ Erro na simulação da NFC-e: ' + data.message, 'danger');
         })
         .catch(err => {
             console.error(err);
@@ -1033,7 +1090,7 @@ $(document).ready(function() {
     }
 
     /* ================================
-       LIMPAR FORMULÁRIO
+       LIMPAR FORMULÃRIO
        ================================== */
     function limparFormulario() {
         $('#form-venda')[0].reset();

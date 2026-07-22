@@ -3,7 +3,7 @@ require_once '../includes/session_init.php';
 require_once '../database.php';
 require_once '../includes/utils.php'; // Importa utils para Flash Messages
 
-// 1. VERIFICA SE O USUÁRIO ESTÁ LOGADO
+// 1. VERIFICA SE O USUÃRIO ESTÃ LOGADO
 if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true) {
     header('Location: ../pages/login.php');
     exit;
@@ -29,8 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = $_POST['data'];
     $valor = $_POST['valor'];
     
-    // ✅ CORREÇÃO DO ERRO: Usar $_SESSION['usuario_id'] em vez de ['usuario_logado']['id']
-    $usuarioId = $_SESSION['usuario_id']; 
+    // ✅ CORREÇÃO DO ERRO: Usar get_data_owner_id() em vez de ['usuario_logado']['id']
+    $usuarioId = get_data_owner_id(); 
 
     // 3. LÓGICA PARA INSERIR OU ATUALIZAR O CAIXA
     $sql = "INSERT INTO caixa_diario (data, valor, usuario_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE valor = valor + VALUES(valor)";

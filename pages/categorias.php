@@ -14,7 +14,7 @@ if ($conn === null) {
 }
 
 // 2. PEGA DADOS
-$usuarioId = $_SESSION['usuario_id'];
+$usuarioId = get_data_owner_id();
 $perfil = $_SESSION['nivel_acesso'] ?? 'padrao';
 
 include('../includes/header.php');
@@ -232,7 +232,7 @@ display_flash_message();
                 font-size: 14px;
                 /* Removemos o texto no mobile se ficar muito apertado, 
                    mas aqui vamos manter e ajustar o espaçamento */
-                padding: 8px; /* Área de toque maior */
+                padding: 8px; /* Ãrea de toque maior */
                 background-color: #2a2a2a; /* Fundo sutil para parecer botão tátil */
                 border-radius: 4px;
             }

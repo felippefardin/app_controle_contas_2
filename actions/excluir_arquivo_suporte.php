@@ -1,54 +1,47 @@
 <?php
-// actions/excluir_arquivo_suporte.php
-
 require_once '../includes/session_init.php';
 require_once '../database.php';
 
-// Verifica se a requisição é POST e se o ID foi enviado
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id'])) {
-    $conn = getMasterConnection();
-    $id = intval($_POST['id']);
-
-    // Verifica se o usuário tem permissão (opcional, dependendo da sua lógica de session_init)
-    // if (!isset($_SESSION['user_id']) || $_SESSION['nivel'] !== 'admin') { 
-    //     header("Location: ../pages/admin/arquivos_suportes.php?msg=erro_permissao");
-    //     exit;
-    // }
-
-    // 1. Excluir mensagens associadas a este chat (para evitar erros de integridade se não houver CASCADE)
-    $sqlMessages = "DELETE FROM chat_messages WHERE chat_session_id = ?";
-    $stmtMsg = $conn->prepare($sqlMessages);
-    
-    if ($stmtMsg) {
-        $stmtMsg->bind_param("i", $id);
-        $stmtMsg->execute();
-        $stmtMsg->close();
-    }
-
-    // 2. Excluir a sessão de chat (o arquivo de suporte em si)
-    $sqlSession = "DELETE FROM chat_sessions WHERE id = ?";
-    $stmt = $conn->prepare($sqlSession);
-
-    if ($stmt) {
-        $stmt->bind_param("i", $id);
-        
-        if ($stmt->execute()) {
-            // Sucesso
-            header("Location: ../pages/admin/arquivos_suportes.php?msg=sucesso_exclusao");
-        } else {
-            // Erro na execução
-            header("Location: ../pages/admin/arquivos_suportes.php?msg=erro_bd");
-        }
-        $stmt->close();
-    } else {
-        // Erro na preparação da query
-        header("Location: ../pages/admin/arquivos_suportes.php?msg=erro_prepare");
-    }
-
-    $conn->close();
-} else {
-    // Se tentar acessar direto via URL sem POST
-    header("Location: ../pages/admin/arquivos_suportes.php");
+if (empty($_SESSION['super_admin']) || $_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(403);
+    exit('Acesso negado.');
 }
-exit;
-?>
+
+$id = (int)($_POST['id'] ?? 0);
+$tipo = $_POST['tipo'] ?? '';
+if ($id <= 0 || !in_array($tipo, ['interno', 'externo', 'online'], true)) exit('Registro inválido.');
+
+$conn = getMasterConnection();
+$conn->begin_transaction();
+
+try {
+    if ($tipo === 'interno') {
+        $check = $conn->prepare("SELECT id FROM chamados_suporte WHERE id=? AND status='concluido' AND encerrado_em<=DATE_SUB(NOW(),INTERVAL 5 YEAR)");
+        $check->bind_param('i', $id); $check->execute();
+        if (!$check->get_result()->num_rows) throw new Exception('Registro ainda protegido pela retenção.');
+        $s = $conn->prepare('DELETE FROM chamados_historico WHERE chamado_id=?');
+        $s->bind_param('i', $id); $s->execute();
+        $s = $conn->prepare('DELETE FROM chamados_suporte WHERE id=?');
+    } elseif ($tipo === 'externo') {
+        $check = $conn->prepare("SELECT id FROM suporte_login WHERE id=? AND status IN ('resolvido','fechado') AND resolvido_em<=DATE_SUB(NOW(),INTERVAL 5 YEAR)");
+        $check->bind_param('i', $id); $check->execute();
+        if (!$check->get_result()->num_rows) throw new Exception('Registro ainda protegido pela retenção.');
+        $s = $conn->prepare('DELETE FROM suporte_historico WHERE suporte_id=?');
+        $s->bind_param('i', $id); $s->execute();
+        $s = $conn->prepare('DELETE FROM suporte_login WHERE id=?');
+    } else {
+        $check = $conn->prepare("SELECT id FROM chat_sessions WHERE id=? AND status='closed' AND closed_at<=DATE_SUB(NOW(),INTERVAL 5 YEAR)");
+        $check->bind_param('i', $id); $check->execute();
+        if (!$check->get_result()->num_rows) throw new Exception('Registro ainda protegido pela retenção.');
+        $s = $conn->prepare('DELETE FROM chat_messages WHERE chat_session_id=?');
+        $s->bind_param('i', $id); $s->execute();
+        $s = $conn->prepare('DELETE FROM chat_sessions WHERE id=?');
+    }
+    $s->bind_param('i', $id); $s->execute();
+    $conn->commit();
+    header('Location: ../pages/admin/arquivos_suportes.php?msg=excluido');
+} catch (Throwable $e) {
+    $conn->rollback();
+    http_response_code(422);
+    echo htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8');
+}

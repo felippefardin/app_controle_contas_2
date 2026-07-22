@@ -9,7 +9,7 @@ if (!isset($_SESSION['usuario_logado'])) {
 }
 
 $conn = getTenantConnection();
-$usuario_id = $_SESSION['usuario_id'];
+$usuario_id = get_data_owner_id();
 $id_conta = isset($_POST['id_conta']) ? (int)$_POST['id_conta'] : 0;
 $data_baixa = $_POST['data_baixa'] ?? date('Y-m-d');
 $forma_pagamento = $_POST['forma_pagamento'] ?? 'outros';

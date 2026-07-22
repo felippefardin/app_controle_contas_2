@@ -15,7 +15,7 @@ if ($conn === null) {
     die("Falha de conexão com o banco de dados.");
 }
 
-$id_usuario_logado = $_SESSION['usuario_id'];
+$id_usuario_logado = get_data_owner_id();
 $perfil_usuario    = $_SESSION['nivel_acesso']; 
 
 $data_inicio = $_GET['data_inicio'] ?? date('Y-m-01'); 

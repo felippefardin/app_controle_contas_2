@@ -23,7 +23,7 @@ if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_tok
 }
 
 $id_registro = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
-$id_usuario = $_SESSION['usuario_id'];
+$id_usuario = get_data_owner_id();
 
 if ($id_registro) {
     $conn = getTenantConnection();

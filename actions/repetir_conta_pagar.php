@@ -22,7 +22,7 @@ if ($conn === null) {
 }
 
 // Obtém ID do usuário da sessão
-$id_usuario = $_SESSION['usuario_id'];
+$id_usuario = get_data_owner_id();
 
 $contaId = filter_input(INPUT_POST, 'conta_id', FILTER_VALIDATE_INT);
 $repetirVezes = filter_input(INPUT_POST, 'repetir_vezes', FILTER_VALIDATE_INT);

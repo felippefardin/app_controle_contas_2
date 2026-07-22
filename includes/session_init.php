@@ -56,4 +56,20 @@ if (empty($_SESSION['csrf_token'])) {
 }
 
 $csrf_token = $_SESSION['csrf_token'];
+
+/**
+ * Retorna o proprietario dos dados compartilhados da empresa.
+ * O usuario_id continua identificando quem esta operando o sistema.
+ */
+if (!function_exists('get_data_owner_id')) {
+    function get_data_owner_id(): int
+    {
+        return (int) (
+            $_SESSION['dados_usuario_id']
+            ?? $_SESSION['proprietario_id_original']
+            ?? $_SESSION['usuario_id']
+            ?? 0
+        );
+    }
+}
 ?>

@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $id_usuario = $_SESSION['usuario_id'];
+    $id_usuario = get_data_owner_id();
     
     $nome_banco = $_POST['nome_banco'] ?? '';
     $agencia = $_POST['agencia'] ?? '';

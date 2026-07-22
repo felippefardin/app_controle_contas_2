@@ -30,7 +30,8 @@ if (!isset($_SESSION['tenant_id'])) {
 }
 
 // 📌 Pega dados do usuário
-$usuario_id    = $_SESSION['usuario_id'];
+$usuario_id    = get_data_owner_id();
+$operador_id   = (int)$_SESSION['usuario_id'];
 $tenant_id     = $_SESSION['tenant_id'];
 $nome_usuario  = $_SESSION['nome'];
 $perfil        = $_SESSION['nivel_acesso']; 
@@ -51,7 +52,7 @@ $permissoes_usuario = [];
 if ($perfil !== 'admin' && $perfil !== 'proprietario' && $perfil !== 'master') {
     $stmtPerm = $conn->prepare("SELECT permissoes FROM usuarios WHERE id = ?");
     if ($stmtPerm) {
-        $stmtPerm->bind_param("i", $usuario_id);
+        $stmtPerm->bind_param("i", $operador_id);
         $stmtPerm->execute();
         $resPerm = $stmtPerm->get_result();
         if ($rowPerm = $resPerm->fetch_assoc()) {
@@ -190,7 +191,7 @@ include('../includes/header.php');
 // [MANTIDO] Promoção (Gift)
 $promo_modal = null;
 if ($tenant_id && $connMaster) {
-    $sqlPromo = "SELECT tp.id, c.descricao, c.valor, c.tipo_desconto FROM tenant_promocoes tp JOIN cupons_desconto c ON tp.cupom_id = c.id WHERE tp.tenant_id = ? AND tp.visualizado = 0 AND tp.ativo = 1 LIMIT 1";
+    $sqlPromo = "SELECT tp.id, c.descricao, c.valor, c.tipo_desconto FROM tenant_promocoes tp JOIN cupons_desconto c ON tp.cupom_id = c.id WHERE tp.tenant_id = ? AND tp.visualizado = 0 AND tp.ativo = 1 AND c.ativo = 1 AND tp.data_inicio <= CURDATE() AND tp.data_fim >= CURDATE() LIMIT 1";
     $stmtP = $connMaster->prepare($sqlPromo);
     if ($stmtP) {
         $tenant_id_numeric = $_SESSION['tenant_id_master'] ?? null;

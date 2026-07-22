@@ -26,7 +26,7 @@ if ($conn === null) {
 }
 
 // 2. DADOS DA SESSÃO E FILTROS
-$usuarioId = $_SESSION['usuario_id'];
+$usuarioId = get_data_owner_id();
 $formato = $_GET['formato'] ?? 'excel';
 $data_inicio = $_GET['data_inicio'] ?? '';
 $data_fim = $_GET['data_fim'] ?? '';

@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $id_usuario = $_SESSION['usuario_logado']['id'];
+    $id_usuario = get_data_owner_id();
     $id = intval($_POST['id']);
     $responsavel = trim($_POST['responsavel']);
     $numero = trim($_POST['numero']);

@@ -9,7 +9,7 @@ if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true)
 }
 
 $id_conta = isset($_GET['id']) ? intval($_GET['id']) : 0;
-$id_usuario = $_SESSION['usuario_id'];
+$id_usuario = get_data_owner_id();
 
 if ($id_conta > 0) {
     $conn = getTenantConnection();

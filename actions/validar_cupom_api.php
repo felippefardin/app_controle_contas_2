@@ -1,44 +1,25 @@
 <?php
-// actions/validar_cupom_api.php
 require_once '../includes/session_init.php';
-include('../database.php');
+require_once '../database.php';
+require_once '../includes/cupom_service.php';
+header('Content-Type: application/json; charset=utf-8');
 
-header('Content-Type: application/json');
-
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['valid' => false, 'msg' => 'Método inválido']);
-    exit;
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_SESSION['usuario_logado'])) {
+    echo json_encode(['valid' => false, 'msg' => 'Acesso inválido.']); exit;
 }
-
 $codigo = strtoupper(trim($_POST['codigo'] ?? ''));
-if (empty($codigo)) {
-    echo json_encode(['valid' => false, 'msg' => 'Código vazio']);
-    exit;
-}
+if ($codigo === '') { echo json_encode(['valid' => false, 'msg' => 'Código vazio.']); exit; }
 
 $conn = getMasterConnection();
-$hoje = date('Y-m-d');
-
-// Busca cupom ativo e dentro da validade
-$sql = "SELECT * FROM cupons_desconto 
-        WHERE codigo = ? 
-        AND ativo = 1 
-        AND (data_expiracao IS NULL OR data_expiracao >= ?)";
-
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("ss", $codigo, $hoje);
-$stmt->execute();
-$res = $stmt->get_result();
-
-if ($cupom = $res->fetch_assoc()) {
-    echo json_encode([
-        'valid' => true,
-        'tipo' => $cupom['tipo_desconto'],
-        'valor' => floatval($cupom['valor']),
-        'codigo' => $cupom['codigo']
-    ]);
-} else {
-    echo json_encode(['valid' => false, 'msg' => 'Cupom inválido ou expirado.']);
-}
-$conn->close();
-?>
+$tenant = buscarTenantCupom($conn, (string)($_SESSION['tenant_id'] ?? ''));
+if (!$tenant) { echo json_encode(['valid' => false, 'msg' => 'Conta não identificada.']); exit; }
+$validacao = validarCupomPassivo($conn, $codigo, (int)$tenant['id']);
+if (!$validacao['ok']) { echo json_encode(['valid' => false, 'msg' => $validacao['msg']]); exit; }
+$cupom = $validacao['cupom'];
+echo json_encode([
+    'valid' => true,
+    'tipo' => $cupom['tipo_desconto'],
+    'valor' => (float)$cupom['valor'],
+    'codigo' => $cupom['codigo'],
+    'aplicar_extras' => (bool)$cupom['aplicar_extras'],
+]);

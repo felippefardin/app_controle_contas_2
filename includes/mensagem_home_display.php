@@ -28,13 +28,15 @@ $connMaster = getMasterConnection();
 // 3. SQL OTIMIZADO
 // Busca mensagens válidas (hoje ou passado) que o usuário ainda não esgotou as visualizações
 $sql_msg = "
-    SELECT m.*, v.visualizacoes 
-    FROM mensagens_home m
-    LEFT JOIN mensagens_home_visualizacoes v 
-        ON m.id = v.mensagem_id AND v.usuario_id = $usuario_id_logado
-    WHERE m.data_exibicao <= '$hoje'
-    AND (v.visualizacoes IS NULL OR v.visualizacoes < m.quantidade_logins)
-    ORDER BY m.data_exibicao DESC, m.id DESC 
+    SELECT m.*, a.id AS agendamento_id, a.data_exibicao AS data_agendada,
+           a.quantidade_logins AS limite_data, v.visualizacoes
+    FROM mensagens_home_agendamentos a
+    INNER JOIN mensagens_home m ON m.id = a.mensagem_id
+    LEFT JOIN mensagens_home_visualizacoes v
+        ON v.agendamento_id = a.id AND v.usuario_id = $usuario_id_logado
+    WHERE a.data_exibicao = '$hoje'
+    AND (v.visualizacoes IS NULL OR v.visualizacoes < a.quantidade_logins)
+    ORDER BY a.data_exibicao DESC, m.id DESC
     LIMIT 1
 ";
 
@@ -43,20 +45,22 @@ $res_msg = $connMaster->query($sql_msg);
 if ($res_msg && $res_msg->num_rows > 0) {
     $mensagem = $res_msg->fetch_assoc();
     $mensagem_id = $mensagem['id'];
+    $agendamento_id = (int)$mensagem['agendamento_id'];
     
     // Incrementa visualização no banco
     if (isset($mensagem['visualizacoes'])) {
         // CORREÇÃO: Removido 'ultima_visualizacao' que causava o erro fatal
         $connMaster->query("UPDATE mensagens_home_visualizacoes 
                             SET visualizacoes = visualizacoes + 1 
-                            WHERE mensagem_id = $mensagem_id AND usuario_id = $usuario_id_logado");
+                            WHERE agendamento_id = $agendamento_id AND usuario_id = $usuario_id_logado");
     } else {
-        $connMaster->query("INSERT INTO mensagens_home_visualizacoes (mensagem_id, usuario_id, visualizacoes) 
-                            VALUES ($mensagem_id, $usuario_id_logado, 1)");
+        $connMaster->query("INSERT INTO mensagens_home_visualizacoes (mensagem_id, agendamento_id, usuario_id, visualizacoes)
+                            VALUES ($mensagem_id, $agendamento_id, $usuario_id_logado, 1)");
     }
 
     // Renderiza HTML do Modal
     $caminho_imagem = !empty($mensagem['arquivo']) ? '../assets/uploads/mensagens/' . $mensagem['arquivo'] : '';
+    $extensao_anexo = strtolower(pathinfo($mensagem['arquivo'] ?? '', PATHINFO_EXTENSION));
     ?>
     <style>
         .sys-modal-overlay { 
@@ -82,6 +86,8 @@ if ($res_msg && $res_msg->num_rows > 0) {
             display: block; 
             border-bottom: 1px solid #333;
         }
+        .sys-modal-pdf { width: 100%; height: 430px; border: 0; background: #fff; display: block; }
+        .sys-pdf-link { display:block; padding:10px; background:#2c2c2c; color:#00bfff; text-align:center; text-decoration:none; border-bottom:1px solid #444; }
         /* ------------------------ */
 
         .sys-modal-body { padding: 25px; color: #eee; text-align: center; }
@@ -112,7 +118,10 @@ if ($res_msg && $res_msg->num_rows > 0) {
         <div class="sys-modal">
             <div class="sys-close" onclick="document.getElementById('modalSistema').style.display='none'">&times;</div>
             
-            <?php if($caminho_imagem && file_exists(__DIR__ . '/../assets/uploads/mensagens/' . $mensagem['arquivo'])): ?>
+            <?php if($caminho_imagem && $extensao_anexo === 'pdf' && file_exists(__DIR__ . '/../assets/uploads/mensagens/' . $mensagem['arquivo'])): ?>
+                <iframe src="<?= htmlspecialchars($caminho_imagem) ?>#toolbar=0" class="sys-modal-pdf" title="Documento PDF"></iframe>
+                <a class="sys-pdf-link" href="<?= htmlspecialchars($caminho_imagem) ?>" target="_blank"><i class="fas fa-file-pdf"></i> Abrir PDF em nova aba</a>
+            <?php elseif($caminho_imagem && in_array($extensao_anexo, ['jpg', 'jpeg', 'png'], true) && file_exists(__DIR__ . '/../assets/uploads/mensagens/' . $mensagem['arquivo'])): ?>
                 <img src="<?= $caminho_imagem ?>" class="sys-modal-img" alt="Aviso">
             <?php endif; ?>
 

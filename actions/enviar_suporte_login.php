@@ -17,6 +17,7 @@ try {
     // Dados
     $anonimo = isset($_POST['anonimo']) ? 1 : 0;
     $descricao = trim($_POST['descricao'] ?? '');
+    $canal = strtolower(trim($_POST['canal_preferido'] ?? 'email'));
 
     if (empty($descricao)) throw new Exception('Descrição obrigatória.');
 
@@ -32,6 +33,10 @@ try {
     }
 
     // GERAÇÃO DE PROTOCOLO (SUP-ANO-SEQUENCIAL)
+    if (!in_array($canal, ['email', 'whatsapp'], true)) throw new Exception('Canal de resposta inválido.');
+    if ($canal === 'email' && !filter_var($email, FILTER_VALIDATE_EMAIL)) throw new Exception('Informe um e-mail válido.');
+    if ($canal === 'whatsapp' && strlen(preg_replace('/\D+/', '', (string)$whatsapp)) < 10) throw new Exception('Informe um WhatsApp válido com DDD.');
+
     $ano = date('Y');
     // Pega o último ID para gerar o próximo sequencial (simulação simples, ideal seria sequence)
     $res = $conn->query("SELECT id FROM suporte_login ORDER BY id DESC LIMIT 1");
@@ -40,12 +45,12 @@ try {
     $protocolo = sprintf("SUP-%s-%06d", $ano, $nextId);
 
     // Inserção
-    $sql = "INSERT INTO suporte_login (protocolo, nome, whatsapp, email, descricao, anonimo, status) VALUES (?, ?, ?, ?, ?, ?, 'pendente')";
+    $sql = "INSERT INTO suporte_login (protocolo, nome, whatsapp, email, descricao, anonimo, canal_preferido, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'pendente')";
     $stmt = $conn->prepare($sql);
     
     if (!$stmt) throw new Exception('Erro na preparação da query: ' . $conn->error);
 
-    $stmt->bind_param("sssssi", $protocolo, $nome, $whatsapp, $email, $descricao, $anonimo);
+    $stmt->bind_param("sssssis", $protocolo, $nome, $whatsapp, $email, $descricao, $anonimo, $canal);
 
     if ($stmt->execute()) {
         // Cria o primeiro registro no histórico

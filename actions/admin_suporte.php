@@ -36,9 +36,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         elseif ($acao === 'resolver') {
             // Marca como concluído e adiciona uma nota automática no histórico
-            $stmt = $connMaster->prepare("UPDATE chamados_suporte SET status = 'concluido' WHERE id = ?");
-            $stmt->bind_param("i", $id);
+            $protocoloGerado = sprintf('SUP-%s-%06d', date('Ymd'), $id);
+            $stmt = $connMaster->prepare("UPDATE chamados_suporte SET status = 'concluido', encerrado_em = COALESCE(encerrado_em, NOW()), protocolo = COALESCE(NULLIF(protocolo, ''), ?) WHERE id = ?");
+            $stmt->bind_param("si", $protocoloGerado, $id);
             $stmt->execute();
+
+            $stmtProtocolo = $connMaster->prepare('SELECT protocolo FROM chamados_suporte WHERE id = ? LIMIT 1');
+            $stmtProtocolo->bind_param('i', $id);
+            $stmtProtocolo->execute();
+            $protocolo = $stmtProtocolo->get_result()->fetch_assoc()['protocolo'] ?? $protocoloGerado;
+            $stmtProtocolo->close();
 
             // Opcional: Registrar no histórico que foi resolvido
             $msg_resolvido = "Chamado marcado como resolvido pelo suporte.";
@@ -46,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmtHist->bind_param("is", $id, $msg_resolvido);
             $stmtHist->execute();
 
-            $_SESSION['msg_suporte'] = "Chamado marcado como resolvido!";
+            $_SESSION['msg_suporte'] = "Chamado resolvido. Protocolo: " . $protocolo;
         }
         
         elseif ($acao === 'excluir') {

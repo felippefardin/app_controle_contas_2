@@ -3,7 +3,7 @@ require_once '../includes/session_init.php';
 require_once '../database.php';
 
 // 1. VERIFICA O LOGIN E PEGA A CONEXÃO CORRETA
-// ❗️ CORREÇÃO: Verifica se o login é 'true', e não apenas se 'isset'
+// â—ï¸ CORREÇÃO: Verifica se o login é 'true', e não apenas se 'isset'
 if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true) {
     header('Location: ../pages/login.php?error=not_logged_in');
     exit;
@@ -14,10 +14,10 @@ if ($conn === null) {
     die("Falha ao obter a conexão com o banco de dados do cliente.");
 }
 
-// ❗️❗️ INÍCIO DA CORREÇÃO ❗️❗️
+// â—ï¸â—ï¸ INÃCIO DA CORREÇÃO â—ï¸â—ï¸
 // Pega o ID do usuário logado e o ID do cliente/fornecedor da URL
-$id_usuario = $_SESSION['usuario_id']; // Linha 18 corrigida
-// ❗️❗️ FIM DA CORREÇÃO ❗️❗️
+$id_usuario = get_data_owner_id(); // Linha 18 corrigida
+// â—ï¸â—ï¸ FIM DA CORREÇÃO â—ï¸â—ï¸
 $id_pessoa_fornecedor = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 if ($id_pessoa_fornecedor === 0) {
@@ -27,7 +27,7 @@ if ($id_pessoa_fornecedor === 0) {
 
 include('../includes/header.php');
 
-// 2. BUSCA OS DADOS COM SEGURANÇA, FILTRANDO PELO USUÁRIO
+// 2. BUSCA OS DADOS COM SEGURANÇA, FILTRANDO PELO USUÃRIO
 // (Agora $id_usuario está correto)
 
 // Buscar nome do cliente/fornecedor
@@ -211,3 +211,4 @@ $result_estoque = $stmt_estoque->get_result();
 <?php include('../includes/footer.php'); ?>
 </body>
 </html>
+

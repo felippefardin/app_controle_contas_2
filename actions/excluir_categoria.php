@@ -30,7 +30,7 @@ if ($conn === null) {
     exit;
 }
 
-$usuarioId = $_SESSION['usuario_id'];
+$usuarioId = get_data_owner_id();
 $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
 
 if ($id) {

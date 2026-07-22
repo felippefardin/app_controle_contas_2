@@ -2,14 +2,23 @@
 require_once '../../includes/session_init.php';
 include('../../database.php');
 
+if (empty($_SESSION['super_admin'])) {
+    header('Location: ../login.php');
+    exit;
+}
+
 $conn = getMasterConnection();
 
 // Filtro de busca
 $busca = $_GET['busca'] ?? '';
-$where = "WHERE status IN ('pendente', 'em_andamento')";
+$statusFiltro = $_GET['status'] ?? 'abertos';
+$canalFiltro = $_GET['canal'] ?? '';
+$where = $statusFiltro === 'todos' ? "WHERE 1=1" : ($statusFiltro === 'respondido' ? "WHERE status='respondido'" : "WHERE status IN ('pendente', 'em_andamento')");
 if (!empty($busca)) {
-    $where .= " AND (protocolo LIKE '%$busca%' OR nome LIKE '%$busca%')";
+    $buscaSql = $conn->real_escape_string($busca);
+    $where .= " AND (protocolo LIKE '%$buscaSql%' OR nome LIKE '%$buscaSql%' OR email LIKE '%$buscaSql%')";
 }
+if (in_array($canalFiltro, ['email', 'whatsapp'], true)) $where .= " AND canal_preferido='" . $canalFiltro . "'";
 
 $query = "SELECT * FROM suporte_login $where ORDER BY criado_em DESC";
 $result = $conn->query($query);
@@ -49,8 +58,10 @@ $result = $conn->query($query);
         </div>
 
         <!-- Busca -->
-        <form class="mb-4 d-flex gap-2">
+        <form class="mb-4 d-flex gap-2 flex-wrap">
             <input type="text" name="busca" class="form-control bg-dark text-light border-secondary" placeholder="Buscar por protocolo ou nome..." value="<?= htmlspecialchars($busca) ?>">
+            <select name="canal" class="form-select bg-dark text-light border-secondary" style="max-width:180px"><option value="">Todos os canais</option><option value="email" <?= $canalFiltro==='email'?'selected':'' ?>>E-mail</option><option value="whatsapp" <?= $canalFiltro==='whatsapp'?'selected':'' ?>>WhatsApp</option></select>
+            <select name="status" class="form-select bg-dark text-light border-secondary" style="max-width:180px"><option value="abertos" <?= $statusFiltro==='abertos'?'selected':'' ?>>Em aberto</option><option value="respondido" <?= $statusFiltro==='respondido'?'selected':'' ?>>Respondidos</option><option value="todos" <?= $statusFiltro==='todos'?'selected':'' ?>>Todos</option></select>
             <button class="btn btn-primary"><i class="fas fa-search"></i></button>
         </form>
 
@@ -61,6 +72,7 @@ $result = $conn->query($query);
                         <th>Protocolo</th>
                         <th>Data/Hora</th>
                         <th>Remetente</th>
+                        <th>Canal</th>
                         <th>Status</th>
                         <th class="text-end">Ação</th>
                     </tr>
@@ -78,9 +90,12 @@ $result = $conn->query($query);
                                     Nova mensagem de: <strong><?= htmlspecialchars($row['nome']) ?></strong>
                                 <?php endif; ?>
                             </td>
+                            <td><span class="badge <?= $row['canal_preferido']==='whatsapp'?'bg-success':'bg-primary' ?>"><i class="fa-brands <?= $row['canal_preferido']==='whatsapp'?'fa-whatsapp':'fa-at' ?>"></i> <?= ucfirst($row['canal_preferido'] ?: 'email') ?></span></td>
                             <td>
                                 <?php if($row['status'] == 'pendente'): ?>
                                     <span class="badge badge-pendente">Pendente</span>
+                                <?php elseif($row['status'] == 'respondido'): ?>
+                                    <span class="badge bg-primary">Respondido</span>
                                 <?php else: ?>
                                     <span class="badge badge-andamento">Em Andamento</span>
                                 <?php endif; ?>
@@ -93,7 +108,7 @@ $result = $conn->query($query);
                         </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
-                        <tr><td colspan="5" class="text-center text-muted py-4">Nenhum chamado pendente.</td></tr>
+                        <tr><td colspan="6" class="text-center text-muted py-4">Nenhum chamado encontrado.</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>
@@ -136,6 +151,13 @@ $result = $conn->query($query);
                     <h6 class="text-muted"><i class="fas fa-history"></i> Histórico de Atendimento</h6>
                     <div id="boxHistorico" class="historico-box"></div>
 
+                    <label class="form-label text-info">Responder ao solicitante</label>
+                    <textarea id="inputResposta" class="form-control bg-dark text-light border-secondary mb-2" rows="4" placeholder="Digite a resposta que será registrada no histórico..."></textarea>
+                    <div class="d-flex gap-2 mb-3">
+                        <button id="btnResponderEmail" class="btn btn-primary" onclick="responderEmail()"><i class="fas fa-envelope"></i> Enviar por e-mail</button>
+                        <button id="btnResponderWhatsapp" class="btn btn-success" onclick="responderWhatsapp()"><i class="fab fa-whatsapp"></i> Abrir WhatsApp</button>
+                    </div>
+
                     <!-- Adicionar Nota -->
                     <div class="input-group mb-3">
                         <input type="text" id="inputHistorico" class="form-control bg-dark text-light border-secondary" placeholder="Adicionar nota ou resposta...">
@@ -160,6 +182,7 @@ $result = $conn->query($query);
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     const modalEl = new bootstrap.Modal(document.getElementById('modalDetalhes'));
+    const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c]));
 
     function abrirModal(id) {
         console.log("Abrindo modal ID:", id);
@@ -182,6 +205,8 @@ $result = $conn->query($query);
                 document.getElementById('modalEmail').innerText = d.email || '-';
                 document.getElementById('modalWhats').innerText = d.whatsapp || '-';
                 document.getElementById('modalDescricao').innerText = d.descricao;
+                document.getElementById('btnResponderEmail').disabled = !d.email;
+                document.getElementById('btnResponderWhatsapp').disabled = !d.whatsapp;
 
                 // Histórico
                 const histBox = document.getElementById('boxHistorico');
@@ -195,7 +220,7 @@ $result = $conn->query($query);
                                     <i class="fas fa-clock"></i> 
                                     ${new Date(h.criado_em).toLocaleString('pt-BR')}
                                 </div>
-                                <div>${h.mensagem}</div>
+                                <div>${escapeHtml(h.mensagem)}</div>
                             </div>
                         `;
                     });
@@ -256,6 +281,23 @@ $result = $conn->query($query);
         })
         .catch(err => console.error("Erro ao atualizar status:", err));
     }
+
+    function enviarResposta(acao) {
+        const id = document.getElementById('modalId').value;
+        const mensagem = document.getElementById('inputResposta').value.trim();
+        if (!mensagem) return alert('Digite a resposta.');
+        const novaJanela = acao === 'preparar_whatsapp' ? window.open('', '_blank') : null;
+        fetch('../../actions/admin_suporte_action.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:`acao=${acao}&id=${id}&mensagem=${encodeURIComponent(mensagem)}`})
+        .then(r=>r.json()).then(resp=>{
+            if(resp.status !== 'success') { if(novaJanela) novaJanela.close(); throw new Error(resp.msg || 'Não foi possível responder.'); }
+            if(resp.url && novaJanela) novaJanela.location = resp.url;
+            document.getElementById('inputResposta').value='';
+            alert(resp.msg || 'Resposta registrada.');
+            abrirModal(id);
+        }).catch(err=>alert(err.message));
+    }
+    function responderEmail(){ enviarResposta('responder_email'); }
+    function responderWhatsapp(){ enviarResposta('preparar_whatsapp'); }
 </script>
 </body>
 </html>

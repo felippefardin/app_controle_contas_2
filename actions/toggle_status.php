@@ -16,7 +16,7 @@ if ($nivel !== 'admin' && $nivel !== 'master' && $nivel !== 'proprietario') {
 }
 
 $id_usuario_alvo = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
-$id_usuario_logado = $_SESSION['usuario_id'];
+$id_usuario_logado = get_data_owner_id();
 
 if (!$id_usuario_alvo) {
     header('Location: ../pages/usuarios.php?erro=1&msg=ID inválido');

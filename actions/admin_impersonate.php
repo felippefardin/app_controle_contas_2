@@ -69,6 +69,7 @@ if (isset($_GET['tenant_id'])) {
             $_SESSION['usuario_logado'] = true; 
             
             $_SESSION['usuario_id']     = $proprietario['id'];
+            $_SESSION['dados_usuario_id'] = $proprietario['id'];
             $_SESSION['nome']           = $proprietario['nome'];
             $_SESSION['email']          = $proprietario['email'];
             $_SESSION['nivel_acesso']   = 'proprietario';

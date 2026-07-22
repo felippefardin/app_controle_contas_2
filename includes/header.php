@@ -116,4 +116,6 @@ function resetFontSize() {
 }
 </script>
 
+<?php require_once __DIR__ . '/meta_notificacao.php'; ?>
+<?php require_once __DIR__ . '/caixa_lembrete.php'; ?>
 <main>

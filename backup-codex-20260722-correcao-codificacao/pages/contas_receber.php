@@ -1,0 +1,666 @@
+<?php
+require_once '../includes/session_init.php';
+require_once '../database.php';
+require_once '../includes/utils.php';
+
+// 1. VERIFICA LOGIN
+if (!isset($_SESSION['usuario_logado'])) {
+    header("Location: ../pages/login.php");
+    exit();
+}
+$conn = getTenantConnection();
+if ($conn === null) die("Falha de conexÃ£o.");
+
+$usuarioId = get_data_owner_id();
+
+// AJAX Search
+if (isset($_GET['action']) && $_GET['action'] === 'search_pessoa') {
+    $term = $_GET['term'] ?? '';
+    $stmt = $conn->prepare("SELECT id, nome FROM pessoas_fornecedores WHERE id_usuario = ? AND nome LIKE ? AND (tipo = 'pessoa' OR tipo = 'ambos') ORDER BY nome ASC LIMIT 10");
+    $searchTerm = "%{$term}%";
+    $stmt->bind_param("is", $usuarioId, $searchTerm);
+    $stmt->execute();
+    echo json_encode($stmt->get_result()->fetch_all(MYSQLI_ASSOC));
+    exit;
+}
+
+include('../includes/header.php');
+
+// --- EXIBE O FLASH MESSAGE CENTRALIZADO ---
+display_flash_message();
+// -----------------------------------------
+
+// Categorias
+$stmt = $conn->prepare("SELECT id, nome FROM categorias WHERE id_usuario = ? AND tipo = 'receita' ORDER BY nome ASC");
+$stmt->bind_param("i", $usuarioId);
+$stmt->execute();
+$categorias_receita = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+// Bancos
+$stmt_bancos = $conn->prepare("SELECT nome_banco, chave_pix FROM contas_bancarias WHERE id_usuario = ? AND chave_pix IS NOT NULL AND chave_pix != ''");
+$stmt_bancos->bind_param("i", $usuarioId);
+$stmt_bancos->execute();
+$lista_bancos_pix = $stmt_bancos->get_result()->fetch_all(MYSQLI_ASSOC);
+
+// Query Principal
+$where = ["cr.status='pendente'", "cr.usuario_id = " . intval($usuarioId)];
+if (!empty($_GET['data_inicio'])) $where[] = "cr.data_vencimento >= '" . $conn->real_escape_string($_GET['data_inicio']) . "'";
+if (!empty($_GET['data_fim'])) $where[] = "cr.data_vencimento <= '" . $conn->real_escape_string($_GET['data_fim']) . "'";
+
+$sql = "SELECT cr.*, c.nome as nome_categoria, pf.nome as nome_pessoa, pf.email as email_pessoa
+        FROM contas_receber AS cr
+        LEFT JOIN categorias AS c ON cr.id_categoria = c.id
+        LEFT JOIN pessoas_fornecedores AS pf ON cr.id_pessoa_fornecedor = pf.id
+        WHERE " . implode(" AND ", $where) . " ORDER BY cr.data_vencimento ASC";
+$result = $conn->query($sql);
+?>
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Contas a Receber</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    /* === GERAL === */
+    * { box-sizing: border-box; }
+    body { background-color: #121212; color: #eee; font-family: Arial, sans-serif; margin: 0; min-height: 100vh; }
+    
+    /* === CONTAINER RESPONSIVO (FULL DESKTOP) === */
+    .main-container {
+        width: 100%;
+        max-width: 1600px; /* Limite para telas ultrawide */
+        margin: 0 auto;
+        padding-bottom: 50px;
+    }
+
+    h2 { text-align: center; color: #00bfff; margin-bottom: 20px; }
+    
+    /* === MODAL (Padronizado com Contas a Pagar) === */
+    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); justify-content: center; align-items: center; padding: 10px; }
+    .modal-content { background-color: #1f1f1f; padding: 25px; border-radius: 10px; width: 100%; max-width: 500px; border: 1px solid #444; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+    .close-btn { position: absolute; top: 10px; right: 15px; font-size: 28px; cursor: pointer; color: #aaa; z-index: 10; }
+    
+    /* === FORMULÃRIO DE BUSCA === */
+    form.search-form { 
+        display: flex; 
+        flex-wrap: wrap; 
+        justify-content: center; 
+        gap: 10px; 
+        margin-bottom: 25px; 
+        align-items: center;
+        width: 100%; 
+    }
+    
+    /* Inputs responsivos (Padronizado) */
+    input, select, textarea { 
+        padding: 10px; 
+        background: #333; 
+        border: 1px solid #444; 
+        color: #eee; 
+        border-radius: 5px; 
+        font-size: 14px;
+        flex: 1; /* Cresce para ocupar espaÃ§o */
+        min-width: 150px;
+    }
+
+    /* === TABELA RESPONSIVA === */
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto; /* Scroll horizontal no mobile */
+        border-radius: 8px;
+        background-color: #1f1f1f;
+        margin-top: 20px;
+        border: 1px solid #333;
+    }
+
+    table { 
+        width: 100%; 
+        background-color: #1f1f1f; 
+        border-collapse: collapse; 
+        min-width: 900px; /* ForÃ§a largura mÃ­nima */
+    }
+    
+    th, td { 
+        padding: 12px 15px; 
+        text-align: left; 
+        border-bottom: 1px solid #333; 
+        white-space: nowrap; /* Evita quebra de texto nas cÃ©lulas */
+    }
+    
+    th { background-color: #222; color: #00bfff; font-weight: bold; }
+    tr:nth-child(even) { background-color: #2a2a2a; }
+    tr.vencido { background-color: rgba(220, 53, 69, 0.2) !important; }
+
+    /* === BOTÃ•ES === */
+    .btn { 
+        padding: 10px 16px; 
+        border-radius: 5px; 
+        border: none; 
+        cursor: pointer; 
+        font-weight: bold; 
+        color: white; 
+        text-decoration: none; 
+        display: inline-flex; 
+        align-items: center; 
+        justify-content: center;
+        gap: 5px;
+        font-size: 14px;
+        transition: opacity 0.2s;
+        min-width: fit-content;
+    }
+    .btn:hover { opacity: 0.9; }
+
+    .btn-add { background-color: #00bfff; }
+    .btn-search { background-color: #27ae60; }
+    .btn-clear { background-color: #c0392b; }
+    .btn-export { background-color: #f39c12; }
+    
+    /* BotÃµes de AÃ§Ã£o na Tabela */
+    .btn-action { padding: 6px 10px; margin: 0 2px; font-size: 13px; }
+    .btn-receber { background: #27ae60; }
+    .btn-editar { background: #00bfff; }
+    .btn-excluir { background: #c0392b; }
+    .btn-repetir { background: #f39c12; }
+    .btn-cobranca { background-color: #ffc107; color: #121212; }
+    .btn-cobranca-indisponivel { background:#555; color:#aaa; cursor:not-allowed; opacity:.65; }
+    
+    /* === AUTOCOMPLETE === */
+    .autocomplete-container { position: relative; width: 100%; }
+    .autocomplete-items { position: absolute; border: 1px solid #444; z-index: 99; top: 100%; left: 0; right: 0; background-color: #333; max-height: 150px; overflow-y: auto; text-align: left; }
+    .autocomplete-items div { padding: 10px; cursor: pointer; border-bottom: 1px solid #444; }
+    .autocomplete-items div:hover { background-color: #555; }
+
+    /* === RESPONSIVIDADE (MOBILE e TABLET) === */
+    @media (max-width: 768px) {
+        body { padding: 10px; }
+        
+        h2 { font-size: 1.5rem; }
+
+        /* FormulÃ¡rio empilhado no mobile */
+        form.search-form { flex-direction: column; align-items: stretch; }
+        form.search-form input, form.search-form button, form.search-form a { width: 100%; margin: 2px 0; }
+        
+        /* Modal ocupa mais espaÃ§o no mobile */
+        .modal-content { width: 95%; margin: 10px auto; max-height: 90vh; overflow-y: auto; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="main-container">
+
+    <h2>Contas a Receber</h2>
+
+    <form class="search-form" method="GET">
+      <input type="date" name="data_inicio" value="<?= htmlspecialchars($_GET['data_inicio'] ?? '') ?>" title="Data InÃ­cio">
+      <input type="date" name="data_fim" value="<?= htmlspecialchars($_GET['data_fim'] ?? '') ?>" title="Data Fim">
+      <button type="submit" class="btn btn-search" title="Filtrar"><i class="fa fa-search"></i> Buscar</button>
+      <a href="contas_receber.php" class="btn btn-clear" title="Limpar Filtros"><i class="fa fa-eraser"></i> Limpar</a>
+      <button type="button" class="btn btn-add" onclick="document.getElementById('addContaModal').style.display='flex'"><i class="fas fa-plus" aria-hidden="true"></i> Nova</button>
+      <button type="button" class="btn btn-export" onclick="document.getElementById('exportModal').style.display='flex'"><i class="fa fa-download"></i> Exportar</button>
+      <button type="button" class="btn btn-search" id="btnBulkBaixar" style="display:none; background-color: #27ae60;" onclick="abrirModalBulk()"><i class="fa fa-check-double"></i> Baixar Selecionados</button>
+    </form>
+
+    <?php if ($result && $result->num_rows > 0): ?>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+        <th style="width: 40px; text-align:center;">
+            <input type="checkbox" id="checkAll" onclick="toggleAll(this)">
+        </th>
+                    <th>Cliente</th>
+                    <th>NÃºmero</th>
+                    <th>DescriÃ§Ã£o</th>
+                    <th>Vencimento</th>
+                    <th>Categoria</th>
+                    <th>Valor</th>
+                    <th>Status</th>
+                    <th>AÃ§Ãµes</th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php $hoje = date('Y-m-d'); 
+            while($row = $result->fetch_assoc()): 
+                $vencido = ($row['data_vencimento'] < $hoje) ? 'vencido' : '';
+                $nome = !empty($row['nome_pessoa']) ? $row['nome_pessoa'] : 'N/D';
+                $emailCliente = trim((string)($row['email_pessoa'] ?? ''));
+                $podeEnviarCobranca = $nome !== 'N/D' && filter_var($emailCliente, FILTER_VALIDATE_EMAIL);
+            ?>
+                <tr class="<?= $vencido ?>">
+    <td style="text-align:center;">
+        <input type="checkbox" class="check-item" value="<?= $row['id'] ?>" onclick="checkBtnState()">
+    </td>
+                    <td><?= htmlspecialchars($nome) ?></td>
+                    <td><?= htmlspecialchars($row['numero'] ?? '-') ?></td>
+                    <td><?= htmlspecialchars($row['descricao'] ?? '') ?></td>
+                    <td><?= date('d/m/Y', strtotime($row['data_vencimento'])) ?></td>
+                    <td><?= htmlspecialchars($row['nome_categoria'] ?? '-') ?></td>
+                    <td>R$ <?= number_format($row['valor'], 2, ',', '.') ?></td>
+                    <td><?= $vencido ? 'Atrasado' : 'Em dia' ?></td>
+                    <td>
+                        <div style="display: flex; gap: 5px;">
+                            <button onclick="abrirModalReceber(<?= $row['id'] ?>, '<?= addslashes($nome) ?>', '<?= $row['valor'] ?>')" class="btn btn-action btn-receber" title="Receber"><i class="fa fa-check"></i></button>
+                            <?php if ($podeEnviarCobranca): ?>
+                                <button type="button" onclick='abrirModalCobranca(<?= (int)$row['id'] ?>, <?= json_encode($nome, JSON_HEX_APOS|JSON_HEX_QUOT) ?>, <?= json_encode($emailCliente, JSON_HEX_APOS|JSON_HEX_QUOT) ?>, <?= json_encode((string)$row['valor']) ?>)' class="btn btn-action btn-cobranca" title="Enviar cobranÃ§a por e-mail"><i class="fa fa-envelope"></i></button>
+                            <?php else: ?>
+                                <button type="button" onclick="avisarCobrancaIndisponivel()" class="btn btn-action btn-cobranca-indisponivel" title="Vincule um cliente com e-mail vÃ¡lido para enviar a cobranÃ§a"><i class="fa fa-envelope"></i></button>
+                            <?php endif; ?>
+                            <a href="editar_conta_receber.php?id=<?= $row['id'] ?>" class="btn btn-action btn-editar"><i class="fa fa-pen"></i></a>
+                            <button onclick="abrirModalRepetir(<?= $row['id'] ?>)" class="btn btn-action btn-repetir"><i class="fa-solid fa-repeat"></i></button>
+                            
+                            <button 
+                                type="button"
+                                class="btn btn-action btn-excluir" 
+                                data-id="<?= $row['id'] ?>" 
+                                data-nome="<?= htmlspecialchars($nome) ?>"
+                                onclick="openDeleteModal(this)"
+                                title="Excluir">
+                                <i class="fa fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            <?php endwhile; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php else: ?>
+        <p style="text-align:center; margin-top:20px; color: #aaa;">Nenhuma conta a receber encontrada.</p>
+    <?php endif; ?>
+
+</div> 
+
+<div id="cobrancaModal" class="modal">
+  <div class="modal-content">
+    <span class="close-btn" onclick="document.getElementById('cobrancaModal').style.display='none'">&times;</span>
+    <h3>Enviar CobranÃ§a</h3>
+    <p id="txt-cobranca" style="color:#aaa; font-size:14px; margin-bottom:15px; text-align: center;"></p>
+    <form action="../actions/enviar_cobranca_action.php" method="POST" enctype="multipart/form-data" style="display:flex; flex-direction:column; gap:10px;">
+        <input type="hidden" name="id_conta" id="cobranca_id_conta">
+        
+        <label>Chave Pix (Opcional):</label>
+        <select name="chave_pix">
+            <option value="">-- NÃ£o incluir Pix --</option>
+            <?php foreach ($lista_bancos_pix as $banco): ?>
+                <option value="<?= htmlspecialchars($banco['chave_pix']) ?>"><?= htmlspecialchars($banco['nome_banco']) ?> - <?= htmlspecialchars($banco['chave_pix']) ?></option>
+            <?php endforeach; ?>
+        </select>
+        
+        <label>Anexar Arquivo:</label>
+        <input type="file" name="arquivo" accept=".pdf,.jpg,.jpeg,.png">
+        
+        <label>Mensagem:</label>
+        <textarea name="mensagem" rows="3"></textarea>
+        
+        <button type="submit" class="btn btn-cobranca" style="margin-top:10px;">Enviar E-mail</button>
+    </form>
+  </div>
+</div>
+
+<div id="modalBulk" class="modal">
+  <div class="modal-content">
+    <span class="close-btn" onclick="document.getElementById('modalBulk').style.display='none'">&times;</span>
+    <h3>Baixar MÃºltiplas Contas</h3>
+    <p>Selecione os dados para baixar as contas marcadas:</p>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+        <label>Data do Pagamento:</label>
+        <input type="date" id="bulk_data" value="<?= date('Y-m-d') ?>">
+        <label>Forma de Pagamento:</label>
+        <select id="bulk_forma">
+            <option value="dinheiro">Dinheiro</option>
+            <option value="pix">Pix</option>
+            <option value="boleto">Boleto</option>
+            <option value="transferencia">TransferÃªncia</option>
+        </select>
+        <button onclick="submitBulk()" class="btn btn-receber" style="margin-top:10px;">Confirmar Baixa em Massa</button>
+    </div>
+  </div>
+</div>
+
+<div id="addContaModal" class="modal">
+  <div class="modal-content">
+    <span class="close-btn" onclick="this.parentElement.parentElement.style.display='none'">&times;</span>
+    <h3>Nova Receita</h3>
+    <form action="../actions/add_conta_receber.php" method="POST" style="display:flex; flex-direction:column; gap:10px;">
+        <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+        
+        <div style="display:flex; gap: 5px; align-items: center;">
+            <div class="autocomplete-container" style="flex: 1; margin-bottom:0;">
+                <input type="text" id="pesquisar_pessoa" name="pessoa_nome" placeholder="Cliente/Pagador..." required style="width:100%;">
+                <div id="pessoa_list" class="autocomplete-items"></div>
+            </div>
+            <button type="button" class="btn btn-add" style="padding: 10px 12px;" onclick="document.getElementById('modalNovaPessoa').style.display='flex'">
+                <i class="fas fa-plus"></i>
+            </button>
+        </div>
+        <input type="hidden" name="pessoa_id" id="pessoa_id_hidden">
+        
+        <input type="text" name="numero" placeholder="NÃºmero do Documento">
+        <input type="text" name="descricao" placeholder="DescriÃ§Ã£o" required>
+        <input type="text" name="valor" placeholder="Valor (Ex: 1.000,00)" required>
+        <input type="date" name="data_vencimento" required>
+        
+        <div style="display:flex; gap: 5px; align-items: center;">
+            <select name="id_categoria" id="select_categoria_receber" required style="flex: 1; margin-bottom:0;">
+                <option value="">Categoria...</option>
+                <?php foreach ($categorias_receita as $cat): ?>
+                    <option value="<?= $cat['id'] ?>"><?= $cat['nome'] ?></option>
+                <?php endforeach; ?>
+            </select>
+            <button type="button" class="btn btn-add" style="padding: 10px 12px;" onclick="document.getElementById('modalNovaCategoria').style.display='flex'">
+                <i class="fas fa-plus"></i>
+            </button>
+        </div>
+
+        <button type="submit" class="btn btn-add">Salvar</button>
+    </form>
+  </div>
+</div>
+
+<div id="receberModal" class="modal">
+  <div class="modal-content">
+    <span class="close-btn" onclick="this.parentElement.parentElement.style.display='none'">&times;</span>
+    <h3>Confirmar Recebimento</h3>
+    <p id="texto-receber" style="color:#aaa; margin-bottom:15px; text-align: center;"></p>
+    
+    <form action="../actions/baixar_conta_receber.php" method="POST" enctype="multipart/form-data" style="display:flex; flex-direction:column; gap:10px;">
+        <input type="hidden" name="id_conta" id="id_conta_receber">
+        <label>Data do Recebimento:</label>
+        <input type="date" name="data_baixa" value="<?= date('Y-m-d') ?>" required>
+        <label>Forma:</label>
+        <select name="forma_pagamento" required>
+            <option value="dinheiro">Dinheiro</option>
+            <option value="pix">Pix</option>
+            <option value="cartao_credito">CartÃ£o de CrÃ©dito</option>
+            <option value="cartao_debito">CartÃ£o de DÃ©bito</option>
+            <option value="transferencia">TransferÃªncia</option>
+            <option value="boleto">Boleto</option>
+        </select>
+        <label>Comprovante (Opcional):</label>
+        <input type="file" name="comprovante" accept="image/*,.pdf">
+        <button type="submit" class="btn btn-receber" style="margin-top:10px;">Confirmar</button>
+    </form>
+  </div>
+</div>
+
+<div id="repetirModal" class="modal">
+  <div class="modal-content">
+    <span class="close-btn" onclick="this.parentElement.parentElement.style.display='none'">&times;</span>
+    <h3>Repetir Conta</h3>
+    <form action="../actions/repetir_conta_receber.php" method="POST" style="display:flex; flex-direction:column; gap:10px;">
+        <input type="hidden" name="conta_id" id="repetir_conta_id">
+        <label>Quantas vezes?</label>
+        <input type="number" name="repetir_vezes" required>
+        <label>Intervalo (dias):</label>
+        <input type="number" name="repetir_intervalo" value="30">
+        <button type="submit" class="btn btn-repetir" style="margin-top:10px;">Repetir</button>
+    </form>
+  </div>
+</div>
+
+<div id="exportModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="document.getElementById('exportModal').style.display='none'">&times;</span>
+        <h3>Exportar RelatÃ³rio</h3>
+        <form action="../actions/exportar_contas_receber.php" method="GET" target="_blank" style="display:flex; flex-direction:column; gap:10px;">
+            <label style="text-align:left; color:#ccc; font-size:12px;">Tipo:</label>
+            <select name="status" required>
+                <option value="pendente">A Receber (Pendentes)</option>
+                <option value="baixada">Recebidas (Baixadas)</option>
+            </select>
+            <div style="display:flex; gap:10px;">
+                <div style="flex:1;">
+                    <label style="display:block; text-align:left; color:#ccc; font-size:12px;">De:</label>
+                    <input type="date" name="data_inicio" value="<?= date('Y-m-01') ?>" required style="width:100%;">
+                </div>
+                <div style="flex:1;">
+                    <label style="display:block; text-align:left; color:#ccc; font-size:12px;">AtÃ©:</label>
+                    <input type="date" name="data_fim" value="<?= date('Y-m-t') ?>" required style="width:100%;">
+                </div>
+            </div>
+            <label style="text-align:left; color:#ccc; font-size:12px;">Formato:</label>
+            <select name="formato" required>
+                <option value="excel">Excel (.xlsx)</option>
+                <option value="pdf">PDF (.pdf)</option>
+                <option value="csv">CSV (.csv)</option>
+            </select>
+            <button type="submit" class="btn btn-export" style="margin-top:10px;">Baixar Arquivo</button>
+        </form>
+    </div>
+</div>
+
+<div id="deleteModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="document.getElementById('deleteModal').style.display='none'">&times;</span>
+        <h3>Confirmar ExclusÃ£o</h3>
+        <p>Tem certeza que deseja excluir a conta de <b id="delete-nome"></b>?</p>
+        <form action="../actions/excluir_conta_receber.php" method="POST">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            <input type="hidden" name="id" id="delete-id">
+            <input type="hidden" name="redirect" value="">
+            <div style="margin-top:20px; display:flex; justify-content:center; gap:10px;">
+                <button type="submit" class="btn btn-excluir">Sim, Excluir</button>
+                <button type="button" onclick="document.getElementById('deleteModal').style.display='none'" class="btn" style="background-color:#555;">Cancelar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="modalNovaPessoa" class="modal" style="z-index: 1050;">
+  <div class="modal-content">
+    <span class="close-btn" onclick="document.getElementById('modalNovaPessoa').style.display='none'">&times;</span>
+    <h3>Novo Cliente</h3>
+    <form id="form-nova-pessoa" style="display:flex; flex-direction:column; gap:10px;">
+        <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?? '' ?>">
+        <input type="hidden" name="tipo" value="pessoa">
+        
+        <label>Nome Completo:</label>
+        <input type="text" name="nome" required placeholder="Nome do Cliente">
+        
+        <label>CPF/CNPJ (Opcional):</label>
+        <input type="text" name="cpf_cnpj" placeholder="Documento">
+        
+        <label>EndereÃ§o:</label>
+        <input type="text" name="endereco" placeholder="EndereÃ§o Completo">
+        
+        <label>Contato (Telefone):</label>
+        <input type="text" name="contato" placeholder="(00) 00000-0000">
+        
+        <label>E-mail:</label>
+        <input type="email" name="email" placeholder="email@exemplo.com">
+        
+        <button type="submit" class="btn btn-add" style="width:100%; margin-top:10px;">Cadastrar</button>
+    </form>
+  </div>
+</div>
+
+<div id="modalNovaCategoria" class="modal" style="z-index: 1060;">
+  <div class="modal-content">
+    <span class="close-btn" onclick="document.getElementById('modalNovaCategoria').style.display='none'">&times;</span>
+    <h3>Nova Categoria (Receita)</h3>
+    <form id="form-nova-categoria" style="display:flex; flex-direction:column; gap:10px;">
+        <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?? '' ?>">
+        <input type="hidden" name="tipo" value="receita">
+        <label>Nome da Categoria:</label>
+        <input type="text" name="nome" required placeholder="Ex: Vendas, ServiÃ§os...">
+        <button type="submit" class="btn btn-add" style="width:100%; margin-top:10px;">Salvar Categoria</button>
+    </form>
+  </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+// FunÃ§Ã£o Display Flash simplificada para JS
+function showFlash(message, type) {
+    const alertBox = document.createElement('div');
+    alertBox.style.cssText = `
+        position: fixed; top: 20px; right: 20px; background: ${type === 'success' ? '#28a745' : '#dc3545'}; 
+        color: white; padding: 15px; border-radius: 5px; z-index: 9999; box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    `;
+    alertBox.innerText = message;
+    document.body.appendChild(alertBox);
+    setTimeout(() => alertBox.remove(), 4000);
+}
+
+function abrirModalCobranca(id, nome, email, valor) {
+    document.getElementById('cobranca_id_conta').value = id;
+    const valorFormatado = Number(valor).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('txt-cobranca').innerText = `DestinatÃ¡rio: ${nome} â€” ${email} â€” R$ ${valorFormatado}`;
+    document.getElementById('cobrancaModal').style.display = 'flex';
+}
+function avisarCobrancaIndisponivel() {
+    showCustomAlert('Esta conta nÃ£o possui cliente com e-mail vÃ¡lido. Edite a conta e vincule um cliente antes de enviar a cobranÃ§a.', 'error');
+}
+function abrirModalReceber(id, nome, valor) {
+    document.getElementById('id_conta_receber').value = id;
+    document.getElementById('texto-receber').innerText = `${nome} - R$ ${valor}`;
+    document.getElementById('receberModal').style.display = 'flex';
+}
+function abrirModalRepetir(id) {
+    document.getElementById('repetir_conta_id').value = id;
+    document.getElementById('repetirModal').style.display = 'flex';
+}
+function openDeleteModal(button) {
+    let id = button.getAttribute('data-id');
+    let nome = button.getAttribute('data-nome');
+    document.getElementById('delete-id').value = id;
+    document.getElementById('delete-nome').innerText = nome;
+    document.getElementById('deleteModal').style.display = 'flex';
+}
+$("#pesquisar_pessoa").on("keyup", function() {
+    let term = $(this).val();
+    if (term.length < 2) return $("#pessoa_list").empty();
+    $.getJSON("contas_receber.php", { action: 'search_pessoa', term: term }, function(data) {
+        let html = data.map(i => `<div onclick="selectPessoa(${i.id}, '${i.nome}')">${i.nome}</div>`).join('');
+        $("#pessoa_list").html(html);
+    });
+});
+function selectPessoa(id, nome) {
+    $("#pesquisar_pessoa").val(nome);
+    $("#pessoa_id_hidden").val(id);
+    $("#pessoa_list").empty();
+}
+
+// AJAX Cadastro Cliente
+$('#form-nova-pessoa').on('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    formData.append('ajax', true);
+    
+    $.ajax({
+        url: '../actions/cadastrar_pessoa_fornecedor_action.php',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(resp) {
+            document.getElementById('modalNovaPessoa').style.display='none';
+            document.getElementById('form-nova-pessoa').reset();
+            
+            const nomeDigitado = formData.get('nome');
+            $("#pesquisar_pessoa").val(nomeDigitado);
+            
+            showFlash('Cliente cadastrado com sucesso!', 'success');
+        },
+        error: function() {
+            showFlash('Erro ao cadastrar cliente.', 'danger');
+        }
+    });
+});
+
+// AJAX Salvar Nova Categoria (Receita)
+$('#form-nova-categoria').on('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    formData.append('ajax', 'true');
+
+    $.ajax({
+        url: '../actions/salvar_categoria.php',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+        success: function(resp) {
+            if(resp.status === 'success' || resp.id) {
+                // Adiciona a nova opÃ§Ã£o no Select de receber
+                let novaOpcao = new Option(formData.get('nome'), resp.id, true, true);
+                $('#select_categoria_receber').append(novaOpcao).trigger('change');
+
+                document.getElementById('modalNovaCategoria').style.display='none';
+                document.getElementById('form-nova-categoria').reset();
+                showFlash('Categoria criada com sucesso!', 'success');
+            } else {
+                showFlash(resp.message || 'Erro ao criar categoria.', 'danger');
+            }
+        },
+        error: function() {
+            showFlash('Erro na comunicaÃ§Ã£o com o servidor.', 'danger');
+        }
+    });
+});
+
+window.onclick = e => { if(e.target.className === 'modal') e.target.style.display = 'none'; }
+
+// LÃ³gica dos Checkboxes
+function toggleAll(source) {
+    checkboxes = document.getElementsByClassName('check-item');
+    for(var i=0, n=checkboxes.length;i<n;i++) {
+        checkboxes[i].checked = source.checked;
+    }
+    checkBtnState();
+}
+
+function checkBtnState() {
+    const checkboxes = document.querySelectorAll('.check-item:checked');
+    const btn = document.getElementById('btnBulkBaixar');
+    if(checkboxes.length > 0) {
+        btn.style.display = 'inline-flex';
+        btn.innerHTML = `<i class="fa fa-check-double"></i> Baixar (${checkboxes.length})`;
+    } else {
+        btn.style.display = 'none';
+    }
+}
+
+function abrirModalBulk() {
+    document.getElementById('modalBulk').style.display = 'flex';
+}
+
+function submitBulk() {
+    const ids = Array.from(document.querySelectorAll('.check-item:checked')).map(cb => cb.value);
+    const data_baixa = document.getElementById('bulk_data').value;
+    const forma = document.getElementById('bulk_forma').value;
+
+    if (ids.length === 0) return;
+
+    if(!confirm(`Confirma a baixa de ${ids.length} contas?`)) return;
+
+    fetch('../actions/bulk_action.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            ids: ids,
+            tipo: 'receber', 
+            acao: 'baixar',
+            data_baixa: data_baixa,
+            forma_pagamento: forma
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.status === 'success') {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Erro: ' + data.message);
+        }
+    });
+}
+</script>
+<?php include('../includes/footer.php'); ?>
+</body>
+</html>
+

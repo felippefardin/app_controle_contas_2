@@ -19,7 +19,7 @@ if (!isset($_SESSION['tenant_id'])) {
 }
 
 // 📌 Pega dados do usuário
-$usuario_id    = $_SESSION['usuario_id']; 
+$usuario_id    = get_data_owner_id(); 
 $tenant_id     = $_SESSION['tenant_id'];
 $nome_usuario  = $_SESSION['nome'];
 
@@ -71,7 +71,7 @@ try {
 } catch (Exception $e) { }
 
 // ====================================================================
-// 🔍 BUSCAR LEMBRETES
+// ðŸ” BUSCAR LEMBRETES
 // ====================================================================
 $sql = "SELECT l.*, u.nome as autor_nome 
         FROM lembretes l

@@ -6,11 +6,12 @@ require_once '../includes/config/nfe_config.php';
 
 use NFePHP\NFe\Make;
 use NFePHP\NFe\Tools;
+use NFePHP\NFe\Complements;
 use NFePHP\Common\Certificate;
 
 header('Content-Type: application/json');
 
-// 1️⃣ Função de LOG
+// 1ï¸âƒ£ Função de LOG
 function log_nfce($msg) {
     $dirLog = __DIR__ . '/../logs/';
     if (!is_dir($dirLog)) mkdir($dirLog, 0755, true);
@@ -19,9 +20,9 @@ function log_nfce($msg) {
     file_put_contents($arquivo, $linha, FILE_APPEND);
 }
 
-// 2️⃣ Validação de Sessão e Entrada
+// 2ï¸âƒ£ Validação de Sessão e Entrada
 if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true) {
-    log_nfce("❌ Sessão inválida ou expirada.");
+    log_nfce("âŒ Sessão inválida ou expirada.");
     echo json_encode(['success' => false, 'message' => 'Sessão expirada. Faça login novamente.']);
     exit;
 }
@@ -42,7 +43,7 @@ try {
     log_nfce("🔹 Iniciando emissão para venda #{$id_venda}");
     $conn->begin_transaction();
 
-    // 3️⃣ Carrega Configurações (Híbrido: Tabela Antiga + Nova)
+    // 3ï¸âƒ£ Carrega Configurações (Híbrido: Tabela Antiga + Nova)
     
     // A. Busca dados cadastrais (CNPJ, Endereço) da tabela 'empresa_config'
     // Assumimos que existe apenas 1 configuração por Tenant (LIMIT 1)
@@ -65,13 +66,14 @@ try {
     // Ajustes manuais de compatibilidade
     $empresaConfig['ambiente'] = (int)($empresaConfig['ambiente'] ?? 2);
     $tpAmb = $empresaConfig['ambiente'];
+    if ($tpAmb === 1 && !filter_var($_ENV['FISCAL_ALLOW_PRODUCTION'] ?? false, FILTER_VALIDATE_BOOL)) throw new Exception('Produção bloqueada até a homologação ser validada.');
 
-    // 4️⃣ Atualiza Numeração
+    // 4ï¸âƒ£ Atualiza Numeração
     $novo_numero_nf = (int)($empresaConfig['ultimo_numero_nfce'] ?? 0) + 1;
     $conn->query("UPDATE empresa_config SET ultimo_numero_nfce = $novo_numero_nf WHERE id = " . (int)$empresaConfig['id']);
     log_nfce("🔢 Número NF reservado: {$novo_numero_nf}");
 
-    // 5️⃣ Configuração do NFePHP
+    // 5ï¸âƒ£ Configuração do NFePHP
     $configJson = getConfigJson($empresaConfig); // Usa função do seu include
     
     // Verifica certificado
@@ -84,9 +86,10 @@ try {
     $tools = new Tools($configJson, Certificate::readPfx($certificadoContent, $empresaConfig['certificado_senha']));
     $tools->model('65'); // NFC-e
 
-    // 6️⃣ Busca Venda e Itens
-    $stmtVenda = $conn->prepare("SELECT * FROM vendas WHERE id = ?");
-    $stmtVenda->bind_param("i", $id_venda);
+    // 6ï¸âƒ£ Busca Venda e Itens
+    $stmtVenda = $conn->prepare("SELECT * FROM vendas WHERE id = ? AND id_usuario = ?");
+    $usuarioId=(int)(get_data_owner_id() ?? 0);
+    $stmtVenda->bind_param("ii", $id_venda, $usuarioId);
     $stmtVenda->execute();
     $venda = $stmtVenda->get_result()->fetch_assoc();
     
@@ -104,7 +107,7 @@ try {
 
     if (empty($itens)) throw new Exception("Venda sem itens.");
 
-    // 7️⃣ Montagem do XML (Resumido)
+    // 7ï¸âƒ£ Montagem do XML (Resumido)
     $nfe = new Make();
     $inf = new \stdClass();
     $inf->versao = '4.00';
@@ -114,11 +117,12 @@ try {
 
     // Dados Identificação
     $ide = new \stdClass();
-    $ide->cUF = '32'; // Exemplo ES, ideal buscar do cadastro
+    $codigosUf=['RO'=>'11','AC'=>'12','AM'=>'13','RR'=>'14','PA'=>'15','AP'=>'16','TO'=>'17','MA'=>'21','PI'=>'22','CE'=>'23','RN'=>'24','PB'=>'25','PE'=>'26','AL'=>'27','SE'=>'28','BA'=>'29','MG'=>'31','ES'=>'32','RJ'=>'33','SP'=>'35','PR'=>'41','SC'=>'42','RS'=>'43','MS'=>'50','MT'=>'51','GO'=>'52','DF'=>'53'];
+    $ide->cUF = $codigosUf[strtoupper($empresaConfig['uf'] ?? '')] ?? throw new Exception('UF fiscal inválida.');
     $ide->cNF = rand(10000000, 99999999);
     $ide->natOp = 'VENDA';
     $ide->mod = 65;
-    $ide->serie = 1;
+    $ide->serie = (int)($empresaConfig['serie_nfce'] ?? 1);
     $ide->nNF = $novo_numero_nf;
     $ide->dhEmi = date('Y-m-d\TH:i:sP');
     $ide->tpNF = 1;
@@ -187,16 +191,17 @@ try {
     $nfe->tagpag($stdPag);
 
     $stdDetPag = new \stdClass();
-    $stdDetPag->tPag = '01'; // Dinheiro
+    $mapPag=['dinheiro'=>'01','cheque'=>'02','cartao_credito'=>'03','cartao_debito'=>'04','boleto'=>'15','pix'=>'17','transferencia'=>'18','receber'=>'15'];
+    $stdDetPag->tPag = $mapPag[$venda['forma_pagamento']] ?? '99';
     $stdDetPag->vPag = number_format($venda['valor_total'], 2, '.', '');
     $nfe->tagdetPag($stdDetPag);
 
-    // 8️⃣ Assinatura e Envio
+    // 8ï¸âƒ£ Assinatura e Envio
     $xml = $nfe->getXML();
     $xmlAssinado = $tools->signNFe($xml);
-    log_nfce("🔏 XML assinado com sucesso.");
+    log_nfce("ðŸ” XML assinado com sucesso.");
 
-    $resp = $tools->sefazEnviaLote([$xmlAssinado], rand(1, 999999));
+    $resp = $tools->sefazEnviaLote([$xmlAssinado], (string)random_int(1,999999999), 1);
     
     $st = new Tools($configJson, Certificate::readPfx($certificadoContent, $empresaConfig['certificado_senha']));
     $stdCl = json_decode(json_encode(simplexml_load_string($resp)));
@@ -207,12 +212,16 @@ try {
         $prot = (string)$stdCl->protNFe->infProt->nProt;
         
         // Salva XML
-        $xmlPath = "../notas_fiscais/{$chave}.xml";
-        file_put_contents($xmlPath, $xmlAssinado); // Nota: Salve o XML protocolado se possível
+        $xmlAutorizado = Complements::toAuthorize($xmlAssinado, $resp);
+        $dirNotas=__DIR__.'/../storage/notas_fiscais';
+        if(!is_dir($dirNotas) && !mkdir($dirNotas,0770,true)) throw new Exception('Falha ao criar diretório fiscal.');
+        $xmlPath = "storage/notas_fiscais/{$chave}.xml";
+        if(file_put_contents(__DIR__.'/../'.$xmlPath, $xmlAutorizado)===false) throw new Exception('Falha ao guardar XML autorizado.');
 
         // Grava no banco
-        $stmtNota = $conn->prepare("INSERT INTO notas_fiscais (id_venda, ambiente, status, chave_acesso, protocolo, xml_path, data_emissao) VALUES (?, ?, 'autorizada', ?, ?, ?, NOW())");
-        $stmtNota->bind_param("iisss", $id_venda, $tpAmb, $chave, $prot, $xmlPath);
+        $serie=(int)($empresaConfig['serie_nfce']??1);
+        $stmtNota = $conn->prepare("INSERT INTO notas_fiscais (id_venda,numero,serie,modelo,ambiente,status,chave_acesso,protocolo,xml_path,data_emissao) VALUES (?,?,?,65,?,'autorizada',?,?,?,NOW())");
+        $stmtNota->bind_param("iiiisss", $id_venda,$novo_numero_nf,$serie,$tpAmb,$chave,$prot,$xmlPath);
         $stmtNota->execute();
 
         $conn->commit();
@@ -225,6 +234,7 @@ try {
 
 } catch (Exception $e) {
     $conn->rollback();
-    log_nfce("❌ ERRO FATAL: " . $e->getMessage());
+    log_nfce("âŒ ERRO FATAL: " . $e->getMessage());
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 }
+

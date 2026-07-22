@@ -12,7 +12,7 @@ if (!isset($_SESSION['usuario_logado'])) {
 $conn = getTenantConnection();
 if ($conn === null) die("Falha ao obter a conexão com o banco de dados.");
 
-$usuarioId = $_SESSION['usuario_id'];
+$usuarioId = get_data_owner_id();
 
 include('../includes/header.php');
 

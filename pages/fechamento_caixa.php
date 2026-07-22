@@ -9,7 +9,7 @@ if (!isset($_SESSION['usuario_logado'])) {
 }
 
 $conn = getTenantConnection();
-$id_usuario = $_SESSION['usuario_id'];
+$id_usuario = get_data_owner_id();
 $data_selecionada = $_GET['data'] ?? date('Y-m-d');
 
 $sql = "
@@ -85,6 +85,25 @@ $stmt_vendas = $conn->prepare("
 $stmt_vendas->bind_param("is", $id_usuario, $data_selecionada);
 $stmt_vendas->execute();
 $vendas = $stmt_vendas->get_result();
+
+$ultimo_venda_id = 0;
+$quantidade_vendas = 0;
+$stmt_status_vendas = $conn->prepare("SELECT COUNT(*) quantidade,COALESCE(MAX(id),0) ultimo_id FROM vendas WHERE id_usuario=? AND DATE(data_venda)=?");
+$stmt_status_vendas->bind_param('is', $id_usuario, $data_selecionada);
+$stmt_status_vendas->execute();
+$status_vendas = $stmt_status_vendas->get_result()->fetch_assoc();
+$quantidade_vendas = (int)($status_vendas['quantidade'] ?? 0);
+$ultimo_venda_id = (int)($status_vendas['ultimo_id'] ?? 0);
+$stmt_status_vendas->close();
+
+$stmt_fechamento = $conn->prepare("SELECT quantidade_vendas,valor_total,ultimo_venda_id,fechado_em FROM fechamentos_caixa WHERE id_usuario=? AND data_caixa=? LIMIT 1");
+$stmt_fechamento->bind_param('is', $id_usuario, $data_selecionada);
+$stmt_fechamento->execute();
+$fechamento = $stmt_fechamento->get_result()->fetch_assoc();
+$stmt_fechamento->close();
+$caixa_fechado = $quantidade_vendas > 0 && $fechamento && $ultimo_venda_id <= (int)$fechamento['ultimo_venda_id'];
+$flash_caixa = $_SESSION['flash_caixa'] ?? '';
+unset($_SESSION['flash_caixa']);
 ?>
 
 <!DOCTYPE html>
@@ -124,6 +143,7 @@ $vendas = $stmt_vendas->get_result();
     </div>
 
     <div id="alert-container-fechamento"></div>
+    <?php if ($flash_caixa): ?><div class="alert alert-success no-print"><?= htmlspecialchars($flash_caixa, ENT_QUOTES, 'UTF-8') ?></div><?php endif; ?>
 
     <form method="GET" class="form-inline mb-4 no-print">
         <label for="data" class="mr-2">Selecione a Data:</label>
@@ -148,6 +168,18 @@ $vendas = $stmt_vendas->get_result();
             </div>
         <?php endforeach; ?>
         <div class="total-geral mt-3">Total Geral: R$ <?= number_format($total_geral, 2, ',', '.') ?></div>
+        <div class="mt-3 no-print">
+            <?php if ($caixa_fechado): ?>
+                <div class="alert alert-success"><i class="fas fa-check-circle"></i> Caixa fechado em <?= date('d/m/Y H:i', strtotime($fechamento['fechado_em'])) ?>. Nenhuma venda nova pendente.</div>
+            <?php else: ?>
+                <div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> Este caixa ainda precisa ser confirmado. Se houver novas vendas depois do fechamento, confirme novamente.</div>
+                <form method="post" action="../actions/fechar_caixa.php" onsubmit="return confirm('Confirmar o fechamento deste caixa? Os totais atuais serão registrados.');">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="data" value="<?= htmlspecialchars($data_selecionada, ENT_QUOTES, 'UTF-8') ?>">
+                    <button type="submit" class="btn btn-warning btn-lg"><i class="fas fa-lock"></i> Confirmar fechamento do caixa</button>
+                </form>
+            <?php endif; ?>
+        </div>
     <?php else: ?>
         <p>Nenhuma venda encontrada nesta data.</p>
     <?php endif; ?>

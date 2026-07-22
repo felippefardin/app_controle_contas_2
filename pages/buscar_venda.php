@@ -8,13 +8,18 @@ if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true)
 }
 
 $conn = getTenantConnection();
-$id_usuario = $_SESSION['usuario_id'];
+$id_usuario = get_data_owner_id();
 $id_venda = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 // 1. Busca dados da venda
-$sql_venda = "SELECT v.*, pf.nome AS nome_cliente 
+$sql_venda = "SELECT v.*, pf.nome AS nome_cliente, nf.chave_acesso AS chave_nfe, nf.ambiente AS ambiente_nfe, nf.status AS status_nfe
               FROM vendas v
               LEFT JOIN pessoas_fornecedores pf ON v.id_cliente = pf.id
+              LEFT JOIN notas_fiscais nf ON nf.id = (
+                  SELECT nf2.id FROM notas_fiscais nf2
+                  WHERE nf2.id_venda = v.id AND nf2.status = 'autorizada'
+                  ORDER BY nf2.id DESC LIMIT 1
+              )
               WHERE v.id = ? AND v.id_usuario = ?";
 $stmt = $conn->prepare($sql_venda);
 $stmt->bind_param("ii", $id_venda, $id_usuario);
@@ -92,6 +97,7 @@ $result_itens = $stmt_itens->get_result();
         >
             <i class="fas fa-file-invoice"></i> DANFE
         </a>
+        <?php if ((int)$venda['ambiente_nfe'] === 2): ?><small class="text-warning align-self-center">Simulação/Homologação</small><?php endif; ?>
     <?php else: ?>
         <button class="btn btn-secondary" disabled>
             <i class="fas fa-file-invoice"></i> DANFE indisponível
@@ -103,3 +109,4 @@ $result_itens = $stmt_itens->get_result();
     </button>
 
 </div>
+

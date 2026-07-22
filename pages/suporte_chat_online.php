@@ -15,8 +15,8 @@ $tenant_id = $_SESSION['tenant_id'];
 $id_usuario = $_SESSION['usuario_id'];
 
 // Conexão Tenant
-$conn = getTenantConnection();
-if (!$conn) die("Erro ao conectar ao banco do tenant");
+$conn = getMasterConnection();
+if (!$conn) die("Erro ao conectar ao banco de suporte");
 
 // Recebe ID do chamado
 if (!isset($_GET['id']) || empty($_GET['id'])) {
@@ -25,8 +25,8 @@ if (!isset($_GET['id']) || empty($_GET['id'])) {
 $id_chamado = (int)$_GET['id'];
 
 // Busca dados do chamado e garante que pertence ao tenant
-$stmt = $conn->prepare("SELECT * FROM chamados_suporte WHERE id = ? AND tenant_id = ? LIMIT 1");
-$stmt->bind_param("is", $id_chamado, $tenant_id);
+$stmt = $conn->prepare("SELECT * FROM chamados_suporte WHERE id = ? AND tenant_id = ? AND usuario_id = ? LIMIT 1");
+$stmt->bind_param("isi", $id_chamado, $tenant_id, $id_usuario);
 $stmt->execute();
 $result = $stmt->get_result();
 $chamado = $result->fetch_assoc();
@@ -35,16 +35,13 @@ $stmt->close();
 if (!$chamado) die("Chamado não encontrado.");
 
 // Se o chat foi finalizado
-if ($chamado['status'] === 'finalizado') {
-    echo "<h2 style='color:white;text-align:center;margin-top:40px'>Este chat já foi finalizado.</h2>";
+if ($chamado['status'] === 'concluido' || $chamado['status'] === 'finalizado') {
+    $protocoloFinal = htmlspecialchars($chamado['protocolo'] ?: 'Em processamento', ENT_QUOTES, 'UTF-8');
+    echo "<div style='color:white;text-align:center;margin:40px auto;font-family:Arial;background:#1f1f1f;padding:30px;border-radius:10px;max-width:650px'><h2>Este chat já foi finalizado.</h2><p>Protocolo do atendimento:</p><strong style='font-size:24px;color:#00bfff'>{$protocoloFinal}</strong><br><br><a href='home.php' style='color:white;background:#333;padding:10px 16px;border-radius:6px;text-decoration:none'>Voltar para a dashboard</a></div>";
     exit;
 }
 
 // Timer
-$inicio_timestamp = strtotime($chamado['inicio_atendimento']);
-$limite = 3600; // 1 hora
-$extra = 300;   // 5 minutos finais
-$total_limite = $limite + $extra;
 
 ?>
 <!DOCTYPE html>
@@ -57,6 +54,10 @@ $total_limite = $limite + $extra;
 <style>
 body { background:#121212; margin:0; font-family:Arial; color:#fff; }
 .chat-container { max-width:900px; margin:20px auto; background:#1f1f1f; border-radius:10px; padding:20px; }
+.chat-header { display:flex; align-items:center; justify-content:space-between; gap:15px; margin-bottom:10px; }
+.chat-header h2 { margin:0; }
+.btn-voltar-dashboard { background:#3b3b3b; color:#fff; text-decoration:none; border:1px solid #555; padding:10px 14px; border-radius:6px; font-weight:600; white-space:nowrap; transition:.2s; }
+.btn-voltar-dashboard:hover { background:#505050; border-color:#00bfff; }
 .chat-messages { height:420px; overflow-y:auto; padding:15px; background:#181818; border-radius:8px; }
 .msg { margin-bottom:15px; padding:10px 15px; border-radius:8px; max-width:70%; }
 .msg-user { background:#007bff; margin-left:auto; }
@@ -72,7 +73,10 @@ body { background:#121212; margin:0; font-family:Arial; color:#fff; }
 <body>
 <div class="chat-container">
 
-<h2><i class="fas fa-comments"></i> Chat Online - Chamado #<?= $id_chamado ?></h2>
+<div class="chat-header">
+    <h2><i class="fas fa-comments"></i> Chat Online - Chamado #<?= $id_chamado ?></h2>
+    <a class="btn-voltar-dashboard" href="home.php"><i class="fas fa-arrow-left"></i> Sair e voltar ao início</a>
+</div>
 <div id="timer" class="timer">Carregando...</div>
 
 <div id="chatMessages" class="chat-messages"></div>
@@ -87,8 +91,6 @@ body { background:#121212; margin:0; font-family:Arial; color:#fff; }
 </div>
 
 <script>
-let inicio = <?= $inicio_timestamp ?>;
-let limite = <?= $total_limite ?>;
 let chatFinalizado = false;
 
 function atualizarTimer() {
@@ -115,10 +117,11 @@ function atualizarTimer() {
         timerBox.innerHTML = `⚠ A sessão termina em ${min}m ${seg}s`;
     }
 }
-setInterval(atualizarTimer, 1000);
+// O diálogo permanece aberto até o suporte marcar o chamado como concluído.
+document.getElementById("timer").textContent = "Status: aguardando atendimento";
 
 function carregarMensagens() {
-    fetch("../actions/carregar_chat.php?id=<?= $id_chamado ?>")
+    fetch("../actions/suporte_usuario.php?id=<?= $id_chamado ?>")
         .then(r => r.json())
         .then(dados => {
             const box = document.getElementById("chatMessages");
@@ -127,8 +130,8 @@ function carregarMensagens() {
             dados.forEach(msg => {
                 const div = document.createElement("div");
                 div.classList.add("msg");
-                div.classList.add(msg.origem === "usuario" ? "msg-user" : "msg-suporte");
-                div.innerHTML = msg.mensagem;
+                div.classList.add(msg.autor_tipo === "usuario" ? "msg-user" : "msg-suporte");
+                div.textContent = `${msg.autor_nome}: ${msg.mensagem}`;
                 box.appendChild(div);
             });
 
@@ -142,7 +145,7 @@ function enviarMensagem() {
     const texto = document.getElementById('msgText').value.trim();
     if (texto.length === 0 || chatFinalizado) return;
 
-    fetch('../actions/enviar_msg_chat.php', {
+    fetch('../actions/suporte_usuario.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id_chamado: <?= $id_chamado ?>, mensagem: texto })

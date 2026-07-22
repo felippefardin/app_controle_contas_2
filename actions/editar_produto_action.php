@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $id_usuario = $_SESSION['usuario_id'];
+    $id_usuario = get_data_owner_id();
     $id = intval($_POST['id']);
     
     // ADICIONADO: Captura do código

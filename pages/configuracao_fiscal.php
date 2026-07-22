@@ -29,6 +29,16 @@ if ($stmtKv) {
         $dadosEmpresa[$row['chave']] = $row['valor'];
     }
 }
+$requisitos = [
+ 'Razão social'=>!empty($dadosEmpresa['razao_social']),
+ 'CNPJ com 14 dígitos'=>strlen(preg_replace('/\D/','',$dadosEmpresa['cnpj']??''))===14,
+ 'Inscrição estadual'=>!empty($dadosEmpresa['ie']),
+ 'Endereço completo e código IBGE'=>!empty($dadosEmpresa['logradouro'])&&!empty($dadosEmpresa['numero'])&&!empty($dadosEmpresa['bairro'])&&!empty($dadosEmpresa['municipio'])&&preg_match('/^\d{7}$/',$dadosEmpresa['cod_municipio']??''),
+ 'CSC e ID CSC de homologação'=>!empty($dadosEmpresa['csc'])&&!empty($dadosEmpresa['csc_id']),
+ 'Certificado A1 configurado'=>!empty($dadosEmpresa['certificado_a1_path'])&&is_file(__DIR__.'/../'.$dadosEmpresa['certificado_a1_path'])
+];
+$prontoHomologacao=!in_array(false,$requisitos,true);
+$permiteProducao=filter_var($_ENV['FISCAL_ALLOW_PRODUCTION']??false,FILTER_VALIDATE_BOOL);
 
 include('../includes/header.php');
 
@@ -242,7 +252,9 @@ select.form-control {
         <span>Configurações Fiscais</span>
     </div>
 
-    <form action="../actions/salvar_configuracao_fiscal.php" method="POST">
+    <div class="card" style="margin-bottom:25px;height:auto"><div class="card-header"><i class="fa-solid fa-stethoscope"></i> Diagnóstico fiscal</div><div class="card-body"><div class="alert" style="border-left-color:<?= $prontoHomologacao?'#2ecc71':'#f39c12' ?>"><strong><?= $prontoHomologacao?'Pronto para testes reais em homologação.':'Modo simulação: faltam requisitos para transmitir à SEFAZ.' ?></strong></div><?php foreach($requisitos as $rotulo=>$ok): ?><div style="padding:5px;color:<?= $ok?'#2ecc71':'#ff7675' ?>"><i class="fa-solid <?= $ok?'fa-circle-check':'fa-circle-xmark' ?>"></i> <?=htmlspecialchars($rotulo)?></div><?php endforeach; ?><p style="color:#aaa">Produção: <strong><?= $permiteProducao?'liberada pelo servidor':'bloqueada por segurança' ?></strong>.</p></div></div>
+
+    <form action="../actions/salvar_configuracao_fiscal.php" method="POST" enctype="multipart/form-data">
         
         <div style="display: flex; flex-direction: column; gap: 30px;">
 
@@ -332,7 +344,7 @@ select.form-control {
                                 <option value="2" <?= ($dadosEmpresa['ambiente'] ?? '') == 2 ? 'selected' : '' ?>>
                                     Homologação (Teste)
                                 </option>
-                                <option value="1" <?= ($dadosEmpresa['ambiente'] ?? '') == 1 ? 'selected' : '' ?>>
+                                <option value="1" <?= ($dadosEmpresa['ambiente'] ?? '') == 1 ? 'selected' : '' ?> <?= $permiteProducao?'':'disabled' ?>>
                                     Produção
                                 </option>
                             </select>
@@ -344,12 +356,15 @@ select.form-control {
                                 <option value="1" <?= ($dadosEmpresa['regime_tributario'] ?? '') == 1 ? 'selected' : '' ?>>
                                     Simples Nacional
                                 </option>
+                                <option value="2" <?= ($dadosEmpresa['regime_tributario'] ?? '') == 2 ? 'selected' : '' ?>>Simples Nacional — excesso de sublimite</option>
                                 <option value="3" <?= ($dadosEmpresa['regime_tributario'] ?? '') == 3 ? 'selected' : '' ?>>
                                     Regime Normal
                                 </option>
                             </select>
                         </div>
                     </div>
+
+                    <div class="row"><div class="col-half"><label>Série NFC-e</label><input class="form-control" type="number" min="1" max="999" name="serie_nfce" value="<?= (int)($dadosEmpresa['serie_nfce']??1) ?>" required></div><div class="col-half"><label>Próximo número</label><input class="form-control" value="<?= (int)($dadosEmpresa['ultimo_numero_nfce']??0)+1 ?>" readonly><small style="color:#777">Controlado automaticamente.</small></div></div>
 
                     <div class="row">
                         <div class="col-half">

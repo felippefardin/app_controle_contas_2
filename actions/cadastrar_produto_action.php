@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $preco_venda        = formatarMoedaLocal($_POST['preco_venda'] ?? '0');
     $ncm                = trim($_POST['ncm'] ?? '');
     $cfop               = trim($_POST['cfop'] ?? '');
-    $id_usuario         = $_SESSION['usuario_id'] ?? null;
+    $id_usuario         = get_data_owner_id() ?? null;
 
     if (!$nome || !$id_usuario) {
         set_flash_message('warning', 'Preencha o nome do produto.');

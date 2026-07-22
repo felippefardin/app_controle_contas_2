@@ -14,9 +14,9 @@ if ($conn === null) {
     die("Falha ao conectar ao banco de dados do cliente.");
 }
 
-$id_usuario = $_SESSION['usuario_id'];
+$id_usuario = get_data_owner_id();
 
-// 2. AJUSTA A CONSULTA SQL PARA FILTRAR PELO USUÁRIO
+// 2. AJUSTA A CONSULTA SQL PARA FILTRAR PELO USUÃRIO
 $lancamentos = [];
 $sql = "SELECT id, data, valor FROM caixa_diario WHERE usuario_id = ? ORDER BY data DESC";
 

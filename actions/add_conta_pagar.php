@@ -11,7 +11,7 @@ if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true)
 
 // 2. Recebendo dados do formulário
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $usuario_id = $_SESSION['usuario_id'];
+    $usuario_id = get_data_owner_id();
     
     // Dados básicos com sanitização simples
     $fornecedor_id = !empty($_POST['fornecedor_id']) ? intval($_POST['fornecedor_id']) : null;

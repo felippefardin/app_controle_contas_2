@@ -10,7 +10,23 @@ if (!isset($_SESSION['usuario_logado']) || $_SERVER['REQUEST_METHOD'] !== 'POST'
 
 $conn = getTenantConnection();
 
+function cnpjValido(string $cnpj): bool {
+    $cnpj=preg_replace('/\D/','',$cnpj); if(strlen($cnpj)!==14||preg_match('/^(\d)\1{13}$/',$cnpj))return false;
+    foreach([12,13] as $t){$s=0;$p=$t-7;for($i=0;$i<$t;$i++){$s+=(int)$cnpj[$i]*$p--;if($p<2)$p=9;}$d=11-($s%11);$d=$d>=10?0:$d;if((int)$cnpj[$t]!==$d)return false;}return true;
+}
+
 try {
+    $cnpj=preg_replace('/\D/','',$_POST['cnpj']??'');
+    $cep=preg_replace('/\D/','',$_POST['cep']??'');
+    $uf=strtoupper(trim($_POST['uf']??''));
+    $codMun=preg_replace('/\D/','',$_POST['cod_municipio']??'');
+    $ambiente=(int)($_POST['ambiente']??2);
+    $regime=(int)($_POST['regime_tributario']??1);
+    $serie=max(1,min(999,(int)($_POST['serie_nfce']??1)));
+    if(!cnpjValido($cnpj)) throw new Exception('CNPJ inválido.');
+    if(!preg_match('/^[A-Z]{2}$/',$uf)||!preg_match('/^\d{7}$/',$codMun)||strlen($cep)!==8) throw new Exception('UF, CEP ou código IBGE inválido.');
+    if(!in_array($ambiente,[1,2],true)||!in_array($regime,[1,2,3],true)) throw new Exception('Ambiente ou regime tributário inválido.');
+    if($ambiente===1&&!filter_var($_ENV['FISCAL_ALLOW_PRODUCTION']??false,FILTER_VALIDATE_BOOL)) throw new Exception('Produção bloqueada pelo servidor. Conclua a homologação antes da liberação.');
     $conn->begin_transaction();
 
     // 1. Salva dados cadastrais
@@ -26,19 +42,19 @@ try {
         LIMIT 1");
     
     $stmt->bind_param("sssssssssss", 
-        $_POST['razao_social'], $_POST['fantasia'], $_POST['cnpj'], $_POST['ie'],
+        $_POST['razao_social'], $_POST['fantasia'], $cnpj, $_POST['ie'],
         $_POST['logradouro'], $_POST['numero'], $_POST['bairro'], $_POST['municipio'],
-        $_POST['cod_municipio'], $_POST['uf'], $_POST['cep']
+        $codMun, $uf, $cep
     );
     $stmt->execute();
 
     // 2. Salva dados fiscais (KV Store)
-    $camposFiscais = ['regime_tributario', 'ambiente', 'csc_id', 'csc'];
+    $camposFiscais = ['regime_tributario', 'ambiente', 'csc_id', 'csc', 'serie_nfce'];
     $stmtKv = $conn->prepare("INSERT INTO configuracoes_tenant (chave, valor) VALUES (?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)");
 
     foreach ($camposFiscais as $chave) {
-        if (isset($_POST[$chave])) {
-            $valor = $_POST[$chave];
+        if (isset($_POST[$chave]) && !($chave==='csc' && trim($_POST[$chave])==='')) {
+            $valor = $chave==='ambiente'?(string)$ambiente:($chave==='regime_tributario'?(string)$regime:($chave==='serie_nfce'?(string)$serie:trim($_POST[$chave])));
             $stmtKv->bind_param("ss", $chave, $valor);
             $stmtKv->execute();
         }

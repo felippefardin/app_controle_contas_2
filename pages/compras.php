@@ -14,9 +14,9 @@ if ($conn === null) {
 }
 
 // 2. PEGA DADOS
-$usuarioId = $_SESSION['usuario_id'];
+$usuarioId = get_data_owner_id();
 
-// --- PROCESSAMENTO DE FORMULÁRIOS (POST) ---
+// --- PROCESSAMENTO DE FORMULÃRIOS (POST) ---
 
 // A) SALVAR NOVO PRODUTO
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_modal']) && $_POST['acao_modal'] === 'salvar_novo_produto') {
@@ -375,7 +375,7 @@ display_flash_message();
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <script>
-// --- MÁSCARAS ---
+// --- MÃSCARAS ---
 function mascaraMoeda(event) {
     const onlyDigits = event.target.value.split("").filter(s => /\d/.test(s)).join("").padStart(3, "0");
     const digitsFloat = onlyDigits.slice(0, -2) + "." + onlyDigits.slice(-2);

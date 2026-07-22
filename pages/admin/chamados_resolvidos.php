@@ -72,6 +72,7 @@ $result_chamados = $master_conn->query($sql_chamados);
             <thead>
                 <tr>
                     <th>Status</th>
+                    <th>Protocolo</th>
                     <th>Empresa</th>
                     <th>Solicitante</th>
                     <th>Tipo</th>
@@ -93,6 +94,7 @@ $result_chamados = $master_conn->query($sql_chamados);
                             <span style="font-size: 12px; color: #ccc;">Resolvido</span>
                         </div>
                     </td>
+                    <td style="font-weight:bold;color:#00bfff"><?= htmlspecialchars($c['protocolo'] ?: '-') ?></td>
                     <td style="font-weight: bold; color: #fff;">
                         <?= htmlspecialchars($c['nome_empresa'] ?: $c['nome_proprietario']) ?>
                     </td>
@@ -131,7 +133,7 @@ $result_chamados = $master_conn->query($sql_chamados);
                 </tr>
                 <?php endwhile; ?>
             <?php else: ?>
-                <tr><td colspan="6" style="text-align:center; padding: 20px; color: #777;">Nenhum chamado arquivado.</td></tr>
+                <tr><td colspan="7" style="text-align:center; padding: 20px; color: #777;">Nenhum chamado arquivado.</td></tr>
             <?php endif; ?>
             </tbody>
         </table>

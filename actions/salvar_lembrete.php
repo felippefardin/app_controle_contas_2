@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $conn = getTenantConnection();
-    $usuario_id = $_SESSION['usuario_id'];
+    $usuario_id = get_data_owner_id();
 
     $id        = !empty($_POST['id']) ? (int)$_POST['id'] : null;
     $titulo    = trim($_POST['titulo']);

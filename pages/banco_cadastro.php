@@ -9,7 +9,7 @@ if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true)
 }
 $conn = getTenantConnection();
 
-$usuarioId = $_SESSION['usuario_id'];
+$usuarioId = get_data_owner_id();
 $perfil = $_SESSION['nivel_acesso'] ?? 'padrao';
 
 include('../includes/header.php');

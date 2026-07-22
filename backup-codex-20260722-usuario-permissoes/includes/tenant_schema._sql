@@ -1,0 +1,283 @@
+-- =====================================================
+-- 📦 SCHEMA BASE PARA CRIAÇÃO DE NOVOS TENANTS
+-- =====================================================
+-- Esse arquivo é lido automaticamente pelo script
+-- actions/criar_banco_tenants.php
+-- =====================================================
+
+-- Tabela de Usuários
+CREATE TABLE IF NOT EXISTS usuarios (
+  id INT NOT NULL AUTO_INCREMENT,
+  id_criador INT DEFAULT NULL,
+  nome VARCHAR(100) NOT NULL,
+  tipo_pessoa VARCHAR(10) NOT NULL DEFAULT 'fisica',
+  documento VARCHAR(20) DEFAULT NULL,
+  telefone VARCHAR(20) DEFAULT NULL,
+  email VARCHAR(100) NOT NULL,
+  role VARCHAR(50) NOT NULL DEFAULT 'usuario',
+  senha VARCHAR(255) NOT NULL,
+  perfil ENUM('padrao','admin') DEFAULT 'padrao',
+  criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  tipo ENUM('admin','padrao') DEFAULT 'padrao',
+  owner_id INT DEFAULT NULL,
+  foto VARCHAR(255) DEFAULT 'default-profile.png',
+  banco_usuario VARCHAR(100) DEFAULT 'app_controle_contas',
+  criado_por_usuario_id INT DEFAULT NULL,
+  status VARCHAR(20) DEFAULT 'ativo',
+  nivel_acesso VARCHAR(20) DEFAULT 'padrao',
+  tenant_id INT DEFAULT NULL,
+  cpf VARCHAR(14) DEFAULT NULL,
+  token_reset VARCHAR(255) DEFAULT NULL,
+  token_expira_em DATETIME DEFAULT NULL,
+  is_master TINYINT(1) DEFAULT 0,
+  PRIMARY KEY (id),
+  UNIQUE KEY email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Inserindo usuário administrador padrão
+INSERT INTO usuarios (nome, tipo_pessoa, email, role, senha, perfil, tipo, nivel_acesso, is_master)
+VALUES (
+  'Administrador',
+  'fisica',
+  'admin@cliente.com',
+  'super_admin',
+  '$2y$10$KIEA.y8uqOQf6Wb0N0aMbeREjRtOEzWqzNwHfsH5HdwnIBqedwJKG', -- senha: admin123
+  'admin',
+  'admin',
+  'admin',
+  1
+);
+
+-- Tabela de Clientes e Fornecedores
+CREATE TABLE IF NOT EXISTS pessoas_fornecedores (
+  id INT NOT NULL AUTO_INCREMENT,
+  id_usuario INT NOT NULL,
+  codigo VARCHAR(50) DEFAULT NULL,
+  nome VARCHAR(255) NOT NULL,
+  cpf_cnpj VARCHAR(20) DEFAULT NULL,
+  endereco VARCHAR(255) DEFAULT NULL,
+  contato VARCHAR(20) DEFAULT NULL,
+  email VARCHAR(255) DEFAULT NULL,
+  tipo ENUM('pessoa','fornecedor') NOT NULL,
+  PRIMARY KEY (id),
+  KEY id_usuario (id_usuario)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Categorias
+CREATE TABLE IF NOT EXISTS categorias (
+  id INT NOT NULL AUTO_INCREMENT,
+  id_usuario INT NOT NULL,
+  id_pai INT DEFAULT NULL,
+  nome VARCHAR(100) NOT NULL,
+  tipo ENUM('receita','despesa') NOT NULL,
+  PRIMARY KEY (id),
+  KEY id_usuario (id_usuario),
+  KEY id_pai (id_pai)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Contas Bancárias
+CREATE TABLE IF NOT EXISTS contas_bancarias (
+  id INT NOT NULL AUTO_INCREMENT,
+  id_usuario INT NOT NULL,
+  nome_banco VARCHAR(100) NOT NULL,
+  agencia VARCHAR(20) DEFAULT NULL,
+  conta VARCHAR(20) NOT NULL,
+  tipo_conta VARCHAR(50) DEFAULT NULL,
+  chave_pix VARCHAR(255) DEFAULT NULL,
+  PRIMARY KEY (id),
+  KEY id_usuario (id_usuario)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Contas a Pagar
+CREATE TABLE IF NOT EXISTS contas_pagar (
+  id INT NOT NULL AUTO_INCREMENT,
+  usuario_id INT DEFAULT NULL,
+  fornecedor VARCHAR(100) DEFAULT NULL,
+  data_vencimento DATE DEFAULT NULL,
+  numero VARCHAR(20) DEFAULT NULL,
+  valor DECIMAL(10,2) DEFAULT NULL,
+  id_categoria INT DEFAULT NULL,
+  id_pessoa_fornecedor INT DEFAULT NULL,
+  status ENUM('pendente','baixada') DEFAULT 'pendente',
+  forma_pagamento VARCHAR(50) DEFAULT NULL,
+  data_baixa DATE DEFAULT NULL,
+  baixado_por INT DEFAULT NULL,
+  juros DECIMAL(10,2) DEFAULT 0.00,
+  comprovante VARCHAR(255) DEFAULT NULL,
+  descricao TEXT DEFAULT NULL,
+  PRIMARY KEY (id),
+  KEY usuario_id (usuario_id),
+  KEY id_categoria (id_categoria),
+  KEY id_pessoa_fornecedor (id_pessoa_fornecedor),
+  KEY baixado_por (baixado_por)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Contas a Receber
+CREATE TABLE IF NOT EXISTS contas_receber (
+  id INT NOT NULL AUTO_INCREMENT,
+  usuario_id INT DEFAULT NULL,
+  responsavel VARCHAR(100) DEFAULT NULL,
+  data_vencimento DATE DEFAULT NULL,
+  numero VARCHAR(20) DEFAULT NULL,
+  valor DECIMAL(10,2) DEFAULT NULL,
+  id_categoria INT DEFAULT NULL,
+  id_pessoa_fornecedor INT DEFAULT NULL,
+  status ENUM('pendente','baixada') DEFAULT 'pendente',
+  forma_pagamento VARCHAR(50) DEFAULT NULL,
+  data_baixa DATE DEFAULT NULL,
+  baixado_por INT DEFAULT NULL,
+  juros DECIMAL(10,2) DEFAULT 0.00,
+  comprovante VARCHAR(255) DEFAULT NULL,
+  descricao VARCHAR(255) DEFAULT NULL,
+  PRIMARY KEY (id),
+  KEY usuario_id (usuario_id),
+  KEY id_categoria (id_categoria),
+  KEY id_pessoa_fornecedor (id_pessoa_fornecedor),
+  KEY baixado_por (baixado_por)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Produtos
+CREATE TABLE IF NOT EXISTS produtos (
+  id INT NOT NULL AUTO_INCREMENT,
+  id_usuario INT NOT NULL,
+  nome VARCHAR(255) NOT NULL,
+  descricao TEXT,
+  preco_compra DECIMAL(10,2) DEFAULT NULL,
+  preco_venda DECIMAL(10,2) DEFAULT NULL,
+  quantidade_estoque INT DEFAULT 0,
+  unidade_medida VARCHAR(50) DEFAULT NULL,
+  data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  quantidade_minima INT DEFAULT 0,
+  ncm VARCHAR(8) DEFAULT NULL,
+  cfop VARCHAR(4) DEFAULT NULL,
+  cest VARCHAR(7) DEFAULT NULL,
+  origem TINYINT NOT NULL DEFAULT 0,
+  csosn VARCHAR(3) DEFAULT '102',
+  cst_icms VARCHAR(3) DEFAULT NULL,
+  aliquota_icms DECIMAL(7,4) NOT NULL DEFAULT 0,
+  pis_cst VARCHAR(2) NOT NULL DEFAULT '07',
+  cofins_cst VARCHAR(2) NOT NULL DEFAULT '07',
+  PRIMARY KEY (id),
+  KEY idx_produto_codigo (id_usuario, codigo)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Demais tabelas...
+-- (mantém o restante igual ao schema anterior)
+
+
+CREATE TABLE IF NOT EXISTS notificacoes_equipe (
+  id INT NOT NULL AUTO_INCREMENT,
+  usuario_id INT NOT NULL,
+  chave_evento VARCHAR(100) NOT NULL,
+  titulo VARCHAR(180) NOT NULL,
+  mensagem TEXT NOT NULL,
+  criado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  lida_em DATETIME DEFAULT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY ux_notificacao_usuario_evento (usuario_id, chave_evento),
+  KEY idx_notificacao_pendente (usuario_id, lida_em)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Vendas
+CREATE TABLE IF NOT EXISTS vendas (
+  id INT NOT NULL AUTO_INCREMENT,
+  id_usuario INT NOT NULL,
+  id_cliente INT NOT NULL,
+  data_venda TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  valor_total DECIMAL(10,2) NOT NULL,
+  desconto DECIMAL(10,2) DEFAULT 0.00,
+  observacao TEXT,
+  forma_pagamento VARCHAR(50) NOT NULL,
+  numero_parcelas INT DEFAULT 1,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Itens da Venda
+CREATE TABLE IF NOT EXISTS venda_items (
+  id INT NOT NULL AUTO_INCREMENT,
+  id_venda INT NOT NULL,
+  id_produto INT NOT NULL,
+  quantidade INT NOT NULL,
+  preco_unitario DECIMAL(10,2) NOT NULL,
+  subtotal DECIMAL(10,2) NOT NULL,
+  forma_pagamento VARCHAR(50) DEFAULT NULL,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Empresa Configurações
+CREATE TABLE IF NOT EXISTS empresa_config (
+  id INT NOT NULL AUTO_INCREMENT,
+  razao_social VARCHAR(255) DEFAULT NULL,
+  cnpj VARCHAR(14) DEFAULT NULL,
+  fantasia VARCHAR(255) DEFAULT NULL,
+  ie VARCHAR(20) DEFAULT NULL,
+  logradouro VARCHAR(255) DEFAULT NULL,
+  numero VARCHAR(10) DEFAULT NULL,
+  bairro VARCHAR(100) DEFAULT NULL,
+  municipio VARCHAR(100) DEFAULT NULL,
+  uf CHAR(2) DEFAULT NULL,
+  cep VARCHAR(8) DEFAULT NULL,
+  csc VARCHAR(100) DEFAULT NULL,
+  csc_id VARCHAR(10) DEFAULT NULL,
+  certificado_a1_path VARCHAR(255) DEFAULT NULL,
+  certificado_senha VARCHAR(255) DEFAULT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY cnpj (cnpj)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Configurações Gerais do Tenant
+CREATE TABLE IF NOT EXISTS configuracoes_tenant (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  chave VARCHAR(100) NOT NULL,
+  valor TEXT,
+  UNIQUE KEY uk_chave (chave)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Caixa Diário
+CREATE TABLE IF NOT EXISTS caixa_diario (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  data DATE NOT NULL,
+  valor DECIMAL(10,2) NOT NULL,
+  tipo VARCHAR(50) DEFAULT 'entrada',
+  descricao VARCHAR(255) DEFAULT NULL,
+  usuario_id INT NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Movimento de Estoque
+CREATE TABLE IF NOT EXISTS movimento_estoque (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  id_produto INT NOT NULL,
+  id_usuario INT NOT NULL,
+  id_pessoa_fornecedor INT DEFAULT NULL,
+  tipo ENUM('entrada','saida') NOT NULL,
+  quantidade INT NOT NULL,
+  data_movimento TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  observacao TEXT,
+  KEY idx_movimento_fornecedor (id_pessoa_fornecedor)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Compras e Itens de Compra
+CREATE TABLE IF NOT EXISTS compras (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  id_usuario INT NOT NULL,
+  id_fornecedor INT NOT NULL,
+  data_compra TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  valor_total DECIMAL(10,2) NOT NULL,
+  observacao TEXT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS compra_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  id_compra INT NOT NULL,
+  id_produto INT NOT NULL,
+  quantidade INT NOT NULL,
+  preco_unitario DECIMAL(10,2) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Solicitações de Exclusão
+CREATE TABLE IF NOT EXISTS solicitacoes_exclusao (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  id_usuario INT NOT NULL,
+  token VARCHAR(64) NOT NULL,
+  expira_em DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

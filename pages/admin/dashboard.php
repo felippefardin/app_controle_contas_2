@@ -471,7 +471,42 @@ $res_suporte_inicial = $master_conn->query($sql_suporte_inicial);
     </div>
 
     <script>
+        let chamadoAbertoId = null;
+        let atualizadorHistorico = null;
+
+        function atualizarHistorico() {
+            if (!chamadoAbertoId) return;
+            fetch('../../actions/suporte_master_historico.php?id=' + chamadoAbertoId, { cache: 'no-store' })
+                .then(response => {
+                    if (!response.ok) throw new Error('Falha ao atualizar');
+                    return response.json();
+                })
+                .then(mensagens => {
+                    const container = document.getElementById('modalHistoryContainer');
+                    container.innerHTML = '';
+                    if (!mensagens.length) {
+                        container.textContent = 'Nenhum histórico de interação.';
+                        return;
+                    }
+                    mensagens.forEach(item => {
+                        const bloco = document.createElement('div');
+                        bloco.className = 'history-item' + (item.autor_tipo === 'admin' ? ' admin-msg-item' : '');
+                        const meta = document.createElement('div');
+                        meta.className = 'history-meta';
+                        meta.textContent = item.autor_nome + ' - ' + item.criado_em;
+                        const mensagem = document.createElement('div');
+                        mensagem.className = 'history-msg' + (item.autor_tipo === 'admin' ? ' admin-msg' : '');
+                        mensagem.textContent = item.mensagem;
+                        bloco.append(meta, mensagem);
+                        container.appendChild(bloco);
+                    });
+                    container.scrollTop = container.scrollHeight;
+                })
+                .catch(() => {});
+        }
+
         function abrirModal(id, descricao, solicitante, historicoHtml) {
+            chamadoAbertoId = id;
             document.getElementById('modalIdDisplay').innerText = id;
             document.getElementById('modalIdInput').value = id;
             document.getElementById('modalDescricao').innerText = descricao;
@@ -480,9 +515,15 @@ $res_suporte_inicial = $master_conn->query($sql_suporte_inicial);
             document.getElementById('novaMensagem').value = ''; 
             document.getElementById('modalAtendimento').style.display = "block";
             document.body.style.overflow = 'hidden';
+            atualizarHistorico();
+            clearInterval(atualizadorHistorico);
+            atualizadorHistorico = setInterval(atualizarHistorico, 1500);
         }
 
         function fecharModal() {
+            chamadoAbertoId = null;
+            clearInterval(atualizadorHistorico);
+            atualizadorHistorico = null;
             document.getElementById('modalAtendimento').style.display = "none";
             document.body.style.overflow = 'auto';
         }

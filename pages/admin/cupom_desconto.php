@@ -20,16 +20,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['ac
     $tipo = $_POST['tipo'];
     $modo_uso = $_POST['modo_uso']; // passivo ou interno
     $valor = floatval(str_replace(',', '.', $_POST['valor']));
+    $limite_usos = trim($_POST['limite_usos'] ?? '') === '' ? null : max(1, intval($_POST['limite_usos']));
+    $uso_unico_tenant = isset($_POST['uso_unico_tenant']) ? 1 : 0;
+    $aplicar_extras = isset($_POST['aplicar_extras']) ? 1 : 0;
     // Se data estiver vazia, define como NULL
-    $data_exp = !empty($_POST['data_expiracao']) ? $_POST['data_expiracao'] : NULL;
+    $data_exp = $modo_uso === 'passivo' && !empty($_POST['data_expiracao']) ? $_POST['data_expiracao'] : NULL;
     $desc = trim($_POST['descricao']);
 
-    // Prepara a query
-    $stmt = $master_conn->prepare("INSERT INTO cupons_desconto (codigo, tipo_desconto, modo_uso, valor, data_expiracao, descricao) VALUES (?, ?, ?, ?, ?, ?)");
+    if (!in_array($modo_uso, ['passivo', 'interno'], true) || !in_array($tipo, ['porcentagem', 'valor_fixo'], true)) {
+        $msg = "<div class='alert error'>Tipo ou finalidade do cupom inválidos.</div>";
+    } elseif ($valor <= 0 || ($tipo === 'porcentagem' && $valor > 100)) {
+        $msg = "<div class='alert error'>Informe um desconto válido. A porcentagem deve ficar entre 0,01% e 100%.</div>";
+    }
+
+    if ($msg === '') {
+    $stmt = $master_conn->prepare("INSERT INTO cupons_desconto (codigo, tipo_desconto, modo_uso, valor, limite_usos, uso_unico_tenant, aplicar_extras, data_expiracao, descricao) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
     
     // s = string, d = double (float)
     // Ordem: codigo(s), tipo(s), modo(s), valor(d), data(s), desc(s)
-    $stmt->bind_param("sssdss", $codigo, $tipo, $modo_uso, $valor, $data_exp, $desc);
+    $stmt->bind_param("sssdiiiss", $codigo, $tipo, $modo_uso, $valor, $limite_usos, $uso_unico_tenant, $aplicar_extras, $data_exp, $desc);
 
     try {
         $stmt->execute();
@@ -44,6 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['ac
     }
     
     $stmt->close();
+    }
 }
 
 // ==========================================================
@@ -101,12 +111,12 @@ if (isset($_GET['excluir'])) {
 // 4. CONSULTAS SEPARADAS
 // ==========================================================
 // Cupons de Uso Passivo (Cliente digita)
-$cupons_passivos = $master_conn->query("SELECT * FROM cupons_desconto WHERE modo_uso = 'passivo' ORDER BY criado_em DESC");
+$cupons_passivos = $master_conn->query("SELECT c.*, (SELECT COUNT(*) FROM cupom_utilizacoes u WHERE u.cupom_id=c.id AND u.status='aplicado') AS usos_realizados FROM cupons_desconto c WHERE c.modo_uso = 'passivo' ORDER BY c.criado_em DESC");
 
 // Cupons de Uso Interno (Admin aplica via modal)
 $cupons_internos = $master_conn->query("SELECT * FROM cupons_desconto WHERE modo_uso = 'interno' ORDER BY criado_em DESC");
 
-$clientes_res = $master_conn->query("SELECT id, nome_empresa, admin_email FROM tenants WHERE status_assinatura = 'ativo' ORDER BY nome_empresa ASC");
+$clientes_res = $master_conn->query("SELECT id, nome_empresa, admin_email, status_assinatura FROM tenants WHERE status_assinatura IN ('ativo', 'trial') ORDER BY nome_empresa ASC");
 $clientes = [];
 while($row = $clientes_res->fetch_assoc()) { $clientes[] = $row; }
 ?>
@@ -182,7 +192,7 @@ while($row = $clientes_res->fetch_assoc()) { $clientes[] = $row; }
                     <label>Tipo</label>
                     <select name="tipo">
                         <option value="porcentagem">Porcentagem (%)</option>
-                        <option value="fixo">Valor Fixo (R$)</option>
+                        <option value="valor_fixo">Valor Fixo (R$)</option>
                     </select>
                 </div>
                 <div style="flex: 1;">
@@ -193,6 +203,14 @@ while($row = $clientes_res->fetch_assoc()) { $clientes[] = $row; }
                     <label>Validade (Apenas Passivo)</label>
                     <input type="date" name="data_expiracao">
                 </div>
+            </div>
+            <div style="display:flex; gap:20px; flex-wrap:wrap; margin-top:15px; align-items:end;">
+                <div style="flex:1; min-width:220px;">
+                    <label>Limite total de utilizações (opcional)</label>
+                    <input type="number" name="limite_usos" min="1" placeholder="Sem limite">
+                </div>
+                <label style="flex:1; min-width:220px;"><input type="checkbox" name="uso_unico_tenant" value="1" checked style="width:auto;"> Uma utilização por cliente</label>
+                <label style="flex:1; min-width:220px;"><input type="checkbox" name="aplicar_extras" value="1" style="width:auto;"> Aplicar desconto também aos usuários extras</label>
             </div>
             <div class="form-group" style="margin-top: 15px;">
                 <label>Descrição</label>
@@ -244,6 +262,7 @@ while($row = $clientes_res->fetch_assoc()) { $clientes[] = $row; }
                     <th>Código</th>
                     <th>Desconto</th>
                     <th>Validade</th>
+                    <th>Usos</th>
                     <th>Ação</th>
                 </tr>
             </thead>
@@ -262,6 +281,10 @@ while($row = $clientes_res->fetch_assoc()) { $clientes[] = $row; }
                             <?= $c['data_expiracao'] ? date('d/m/Y', strtotime($c['data_expiracao'])) : 'Indeterminado' ?>
                         </td>
                         <td>
+                            <?= intval($c['usos_realizados']) ?> / <?= $c['limite_usos'] === null ? '&infin;' : intval($c['limite_usos']) ?>
+                            <div style="font-size:.75rem;color:#aaa"><?= $c['uso_unico_tenant'] ? '1 por cliente' : 'reutilizÃ¡vel' ?> · <?= $c['aplicar_extras'] ? 'inclui extras' : 'somente plano' ?></div>
+                        </td>
+                        <td>
                             <a href="?excluir=<?= $c['id'] ?>" onclick="return confirm('Excluir este cupom?')" style="color: #e74c3c;" title="Excluir">
                                 <i class="fas fa-trash"></i>
                             </a>
@@ -269,7 +292,7 @@ while($row = $clientes_res->fetch_assoc()) { $clientes[] = $row; }
                     </tr>
                     <?php endwhile; ?>
                 <?php else: ?>
-                    <tr><td colspan="4" style="text-align:center; color:#666;">Nenhum cupom passivo cadastrado.</td></tr>
+                    <tr><td colspan="5" style="text-align:center; color:#666;">Nenhum cupom passivo cadastrado.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>
@@ -318,7 +341,7 @@ while($row = $clientes_res->fetch_assoc()) { $clientes[] = $row; }
                             <input type="checkbox" name="tenants[]" value="<?= $cli['id'] ?>" class="chk-cliente">
                             <div style="display:flex; flex-direction:column;">
                                 <span style="color:white; font-weight:bold;"><?= htmlspecialchars($cli['nome_empresa']) ?></span>
-                                <span style="font-size:0.8rem; color:#aaa;"><?= $cli['admin_email'] ?></span>
+                                <span style="font-size:0.8rem; color:#aaa;"><?= htmlspecialchars($cli['admin_email']) ?> · <?= $cli['status_assinatura'] === 'trial' ? 'PerÃ­odo de teste' : 'Ativo' ?></span>
                             </div>
                         </div>
                         <?php endforeach; ?>

@@ -25,7 +25,7 @@ if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_tok
 // 3. Processamento
 $id_conta = isset($_POST['id']) ? (int)$_POST['id'] : 0;
 $redirect = $_POST['redirect'] ?? '';
-$usuario_id = $_SESSION['usuario_id'];
+$usuario_id = get_data_owner_id();
 
 if ($id_conta > 0) {
     $conn = getTenantConnection();

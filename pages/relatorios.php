@@ -14,7 +14,7 @@ if ($conn === null) {
     die("Falha ao obter a conexão com o banco de dados do cliente.");
 }
 
-$usuarioId = $_SESSION['usuario_id'];
+$usuarioId = get_data_owner_id();
 $perfil = $_SESSION['nivel_acesso'];
 
 // INCLUI O HEADER PADRÃO (Já abre a tag <main>)
@@ -71,7 +71,7 @@ $medias = calcularMediaMensalHistorica($conn, $usuarioId);
 $saldoPrevisto = ($saldoRealizado + ($pendenteReceberMes['valor_total'] ?? 0)) - ($pendentePagarMes['valor_total'] ?? 0);
 $projesao60Dias = $saldoPrevisto + ($medias['entradas'] - $medias['saidas']);
 
-// --- 4. GRÁFICO 12 MESES ---
+// --- 4. GRÃFICO 12 MESES ---
 $labels = $entradasPendentes = $saidasPendentes = $entradasBaixadas = $saidasBaixadas = [];
 for ($i = 11; $i >= 0; $i--) {
     $mes = date('Y-m', strtotime("-$i month"));
@@ -164,7 +164,7 @@ foreach ($categorias as $c) {
                 <i class="fa-solid fa-wand-magic-sparkles"></i>
                 <h5>Tendência (Próximos 60 dias)</h5>
                 <p>R$ <?= number_format($projesao60Dias, 2, ',', '.') ?></p>
-                <span><?= $projesao60Dias < 0 ? "⚠️ Risco de caixa baixo detectado" : "✅ Histórico indica fluxo positivo" ?></span>
+                <span><?= $projesao60Dias < 0 ? "âš ï¸ Risco de caixa baixo detectado" : "✅ Histórico indica fluxo positivo" ?></span>
             </div>
         </div>
 

@@ -123,6 +123,7 @@ try {
 
     // 5. Configura Sessão do Tenant (banco específico)
     $idUsuarioTenant = null;
+    $idProprietarioDados = null;
     $nivelAcessoTenant = 'padrao';
 
     if ($tenant) {
@@ -145,12 +146,18 @@ try {
                 $idUsuarioTenant = $userTenant['id'];
                 $nivelAcessoTenant = $userTenant['nivel_acesso'];
             }
+
+            $ownerResult = $tenantConn->query("SELECT id FROM usuarios WHERE is_master = 1 OR nivel_acesso IN ('proprietario','master') ORDER BY is_master DESC, id ASC LIMIT 1");
+            if ($ownerResult && $ownerRow = $ownerResult->fetch_assoc()) {
+                $idProprietarioDados = (int)$ownerRow['id'];
+            }
             $tenantConn->close();
         }
     }
 
     // 6. Define Variáveis de Sessão Finais
     $_SESSION['usuario_id']        = $idUsuarioTenant ?? $userMaster['id'];
+    $_SESSION['dados_usuario_id']  = $idProprietarioDados ?? $idUsuarioTenant ?? $userMaster['id'];
     $_SESSION['usuario_id_master'] = $userMaster['id'];
     $_SESSION['nome']              = $userMaster['nome'];
     $_SESSION['email']             = $userMaster['email'];

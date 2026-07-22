@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $sql = "INSERT INTO usuarios (nome, email, cpf, senha, nivel_acesso, status, tenant_id, criado_por_usuario_id, permissoes) VALUES (?, ?, ?, ?, ?, 'ativo', ?, ?, ?)";
     $stmt = $conn->prepare($sql);
     
-    $stmt->bind_param("ssssssis", $nome, $email, $cpf, $senha_hash, $nivel_novo, $tenant_id, $criador, $json_permissoes);
+    $stmt->bind_param("sssssiis", $nome, $email, $cpf, $senha_hash, $nivel_novo, $tenant_id, $criador, $json_permissoes);
 
     if ($stmt->execute()) {
         set_flash_message('success', "Usuário <b>$nome</b> criado com sucesso!");

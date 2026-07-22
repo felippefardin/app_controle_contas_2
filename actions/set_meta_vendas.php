@@ -1,63 +1,67 @@
 <?php
 require_once '../includes/session_init.php';
-require_once '../database.php'; // Carrega a função getTenantConnection()
+require_once '../database.php';
 
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 
-// 1. VERIFICA LOGIN (Correção para booleano)
-if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true) {
+if (empty($_SESSION['usuario_logado'])) {
     echo json_encode(['success' => false, 'message' => 'Usuário não logado.']);
     exit;
 }
 
-// 2. VERIFICA PERMISSÃO (Correção: variável está na raiz da sessão, não dentro de usuario_logado)
 $perfil = $_SESSION['nivel_acesso'] ?? 'padrao';
-
-// Permite 'admin', 'master' ou 'proprietario' (caso use esse termo específico)
-if ($perfil !== 'admin' && $perfil !== 'master' && $perfil !== 'proprietario') {
-    echo json_encode(['success' => false, 'message' => 'Acesso negado. Nível: ' . $perfil]);
+if (!in_array($perfil, ['admin', 'master', 'proprietario'], true)) {
+    echo json_encode(['success' => false, 'message' => 'Acesso negado.']);
     exit;
 }
 
-// 3. PEGA A CONEXÃO CORRETA DO TENANT
-$conn = getTenantConnection(); 
-if ($conn === null) {
-    echo json_encode(['success' => false, 'message' => 'Falha na conexão com o banco de dados do cliente.']);
+$conn = getTenantConnection();
+if (!$conn) {
+    echo json_encode(['success' => false, 'message' => 'Falha na conexão com a empresa.']);
     exit;
 }
 
-// Força o mysqli a lançar Exceptions
-mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+$valorInformado = trim((string)($_POST['meta'] ?? ''));
+$valorMeta = (float)str_replace(',', '.', str_replace('.', '', $valorInformado));
+if ($valorMeta <= 0) {
+    echo json_encode(['success' => false, 'message' => 'Informe um valor de meta maior que zero.']);
+    exit;
+}
 
-$nova_meta = $_POST['meta'] ?? 0;
-// Converte formato (ex: 10.000,00) para formato float (10000.00)
-$valor_meta = (float)str_replace(',', '.', str_replace('.', '', $nova_meta)); 
-$ano_mes_atual = date('Y_n');
-$chave_meta = "meta_vendas_" . $ano_mes_atual;
+$usuarioCriador = (int)($_SESSION['usuario_id'] ?? 0);
 
 try {
-    // 4. Insere ou Atualiza a meta
-    $sql = "
-        INSERT INTO configuracoes_tenant (chave, valor) 
-        VALUES (?, ?)
-        ON DUPLICATE KEY UPDATE valor = VALUES(valor)
-    ";
-    
-    $stmt = $conn->prepare($sql);
-    
-    $valor_meta_str = (string)$valor_meta;
-    $stmt->bind_param("ss", $chave_meta, $valor_meta_str);
-    
-    $stmt->execute();
-    
-    echo json_encode(['success' => true, 'message' => 'Meta atualizada com sucesso!']);
-   
-    $stmt->close();
+    $conn->begin_transaction();
 
-} catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => 'Erro ao salvar: ' . $e->getMessage()]);
+    $ativa = $conn->query("SELECT id,inicio_em FROM metas_vendas WHERE status='ativa' ORDER BY id DESC LIMIT 1 FOR UPDATE")->fetch_assoc();
+    if ($ativa) {
+        $stmtTotal = $conn->prepare('SELECT COALESCE(SUM(valor_total),0) AS total FROM vendas WHERE data_venda >= ? AND data_venda < NOW()');
+        $stmtTotal->bind_param('s', $ativa['inicio_em']);
+        $stmtTotal->execute();
+        $totalFinal = (float)($stmtTotal->get_result()->fetch_assoc()['total'] ?? 0);
+        $stmtTotal->close();
+
+        $stmtFecha = $conn->prepare("UPDATE metas_vendas SET status='encerrada',encerrada_em=NOW(),valor_final=? WHERE id=?");
+        $stmtFecha->bind_param('di', $totalFinal, $ativa['id']);
+        $stmtFecha->execute();
+        $stmtFecha->close();
+    }
+
+    $stmtNova = $conn->prepare("INSERT INTO metas_vendas (valor_meta,inicio_em,status,criado_por) VALUES (?,NOW(),'ativa',?)");
+    $stmtNova->bind_param('di', $valorMeta, $usuarioCriador);
+    $stmtNova->execute();
+    $novaId = $conn->insert_id;
+    $stmtNova->close();
+
+    $conn->commit();
+    echo json_encode([
+        'success' => true,
+        'message' => $ativa ? 'Meta anterior arquivada e novo ciclo iniciado!' : 'Meta criada e ciclo iniciado!',
+        'meta_id' => $novaId
+    ]);
+} catch (Throwable $e) {
+    try { $conn->rollback(); } catch (Throwable $ignored) {}
+    echo json_encode(['success' => false, 'message' => 'Erro ao salvar a meta: '.$e->getMessage()]);
 } finally {
-    if ($conn) $conn->close();
+    $conn->close();
 }
-exit;
-?>

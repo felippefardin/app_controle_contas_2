@@ -11,7 +11,7 @@ if (!isset($_SESSION['usuario_logado'])) {
 $conn = getTenantConnection();
 if ($conn === null) die("Falha de conexão.");
 
-$usuarioId = $_SESSION['usuario_id'];
+$usuarioId = get_data_owner_id();
 
 // AJAX Search
 if (isset($_GET['action']) && $_GET['action'] === 'search_pessoa') {
@@ -47,7 +47,7 @@ $where = ["cr.status='pendente'", "cr.usuario_id = " . intval($usuarioId)];
 if (!empty($_GET['data_inicio'])) $where[] = "cr.data_vencimento >= '" . $conn->real_escape_string($_GET['data_inicio']) . "'";
 if (!empty($_GET['data_fim'])) $where[] = "cr.data_vencimento <= '" . $conn->real_escape_string($_GET['data_fim']) . "'";
 
-$sql = "SELECT cr.*, c.nome as nome_categoria, pf.nome as nome_pessoa
+$sql = "SELECT cr.*, c.nome as nome_categoria, pf.nome as nome_pessoa, pf.email as email_pessoa
         FROM contas_receber AS cr
         LEFT JOIN categorias AS c ON cr.id_categoria = c.id
         LEFT JOIN pessoas_fornecedores AS pf ON cr.id_pessoa_fornecedor = pf.id
@@ -82,7 +82,7 @@ $result = $conn->query($sql);
     .modal-content { background-color: #1f1f1f; padding: 25px; border-radius: 10px; width: 100%; max-width: 500px; border: 1px solid #444; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
     .close-btn { position: absolute; top: 10px; right: 15px; font-size: 28px; cursor: pointer; color: #aaa; z-index: 10; }
     
-    /* === FORMULÁRIO DE BUSCA === */
+    /* === FORMULÃRIO DE BUSCA === */
     form.search-form { 
         display: flex; 
         flex-wrap: wrap; 
@@ -164,6 +164,7 @@ $result = $conn->query($sql);
     .btn-excluir { background: #c0392b; }
     .btn-repetir { background: #f39c12; }
     .btn-cobranca { background-color: #ffc107; color: #121212; }
+    .btn-cobranca-indisponivel { background:#555; color:#aaa; cursor:not-allowed; opacity:.65; }
     
     /* === AUTOCOMPLETE === */
     .autocomplete-container { position: relative; width: 100%; }
@@ -197,7 +198,7 @@ $result = $conn->query($sql);
       <input type="date" name="data_fim" value="<?= htmlspecialchars($_GET['data_fim'] ?? '') ?>" title="Data Fim">
       <button type="submit" class="btn btn-search" title="Filtrar"><i class="fa fa-search"></i> Buscar</button>
       <a href="contas_receber.php" class="btn btn-clear" title="Limpar Filtros"><i class="fa fa-eraser"></i> Limpar</a>
-      <button type="button" class="btn btn-add" onclick="document.getElementById('addContaModal').style.display='flex'">➕ Nova</button>
+      <button type="button" class="btn btn-add" onclick="document.getElementById('addContaModal').style.display='flex'"><i class="fas fa-plus" aria-hidden="true"></i> Nova</button>
       <button type="button" class="btn btn-export" onclick="document.getElementById('exportModal').style.display='flex'"><i class="fa fa-download"></i> Exportar</button>
       <button type="button" class="btn btn-search" id="btnBulkBaixar" style="display:none; background-color: #27ae60;" onclick="abrirModalBulk()"><i class="fa fa-check-double"></i> Baixar Selecionados</button>
     </form>
@@ -225,6 +226,8 @@ $result = $conn->query($sql);
             while($row = $result->fetch_assoc()): 
                 $vencido = ($row['data_vencimento'] < $hoje) ? 'vencido' : '';
                 $nome = !empty($row['nome_pessoa']) ? $row['nome_pessoa'] : 'N/D';
+                $emailCliente = trim((string)($row['email_pessoa'] ?? ''));
+                $podeEnviarCobranca = $nome !== 'N/D' && filter_var($emailCliente, FILTER_VALIDATE_EMAIL);
             ?>
                 <tr class="<?= $vencido ?>">
     <td style="text-align:center;">
@@ -240,7 +243,11 @@ $result = $conn->query($sql);
                     <td>
                         <div style="display: flex; gap: 5px;">
                             <button onclick="abrirModalReceber(<?= $row['id'] ?>, '<?= addslashes($nome) ?>', '<?= $row['valor'] ?>')" class="btn btn-action btn-receber" title="Receber"><i class="fa fa-check"></i></button>
-                            <button onclick="abrirModalCobranca(<?= $row['id'] ?>, '<?= addslashes($nome) ?>', '<?= $row['valor'] ?>')" class="btn btn-action btn-cobranca" title="Enviar Cobrança"><i class="fa fa-envelope"></i></button>
+                            <?php if ($podeEnviarCobranca): ?>
+                                <button type="button" onclick='abrirModalCobranca(<?= (int)$row['id'] ?>, <?= json_encode($nome, JSON_HEX_APOS|JSON_HEX_QUOT) ?>, <?= json_encode($emailCliente, JSON_HEX_APOS|JSON_HEX_QUOT) ?>, <?= json_encode((string)$row['valor']) ?>)' class="btn btn-action btn-cobranca" title="Enviar cobrança por e-mail"><i class="fa fa-envelope"></i></button>
+                            <?php else: ?>
+                                <button type="button" onclick="avisarCobrancaIndisponivel()" class="btn btn-action btn-cobranca-indisponivel" title="Vincule um cliente com e-mail válido para enviar a cobrança"><i class="fa fa-envelope"></i></button>
+                            <?php endif; ?>
                             <a href="editar_conta_receber.php?id=<?= $row['id'] ?>" class="btn btn-action btn-editar"><i class="fa fa-pen"></i></a>
                             <button onclick="abrirModalRepetir(<?= $row['id'] ?>)" class="btn btn-action btn-repetir"><i class="fa-solid fa-repeat"></i></button>
                             
@@ -498,10 +505,14 @@ function showFlash(message, type) {
     setTimeout(() => alertBox.remove(), 4000);
 }
 
-function abrirModalCobranca(id, nome, valor) {
+function abrirModalCobranca(id, nome, email, valor) {
     document.getElementById('cobranca_id_conta').value = id;
-    document.getElementById('txt-cobranca').innerText = `Enviar cobrança para: ${nome} (R$ ${valor})`;
+    const valorFormatado = Number(valor).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('txt-cobranca').innerText = `Destinatário: ${nome} — ${email} — R$ ${valorFormatado}`;
     document.getElementById('cobrancaModal').style.display = 'flex';
+}
+function avisarCobrancaIndisponivel() {
+    showCustomAlert('Esta conta não possui cliente com e-mail válido. Edite a conta e vincule um cliente antes de enviar a cobrança.', 'error');
 }
 function abrirModalReceber(id, nome, valor) {
     document.getElementById('id_conta_receber').value = id;
@@ -652,3 +663,4 @@ function submitBulk() {
 <?php include('../includes/footer.php'); ?>
 </body>
 </html>
+

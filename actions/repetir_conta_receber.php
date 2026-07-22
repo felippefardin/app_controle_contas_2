@@ -6,7 +6,7 @@ require_once '../includes/utils.php'; // Importa utils
 if (!isset($_SESSION['usuario_logado'])) { header('Location: ../pages/login.php'); exit; }
 
 $conn = getTenantConnection();
-$id_usuario = $_SESSION['usuario_id'];
+$id_usuario = get_data_owner_id();
 $contaId = (int)$_POST['conta_id'];
 $repetirVezes = (int)$_POST['repetir_vezes'];
 $repetirIntervalo = (int)$_POST['repetir_intervalo'];

@@ -9,7 +9,7 @@ if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true)
 }
 
 $conn = getTenantConnection();
-$id_usuario = $_SESSION['usuario_id'];
+$id_usuario = get_data_owner_id();
 $id_registro = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 $stmt = $conn->prepare("SELECT * FROM contas_bancarias WHERE id = ? AND id_usuario = ?");

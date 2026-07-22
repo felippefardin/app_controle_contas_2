@@ -30,7 +30,7 @@ if ($acao === 'baixar') {
     // Atualiza status e insere data/forma
     $sql = "UPDATE $tabela SET status = 'baixada', data_baixa = ?, forma_pagamento = ? WHERE id IN ($ids_sanitized) AND usuario_id = ?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ssi", $data_baixa, $forma, $_SESSION['usuario_id']);
+    $stmt->bind_param("ssi", $data_baixa, $forma, get_data_owner_id());
     
     // NOTA: Aqui idealmente você também inseriria no caixa_diario, 
     // mas para manter simples e não alterar o fluxo complexo, focamos no status.
@@ -40,7 +40,7 @@ if ($acao === 'baixar') {
     $tabela = ($tipo === 'pagar') ? 'contas_pagar' : 'contas_receber';
     $sql = "DELETE FROM $tabela WHERE id IN ($ids_sanitized) AND usuario_id = ?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $_SESSION['usuario_id']);
+    $stmt->bind_param("i", get_data_owner_id());
 }
 
 if ($stmt->execute()) {

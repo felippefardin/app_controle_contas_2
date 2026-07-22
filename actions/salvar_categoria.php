@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $usuarioId = $_SESSION['usuario_id'];
+    $usuarioId = get_data_owner_id();
     
     $nome = trim($_POST['nome']);
     $tipo = $_POST['tipo'];

@@ -15,7 +15,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 
 if (!isset($_SESSION['usuario_logado'])) die("Acesso negado.");
 $conn = getTenantConnection();
-$usuarioId = $_SESSION['usuario_id'];
+$usuarioId = get_data_owner_id();
 
 $formato = $_GET['formato'] ?? 'excel';
 $status = $_GET['status'] ?? 'pendente';

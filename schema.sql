@@ -355,3 +355,42 @@ CREATE TABLE `empresa_config` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `cnpj` (`cnpj`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- Suporte solicitado diretamente pela tela de login
+CREATE TABLE IF NOT EXISTS suporte_login (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  protocolo VARCHAR(30) NOT NULL,
+  nome VARCHAR(150) NOT NULL,
+  whatsapp VARCHAR(30) DEFAULT NULL,
+  email VARCHAR(190) DEFAULT NULL,
+  descricao TEXT NOT NULL,
+  anonimo TINYINT(1) NOT NULL DEFAULT 0,
+  status VARCHAR(30) NOT NULL DEFAULT 'pendente',
+  criado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolvido_em DATETIME DEFAULT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY ux_suporte_login_protocolo (protocolo),
+  KEY idx_suporte_login_status_criado (status, criado_em),
+  KEY idx_suporte_login_nome (nome)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS suporte_historico (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  suporte_id INT UNSIGNED NOT NULL,
+  mensagem TEXT NOT NULL,
+  tipo VARCHAR(30) NOT NULL DEFAULT 'sistema',
+  criado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_suporte_historico_suporte (suporte_id, criado_em),
+  CONSTRAINT fk_suporte_historico_login FOREIGN KEY (suporte_id)
+    REFERENCES suporte_login (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Mensagens programadas para múltiplas datas, com limite independente por data
+CREATE TABLE IF NOT EXISTS mensagens_home_agendamentos (
+  id INT NOT NULL AUTO_INCREMENT,
+  mensagem_id INT NOT NULL,
+  data_exibicao DATE NOT NULL,
+  quantidade_logins INT NOT NULL DEFAULT 1,
+  PRIMARY KEY (id),
+  UNIQUE KEY ux_msg_data (mensagem_id, data_exibicao),
+  KEY idx_data_exibicao (data_exibicao)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

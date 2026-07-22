@@ -59,6 +59,11 @@ $stmt = $connMaster->prepare("INSERT INTO chamados_suporte (tenant_id, usuario_i
 $stmt->bind_param("sissssds", $tenant_id, $usuario_id, $usuario_nome, $usuario_email, $tipo, $descricao, $custo, $mes_atual);
 
 if ($stmt->execute()) {
+    $id_chamado = $connMaster->insert_id;
+    $stmt_hist = $connMaster->prepare("INSERT INTO chamados_historico (chamado_id, autor_tipo, autor_nome, mensagem) VALUES (?, 'usuario', ?, ?)");
+    $stmt_hist->bind_param("iss", $id_chamado, $usuario_nome, $descricao);
+    $stmt_hist->execute();
+    $stmt_hist->close();
     // 5. Atualiza Uso na tabela de contadores
     $sql_usage = "INSERT INTO suporte_usage (tenant_id, mes_ano, $campo_sql_update) VALUES (?, ?, 1) 
                   ON DUPLICATE KEY UPDATE $campo_sql_update = $campo_sql_update + 1";
@@ -69,6 +74,8 @@ if ($stmt->execute()) {
     // --- ALTERAÇÃO AQUI: Mensagem personalizada e tipo 'sucesso' ---
     $_SESSION['flash_msg'] = "Seu suporte foi solicitado. Aguarde, retornaremos em seu e-mail cadastrado no sistema. Caso seja um suporte pago, primeiro é enviada a solicitação de pagamento; após a confirmação, é feito o agendamento.";
     $_SESSION['flash_type'] = 'success';
+    header("Location: ../pages/suporte_chat_online.php?id=" . $id_chamado);
+    exit;
 } else {
     $_SESSION['flash_msg'] = "Erro ao abrir chamado. Tente novamente.";
     $_SESSION['flash_type'] = 'error';

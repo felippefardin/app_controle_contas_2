@@ -49,7 +49,8 @@ if (in_array($tipoNotificacao, ['subscription_preapproval', 'subscription_preapp
     if ($httpCode == 200) {
         $subData = json_decode($response, true);
         $statusMp = $subData['status']; 
-        $tenant_ref = $subData['external_reference']; // ID do Tenant
+        $ref_parts = explode('|', (string)($subData['external_reference'] ?? ''));
+        $tenant_ref = $ref_parts[0] ?? '';
 
         $statusSistema = ($statusMp === 'authorized') ? 'ativo' : (($statusMp === 'pending') ? 'pendente' : 'cancelado');
 
@@ -57,6 +58,12 @@ if (in_array($tipoNotificacao, ['subscription_preapproval', 'subscription_preapp
         $stmt->bind_param("sss", $statusSistema, $idRecurso, $tenant_ref);
         $stmt->execute();
         $stmt->close();
+        $statusCupom = ($statusMp === 'authorized') ? 'aplicado' : (($statusMp === 'pending') ? 'pendente' : 'cancelado');
+        $aplicadoEm = ($statusCupom === 'aplicado') ? date('Y-m-d H:i:s') : null;
+        $stmtCupom = $conn->prepare('UPDATE cupom_utilizacoes SET status=?, aplicado_em=? WHERE mp_preapproval_id=?');
+        $stmtCupom->bind_param('sss', $statusCupom, $aplicadoEm, $idRecurso);
+        $stmtCupom->execute();
+        $stmtCupom->close();
     }
 }
 
@@ -80,6 +87,7 @@ if (in_array($tipoNotificacao, ['payment', 'payment.created', 'payment.updated']
         $ref_parts = explode('|', ($payData['external_reference'] ?? ''));
         $tenant_id = $ref_parts[0] ?? null;
         $id_conta_tenant = $ref_parts[1] ?? null;
+        $cupom_id = (int)($ref_parts[2] ?? 0);
 
         $status_mp = $payData['status'];
         $valor = $payData['transaction_amount'];
@@ -88,6 +96,24 @@ if (in_array($tipoNotificacao, ['payment', 'payment.created', 'payment.updated']
         $data_vencimento = date('Y-m-d', strtotime($payData['date_created']));
 
         $status_db = ($status_mp === 'approved') ? 'pago' : (($status_mp === 'cancelled' || $status_mp === 'rejected') ? 'cancelado' : 'pendente');
+
+        if ($cupom_id > 0) {
+            $statusCupom = ($status_mp === 'approved') ? 'aplicado' : (($status_db === 'cancelado') ? 'cancelado' : 'pendente');
+            $aplicadoEm = ($statusCupom === 'aplicado') ? date('Y-m-d H:i:s') : null;
+            $tenantNumerico = 0;
+            $stmtTenant = $conn->prepare('SELECT id FROM tenants WHERE tenant_id=? LIMIT 1');
+            $stmtTenant->bind_param('s', $tenant_id);
+            $stmtTenant->execute();
+            if ($tenantRow = $stmtTenant->get_result()->fetch_assoc()) {
+                $tenantNumerico = (int)$tenantRow['id'];
+            }
+            if ($tenantNumerico > 0) {
+                $stmtCupom = $conn->prepare('UPDATE cupom_utilizacoes SET status=?, aplicado_em=? WHERE cupom_id=? AND tenant_id=?');
+                $stmtCupom->bind_param('ssii', $statusCupom, $aplicadoEm, $cupom_id, $tenantNumerico);
+                $stmtCupom->execute();
+            }
+            $stmtCupom->close();
+        }
 
         // A. Registro no Banco MASTER (Dashboard da aplicação)
         $check = $conn->prepare("SELECT id FROM faturas_assinatura WHERE transacao_id = ?");

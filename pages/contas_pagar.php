@@ -11,7 +11,7 @@ if (!isset($_SESSION['usuario_logado'])) {
 $conn = getTenantConnection();
 if ($conn === null) die("Falha de conexão.");
 
-$usuarioId = $_SESSION['usuario_id'];
+$usuarioId = get_data_owner_id();
 
 // AJAX Search
 if (isset($_GET['action']) && $_GET['action'] === 'search_fornecedor') {
@@ -76,7 +76,7 @@ $result = $conn->query($sql);
     .modal-content { background-color: #1f1f1f; padding: 25px; border-radius: 10px; width: 100%; max-width: 500px; border: 1px solid #444; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
     .close-btn { position: absolute; top: 10px; right: 15px; font-size: 28px; cursor: pointer; color: #aaa; z-index: 10; }
     
-    /* === FORMULÁRIO DE BUSCA === */
+    /* === FORMULÃRIO DE BUSCA === */
     form.search-form { 
         display: flex; 
         flex-wrap: wrap; 
@@ -194,7 +194,7 @@ $result = $conn->query($sql);
       <button type="submit" class="btn btn-search" title="Filtrar"><i class="fa fa-search"></i> Buscar</button>
       <a href="contas_pagar.php" class="btn btn-clear" title="Limpar Filtros"><i class="fa fa-eraser"></i> Limpar</a>
 
-      <button type="button" class="btn btn-add" onclick="document.getElementById('addContaModal').style.display='flex'">➕ Nova</button>
+      <button type="button" class="btn btn-add" onclick="document.getElementById('addContaModal').style.display='flex'"><i class="fas fa-plus" aria-hidden="true"></i> Nova</button>
       <button type="button" class="btn btn-export" onclick="document.getElementById('exportModal').style.display='flex'"><i class="fa fa-download"></i> Exportar</button>
 
       <button type="button" class="btn btn-search" id="btnBulkBaixar" style="display:none; background-color: #27ae60;" onclick="abrirModalBulk()"><i class="fa fa-check-double"></i> Baixar Selecionados</button>

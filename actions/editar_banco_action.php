@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $conn = getTenantConnection();
     
-    $id_usuario = $_SESSION['usuario_id'];
+    $id_usuario = get_data_owner_id();
     $id = $_POST['id'] ?? 0;
     $nome_banco = $_POST['nome_banco'] ?? '';
     $agencia = $_POST['agencia'] ?? '';

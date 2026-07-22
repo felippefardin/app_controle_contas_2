@@ -229,23 +229,26 @@ display_flash_message();
             </div>
             <div class="modal-body">
                 <form id="formSuporteLogin">
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="anonimoSuporte" name="anonimo">
-                        <label class="form-check-label text-light" for="anonimoSuporte">Enviar Anonimamente</label>
-                    </div>
-                    
                     <div id="dadosIdentificacaoSuporte">
                         <div class="mb-2">
-                            <input type="text" name="nome" class="form-control bg-secondary text-white border-0" placeholder="Seu Nome">
+                            <input type="text" name="nome" class="form-control bg-secondary text-white border-0" placeholder="Seu Nome" required>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-2">
-                                <input type="text" name="whatsapp" class="form-control bg-secondary text-white border-0" placeholder="WhatsApp">
+                                <input type="text" id="suporteWhatsapp" name="whatsapp" class="form-control bg-secondary text-white border-0" placeholder="WhatsApp com DDD">
                             </div>
                             <div class="col-md-6 mb-2">
-                                <input type="email" name="email" class="form-control bg-secondary text-white border-0" placeholder="E-mail">
+                                <input type="email" id="suporteEmail" name="email" class="form-control bg-secondary text-white border-0" placeholder="E-mail">
                             </div>
                         </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="canalPreferido" class="form-label">Como deseja receber a resposta?</label>
+                        <select id="canalPreferido" name="canal_preferido" class="form-select bg-secondary text-white border-0" required>
+                            <option value="email">E-mail</option>
+                            <option value="whatsapp">WhatsApp</option>
+                        </select>
                     </div>
 
                     <div class="mb-3">
@@ -317,19 +320,15 @@ display_flash_message();
     }
 
     // --- Lógica Suporte (Novo) ---
-    const checkAnonimoSuporte = document.getElementById('anonimoSuporte');
-    const divIdentificacaoSuporte = document.getElementById('dadosIdentificacaoSuporte');
-    
-    if(checkAnonimoSuporte) {
-        checkAnonimoSuporte.addEventListener('change', function() {
-            if (this.checked) {
-                divIdentificacaoSuporte.style.display = 'none';
-                divIdentificacaoSuporte.querySelectorAll('input').forEach(i => i.value = '');
-            } else {
-                divIdentificacaoSuporte.style.display = 'block';
-            }
-        });
+    const canalPreferido = document.getElementById('canalPreferido');
+    const suporteEmail = document.getElementById('suporteEmail');
+    const suporteWhatsapp = document.getElementById('suporteWhatsapp');
+    function atualizarCanalObrigatorio() {
+        suporteEmail.required = canalPreferido.value === 'email';
+        suporteWhatsapp.required = canalPreferido.value === 'whatsapp';
     }
+    canalPreferido.addEventListener('change', atualizarCanalObrigatorio);
+    atualizarCanalObrigatorio();
 
     function enviarSuporte() {
         const btn = document.getElementById('btnEnviarSuporte');

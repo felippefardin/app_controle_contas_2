@@ -6,7 +6,7 @@ header('Content-Type: application/json');
 
 // 1. Validação de segurança: verifica se o usuário está logado e se o ID existe
 // CORREÇÃO: Verifica se usuario_logado é true e se usuario_id está definido
-if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true || !isset($_SESSION['usuario_id'])) {
+if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true || get_data_owner_id() <= 0) {
     echo json_encode(['success' => false, 'message' => 'Sessão inválida. Por favor, faça login novamente.']);
     exit;
 }
@@ -19,7 +19,7 @@ if ($conn === null) {
 }
 
 // CORREÇÃO: Pega o ID da variável direta, não do array
-$id_usuario = $_SESSION['usuario_id']; 
+$id_usuario = get_data_owner_id(); 
 
 $venda_id = filter_input(INPUT_POST, 'venda_id', FILTER_VALIDATE_INT);
 

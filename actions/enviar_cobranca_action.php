@@ -42,10 +42,11 @@ try {
     $sql = "SELECT cr.*, pf.nome as nome_cliente, pf.email as email_cliente 
             FROM contas_receber cr 
             LEFT JOIN pessoas_fornecedores pf ON cr.id_pessoa_fornecedor = pf.id 
-            WHERE cr.id = ? LIMIT 1";
+            WHERE cr.id = ? AND cr.usuario_id = ? LIMIT 1";
             
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $id_conta);
+    $usuarioId = (int)(get_data_owner_id() ?? 0);
+    $stmt->bind_param("ii", $id_conta, $usuarioId);
     $stmt->execute();
     $resultado = $stmt->get_result();
     $conta = $resultado->fetch_assoc();
@@ -133,3 +134,4 @@ try {
 header('Location: ../pages/contas_receber.php');
 exit;
 ?>
+

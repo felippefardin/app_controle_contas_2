@@ -20,7 +20,7 @@ $erro = null;
 // 3. Busca o produto
 if (isset($_GET['id'])) {
     $id_produto = (int)$_GET['id'];
-    $id_usuario = $_SESSION['usuario_id'];
+    $id_usuario = get_data_owner_id();
 
     if ($stmt = $conn->prepare("SELECT * FROM produtos WHERE id = ? AND id_usuario = ?")) {
         $stmt->bind_param("ii", $id_produto, $id_usuario);

@@ -3,7 +3,7 @@ require_once '../includes/session_init.php';
 require_once '../database.php';
 require_once '../includes/utils.php'; // Importa o sistema de Flash Message
 
-// 1. VERIFICA SE O USUÁRIO ESTÁ LOGADO
+// 1. VERIFICA SE O USUÃRIO ESTÃ LOGADO
 if (!isset($_SESSION['usuario_logado'])) {
     header('Location: login.php');
     exit;
@@ -14,7 +14,7 @@ if ($conn === null) {
     die("Falha ao obter a conexão com o banco de dados do cliente.");
 }
 
-$id_usuario = $_SESSION['usuario_id'];
+$id_usuario = get_data_owner_id();
 
 // 3. PROCESSA O POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

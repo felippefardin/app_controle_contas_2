@@ -16,7 +16,7 @@ if (!$conn) {
 }
 
 // 2. CAPTURA DADOS
-$usuario_id = $_SESSION['usuario_id'];
+$usuario_id = get_data_owner_id();
 $id_conta = isset($_POST['id_conta']) ? (int)$_POST['id_conta'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
 $data_baixa = isset($_POST['data_baixa']) ? $_POST['data_baixa'] : date('Y-m-d');
 $forma_pagamento = isset($_POST['forma_pagamento']) ? $_POST['forma_pagamento'] : 'outros';
@@ -54,7 +54,7 @@ if (isset($_FILES['comprovante']) && $_FILES['comprovante']['error'] === UPLOAD_
         exit;
     }
 
-    // B) Validação por Conteúdo Real (MIME Type) - SEGURANÇA CRÍTICA
+    // B) Validação por Conteúdo Real (MIME Type) - SEGURANÇA CRÃTICA
     // Isso impede que alguém renomeie 'virus.php' para 'foto.jpg'
     $finfo = new finfo(FILEINFO_MIME_TYPE);
     $mimeReal = $finfo->file($_FILES['comprovante']['tmp_name']);

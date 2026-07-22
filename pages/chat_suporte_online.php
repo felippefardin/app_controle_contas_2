@@ -128,14 +128,25 @@ $jsChatId = (int)$chatId;
     max-width: 75%; padding: 10px 14px; border-radius: 8px;
     position: relative; font-size: 0.95rem; line-height: 1.4;
     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-    word-wrap: break-word;
+    word-wrap: break-word; color: #17212b !important;
 }
-.msg-user { align-self: flex-end; background: var(--msg-user); border-top-right-radius: 0; }
-.msg-admin { align-self: flex-start; background: var(--msg-admin); border-top-left-radius: 0; }
-.msg-time { display: block; font-size: 0.7rem; text-align: right; margin-top: 4px; opacity: 0.6; }
+.msg-user {
+    align-self: flex-end; background: var(--msg-user); border-top-right-radius: 0;
+    color: #12351b !important;
+}
+.msg-admin {
+    align-self: flex-start; background: var(--msg-admin); border-top-left-radius: 0;
+    color: #17212b !important;
+}
+.msg > div { color: inherit !important; }
+.msg-time {
+    display: block; font-size: 0.7rem; text-align: right; margin-top: 4px;
+    color: #52606d !important; opacity: 1;
+}
+.msg-user .msg-time { color: #3f6848 !important; }
 
 /* Anexos */
-.msg-file { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #333; font-weight: 600; }
+.msg-file { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #17212b !important; font-weight: 600; }
 .msg-img { max-width: 200px; border-radius: 6px; display: block; margin-bottom: 5px; }
 
 /* Footer input */
@@ -164,8 +175,20 @@ $jsChatId = (int)$chatId;
 .modal-content {
     background: #fff; padding: 30px; border-radius: 12px;
     text-align: center; max-width: 400px; width: 90%;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2); color: #17212b !important;
 }
+.modal-content h4 { color: #17212b !important; font-weight: 700; }
+.modal-content .text-success { color: #198754 !important; }
+.modal-content .text-muted { color: #4b5563 !important; opacity: 1; }
+#protocoloNum {
+    color: #0759c7 !important; background: #eef5ff !important;
+    border-color: #80adf0 !important; font-weight: 800;
+}
+#backLink {
+    display: block; background: #0d6efd !important; color: #fff !important;
+    border-color: #0d6efd !important; text-decoration: none; font-weight: 700;
+}
+#backLink:hover { background: #0b5ed7 !important; border-color: #0a58ca !important; }
 </style>
 
 <div class="chat-container">

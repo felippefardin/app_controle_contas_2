@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   token_reset VARCHAR(255) DEFAULT NULL,
   token_expira_em DATETIME DEFAULT NULL,
   is_master TINYINT(1) DEFAULT 0,
+  permissoes TEXT DEFAULT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -52,6 +53,7 @@ VALUES (
 CREATE TABLE IF NOT EXISTS pessoas_fornecedores (
   id INT NOT NULL AUTO_INCREMENT,
   id_usuario INT NOT NULL,
+  codigo VARCHAR(50) DEFAULT NULL,
   nome VARCHAR(255) NOT NULL,
   cpf_cnpj VARCHAR(20) DEFAULT NULL,
   endereco VARCHAR(255) DEFAULT NULL,
@@ -149,12 +151,33 @@ CREATE TABLE IF NOT EXISTS produtos (
   quantidade_minima INT DEFAULT 0,
   ncm VARCHAR(8) DEFAULT NULL,
   cfop VARCHAR(4) DEFAULT NULL,
-  PRIMARY KEY (id)
+  cest VARCHAR(7) DEFAULT NULL,
+  origem TINYINT NOT NULL DEFAULT 0,
+  csosn VARCHAR(3) DEFAULT '102',
+  cst_icms VARCHAR(3) DEFAULT NULL,
+  aliquota_icms DECIMAL(7,4) NOT NULL DEFAULT 0,
+  pis_cst VARCHAR(2) NOT NULL DEFAULT '07',
+  cofins_cst VARCHAR(2) NOT NULL DEFAULT '07',
+  PRIMARY KEY (id),
+  KEY idx_produto_codigo (id_usuario, codigo)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Demais tabelas...
 -- (mantém o restante igual ao schema anterior)
 
+
+CREATE TABLE IF NOT EXISTS notificacoes_equipe (
+  id INT NOT NULL AUTO_INCREMENT,
+  usuario_id INT NOT NULL,
+  chave_evento VARCHAR(100) NOT NULL,
+  titulo VARCHAR(180) NOT NULL,
+  mensagem TEXT NOT NULL,
+  criado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  lida_em DATETIME DEFAULT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY ux_notificacao_usuario_evento (usuario_id, chave_evento),
+  KEY idx_notificacao_pendente (usuario_id, lida_em)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Vendas
 CREATE TABLE IF NOT EXISTS vendas (
@@ -168,6 +191,22 @@ CREATE TABLE IF NOT EXISTS vendas (
   forma_pagamento VARCHAR(50) NOT NULL,
   numero_parcelas INT DEFAULT 1,
   PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Ciclos de metas de vendas. Uma meta permanece ativa ate ser substituida.
+CREATE TABLE IF NOT EXISTS metas_vendas (
+  id INT NOT NULL AUTO_INCREMENT,
+  valor_meta DECIMAL(12,2) NOT NULL,
+  inicio_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  atingida_em DATETIME DEFAULT NULL,
+  encerrada_em DATETIME DEFAULT NULL,
+  valor_final DECIMAL(12,2) DEFAULT NULL,
+  status ENUM('ativa','encerrada') NOT NULL DEFAULT 'ativa',
+  criado_por INT DEFAULT NULL,
+  criado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_meta_status_inicio (status, inicio_em),
+  KEY idx_meta_criador (criado_por)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Itens da Venda
@@ -221,15 +260,32 @@ CREATE TABLE IF NOT EXISTS caixa_diario (
   usuario_id INT NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Confirmacoes de fechamento do PDV por dia.
+CREATE TABLE IF NOT EXISTS fechamentos_caixa (
+  id INT NOT NULL AUTO_INCREMENT,
+  id_usuario INT NOT NULL,
+  data_caixa DATE NOT NULL,
+  quantidade_vendas INT NOT NULL DEFAULT 0,
+  valor_total DECIMAL(14,2) NOT NULL DEFAULT 0,
+  ultimo_venda_id INT NOT NULL DEFAULT 0,
+  fechado_por INT DEFAULT NULL,
+  fechado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY ux_fechamento_usuario_data (id_usuario, data_caixa),
+  KEY idx_fechamento_data (data_caixa)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Movimento de Estoque
 CREATE TABLE IF NOT EXISTS movimento_estoque (
   id INT AUTO_INCREMENT PRIMARY KEY,
   id_produto INT NOT NULL,
   id_usuario INT NOT NULL,
+  id_pessoa_fornecedor INT DEFAULT NULL,
   tipo ENUM('entrada','saida') NOT NULL,
   quantidade INT NOT NULL,
   data_movimento TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  observacao TEXT
+  observacao TEXT,
+  KEY idx_movimento_fornecedor (id_pessoa_fornecedor)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Compras e Itens de Compra

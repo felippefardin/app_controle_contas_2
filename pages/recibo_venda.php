@@ -13,11 +13,11 @@ if ($conn === null) die("Erro de conexão.");
 
 // ✅ CORREÇÃO DO ERRO (Linha 20 original)
 // Pega o ID direto da variável correta, não do array booleano
-$id_usuario = $_SESSION['usuario_id']; 
+$id_usuario = get_data_owner_id(); 
 
 $id_venda = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
-// 2. BUSCA DADOS DA VENDA, CLIENTE E PROPRIETÁRIO
+// 2. BUSCA DADOS DA VENDA, CLIENTE E PROPRIETÃRIO
 $sql_venda = "SELECT v.*, 
                      pf.nome AS nome_cliente, 
                      pf.cpf_cnpj AS doc_cliente, 
@@ -184,7 +184,7 @@ $result_itens = $stmt_itens->get_result();
         margin-left: 10px;
     }
 
-    /* ÁREA DE BOTÕES */
+    /* ÃREA DE BOTÕES */
     .actions {
         text-align: center;
         margin-top: 20px;
@@ -303,8 +303,8 @@ $result_itens = $stmt_itens->get_result();
     </div>
 
     <div class="actions">
-        <button onclick="window.print()" class="btn-print">🖨️ Imprimir Recibo</button>
-        <a href="vendas.php" class="btn-print btn-back">⬅️ Voltar</a>
+        <button onclick="window.print()" class="btn-print"><span aria-hidden="true">&#128424;</span> Imprimir Recibo</button>
+        <a href="vendas.php" class="btn-print btn-back"><span aria-hidden="true">&larr;</span> Voltar</a>
     </div>
 </div>
 

@@ -13,7 +13,7 @@ try {
         throw new Exception('Sessão expirada. Faça login novamente.');
     }
     
-    // --- CÓDIGO NOVO: BLOQUEIO DO PLANO BÁSICO ---
+    // --- CÓDIGO NOVO: BLOQUEIO DO PLANO BÃSICO ---
     // Isso garante que NINGUÉM no plano básico (nem admin) consiga finalizar uma venda.
     $plano = $_SESSION['plano'] ?? 'basico';
     if ($plano === 'basico') {
@@ -26,7 +26,7 @@ try {
         throw new Exception('Falha de conexão com o banco de dados.');
     }
 
-    $id_usuario = $_SESSION['usuario_id'];
+    $id_usuario = get_data_owner_id();
 
     // 2. RECEBE E VALIDA DADOS
     $cliente_id = filter_input(INPUT_POST, 'cliente_id', FILTER_VALIDATE_INT);
@@ -158,6 +158,35 @@ try {
         throw new Exception("Erro ao lançar no financeiro: " . $stmt_fin->error);
     }
     $stmt_fin->close();
+
+    // A meta ativa continua acumulando vendas mesmo depois de atingida.
+    // Uma nova notificacao so e criada na primeira venda que cruza a meta.
+    $metaRow = $conn->query("SELECT id,valor_meta,inicio_em,atingida_em FROM metas_vendas WHERE status='ativa' ORDER BY id DESC LIMIT 1 FOR UPDATE")->fetch_assoc();
+    if ($metaRow) {
+        $valorMeta = (float)$metaRow['valor_meta'];
+        $stmtTotalMeta = $conn->prepare('SELECT COALESCE(SUM(valor_total),0) AS total FROM vendas WHERE data_venda >= ?');
+        $stmtTotalMeta->bind_param('s', $metaRow['inicio_em']);
+        $stmtTotalMeta->execute();
+        $totalMeta = (float)($stmtTotalMeta->get_result()->fetch_assoc()['total'] ?? 0);
+        $stmtTotalMeta->close();
+
+        if ($valorMeta > 0 && $totalMeta >= $valorMeta && empty($metaRow['atingida_em'])) {
+            $stmtAtingida = $conn->prepare("UPDATE metas_vendas SET atingida_em=NOW() WHERE id=? AND atingida_em IS NULL");
+            $stmtAtingida->bind_param('i', $metaRow['id']);
+            $stmtAtingida->execute();
+
+            if ($stmtAtingida->affected_rows === 1) {
+                $chaveMeta = 'meta_vendas_id_' . $metaRow['id'];
+                $tituloMeta = 'Parabéns, equipe! Meta de vendas alcançada!';
+                $mensagemMeta = 'A equipe alcançou a meta de R$ ' . number_format($valorMeta,2,',','.') . '. Total realizado: R$ ' . number_format($totalMeta,2,',','.') . '. A contagem continuará até a criação da próxima meta.';
+                $stmtNotif = $conn->prepare("INSERT INTO notificacoes_equipe (usuario_id,chave_evento,titulo,mensagem) SELECT id,?,?,? FROM usuarios WHERE status='ativo' ON DUPLICATE KEY UPDATE usuario_id=VALUES(usuario_id)");
+                $stmtNotif->bind_param('sss', $chaveMeta, $tituloMeta, $mensagemMeta);
+                $stmtNotif->execute();
+                $stmtNotif->close();
+            }
+            $stmtAtingida->close();
+        }
+    }
 
     $conn->commit();
 

@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_POST['csrf_token']) || $_P
 }
 
 $conn = getTenantConnection();
-$id_usuario = $_SESSION['usuario_id'];
+$id_usuario = get_data_owner_id();
 $id_lancamento = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
 
 if ($id_lancamento) {
