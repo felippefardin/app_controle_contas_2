@@ -226,7 +226,7 @@ $result = $conn->query($sql);
                     <td><?= $data_baixa ?></td>
                     <td><?= htmlspecialchars($row['nome_categoria'] ?? '-') ?></td>
                     <td>
-                        <?= !empty($row['comprovante']) ? "<a href='../{$row['comprovante']}' target='_blank' class='btn-action btn-comprovante'><i class='fa fa-file'></i> Ver</a>" : '--' ?>
+                        <?= !empty($row['comprovante']) ? "<a href='../actions/visualizar_comprovante.php?tipo=receber&amp;id=" . (int)$row['id'] . "' target='_blank' rel='noopener' class='btn-action btn-comprovante'><i class='fa fa-file'></i> Ver</a>" : '--' ?>
                     </td>
                     <td>
                         <div style='display:flex; gap:5px;'>

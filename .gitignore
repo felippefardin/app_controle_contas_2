@@ -22,6 +22,19 @@ Thumbs.db
 .idea/
 .vscode/
 .env
+.env.*
+!.env.example
+
+# Cópias locais de segurança não pertencem ao repositório nem à pasta pública
+/backup-codex-*/
+
+# Documentos privados e artefatos gerados em execução
+/notas_fiscais/*
+!/notas_fiscais/.gitkeep
+/storage/notas_fiscais/*
+!/storage/notas_fiscais/.gitkeep
+/tmp/*
+!/tmp/.gitkeep
 
 # --- Logs e Arquivos Temporários ---
 *.log

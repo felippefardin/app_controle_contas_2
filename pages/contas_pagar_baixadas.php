@@ -241,7 +241,7 @@ $result = $conn->query($sql);
             
             $linkComprovante = '--';
             if (!empty($row['comprovante'])) {
-                $linkComprovante = "<a href='../{$row['comprovante']}' target='_blank' class='btn-action btn-comprovante'><i class='fa fa-file'></i> Ver</a>";
+                $linkComprovante = "<a href='../actions/visualizar_comprovante.php?tipo=pagar&amp;id=" . (int)$row['id'] . "' target='_blank' rel='noopener' class='btn-action btn-comprovante'><i class='fa fa-file'></i> Ver</a>";
             }
             echo "<td>{$linkComprovante}</td>";
             

@@ -2,6 +2,7 @@
 require_once '../includes/session_init.php';
 require_once '../database.php';
 require_once '../includes/utils.php'; // IMPORTANTE: Importar utils para usar set_flash_message
+require_once __DIR__ . '/../includes/private_storage.php';
 
 if (!isset($_SESSION['usuario_logado'])) {
     header('Location: ../pages/login.php');
@@ -23,14 +24,13 @@ if ($id_conta <= 0) {
 // Upload do Comprovante
 $caminho_comprovante = null;
 if (isset($_FILES['comprovante']) && $_FILES['comprovante']['error'] === UPLOAD_ERR_OK) {
-    $uploadDir = '../comprovantes/';
-    if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+    $uploadDir = ensure_private_storage_directory('comprovantes') . DIRECTORY_SEPARATOR;
 
     $ext = strtolower(pathinfo($_FILES['comprovante']['name'], PATHINFO_EXTENSION));
     if (in_array($ext, ['jpg', 'jpeg', 'png', 'pdf'])) {
         $novoNome = uniqid('rec_') . '_' . $id_conta . '.' . $ext;
         if (move_uploaded_file($_FILES['comprovante']['tmp_name'], $uploadDir . $novoNome)) {
-            $caminho_comprovante = 'comprovantes/' . $novoNome;
+            $caminho_comprovante = 'private:comprovantes/' . $novoNome;
         }
     }
 }

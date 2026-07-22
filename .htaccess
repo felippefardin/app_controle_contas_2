@@ -8,6 +8,20 @@
 # Desabilitar listagem de diretórios (para ninguém ver seus arquivos listados)
 Options -Indexes
 
+# Nunca entregue documentos privados, temporários ou cópias antigas por URL.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(?:backup-codex-[^/]+|comprovantes|notas_fiscais|storage|tmp)(?:/|$) - [F,L,NC]
+</IfModule>
+
+# Cabeçalhos mínimos de proteção para todas as respostas da aplicação.
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+</IfModule>
+
 # Proteção extra contra execução de PHP na pasta de uploads
 # (Crie um outro .htaccess DENTRO da pasta /comprovantes/ com este conteúdo:)
 # <FilesMatch "\.php$">
