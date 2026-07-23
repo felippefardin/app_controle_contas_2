@@ -60,7 +60,7 @@ $itens_basicos = [
     'contas_receber_baixadas.php' => 'Contas Recebidas',
     'lembretes.php' => 'Lembretes',
     'perfil.php' => 'Perfil',
-    'trocar_usuario.php' => 'Trocar Usuário',
+    'selecionar_usuario.php' => 'Trocar Usuário',
     'usuarios.php' => 'Gestão de Usuários'
 ];
 
