@@ -49,6 +49,8 @@ display_flash_message();
         .caixa-status-badge{display:inline-flex;align-items:center;margin-left:.35rem;padding:.25rem .7rem;border-radius:999px;font-weight:800;letter-spacing:.04em}
         .caixa-status-aberto{background:#146c43;color:#fff!important;border:1px solid #75d5aa;box-shadow:0 0 0 2px rgba(20,108,67,.12)}
         .caixa-status-fechado{background:#495057;color:#fff!important;border:1px solid #adb5bd}
+        html[data-app-theme="light"] body.light-mode .caixa-container .table tbody td,
+        html[data-app-theme="light"] body.light-mode .caixa-container .table tbody td *{color:#fff!important}
     </style>
 </head>
 <body>
