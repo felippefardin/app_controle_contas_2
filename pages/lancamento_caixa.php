@@ -46,6 +46,9 @@ display_flash_message();
         .summary-card strong{display:block;font-size:1.35rem}.form-control{background:#2c2c2c!important;color:#fff!important;border-color:#555!important}
         .table{color:#eee}.table thead th{background:#087da8;border-color:#087da8}.table td{border-color:#444}
         .entrada{color:#6ee7a0;font-weight:700}.saida{color:#ff8181;font-weight:700}.badge-status{font-size:.95rem}
+        .caixa-status-badge{display:inline-flex;align-items:center;margin-left:.35rem;padding:.25rem .7rem;border-radius:999px;font-weight:800;letter-spacing:.04em}
+        .caixa-status-aberto{background:#146c43;color:#fff!important;border:1px solid #75d5aa;box-shadow:0 0 0 2px rgba(20,108,67,.12)}
+        .caixa-status-fechado{background:#495057;color:#fff!important;border:1px solid #adb5bd}
     </style>
 </head>
 <body>
@@ -60,7 +63,9 @@ display_flash_message();
 
     <div class="alert <?= $caixaAberto ? 'alert-success' : 'alert-secondary' ?>">
         Caixa de hoje:
-        <strong><?= $caixaAberto ? 'ABERTO' : (($resumo['sessao']['status'] ?? '') === 'fechado' ? 'FECHADO' : 'AINDA NÃO ABERTO') ?></strong>
+        <strong class="caixa-status-badge <?= $caixaAberto ? 'caixa-status-aberto' : 'caixa-status-fechado' ?>">
+            <?= $caixaAberto ? 'ABERTO' : (($resumo['sessao']['status'] ?? '') === 'fechado' ? 'FECHADO' : 'AINDA NÃO ABERTO') ?>
+        </strong>
     </div>
 
     <div class="row mb-4">
