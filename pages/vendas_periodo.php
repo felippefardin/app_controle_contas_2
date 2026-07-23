@@ -242,15 +242,15 @@ display_flash_message();
             background: #444; 
         }
 
-        html[data-app-theme="light"] body.light-mode .filter-box label,
-        html[data-app-theme="light"] body.light-mode .card-result h3,
-        html[data-app-theme="light"] body.light-mode .card-result p,
+        html[data-app-theme="light"] body.light-mode main .container .filter-box .form-group label,
+        html[data-app-theme="light"] body.light-mode main .container .results-box .card-result h3,
+        html[data-app-theme="light"] body.light-mode main .container .results-box .card-result p,
         html[data-app-theme="light"] body.light-mode table tbody td,
         html[data-app-theme="light"] body.light-mode table tbody td * {
             color: #fff !important;
         }
 
-        html[data-app-theme="light"] body.light-mode .card-comissao p {
+        html[data-app-theme="light"] body.light-mode main .container .results-box .card-comissao p {
             color: #ffd54f !important;
         }
 
