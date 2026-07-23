@@ -29,6 +29,58 @@ html[data-app-theme="dark"] :is(.alert-light,.alert-secondary){background-color:
 html[data-app-theme="dark"] .btn-close{filter:invert(1) grayscale(100%) brightness(180%)}
 html[data-app-theme="dark"] a:not(.btn):not([class*="text-"]){color:#60d2ff}
 html[data-app-theme="dark"] hr{border-color:var(--app-border);opacity:.8}
+
+/* Padrão visual consistente para as páginas legadas no modo claro. */
+html[data-app-theme="light"] body.light-mode main :is(.filter-box,.filter-container,.filters,.toolbar,.form-box,.form-section,.search-box,.actions-bar){
+    background:#f8fafc!important;
+    color:#172033!important;
+    border:1px solid #d9e1eb!important;
+    box-shadow:none!important
+}
+html[data-app-theme="light"] body.light-mode main :is(.filter-box,.filter-container,.filters,.toolbar,.form-box,.form-section,.search-box,.actions-bar) :is(label,legend,h1,h2,h3,h4,h5,h6,p,span){
+    color:#172033!important
+}
+html[data-app-theme="light"] body.light-mode main :is(table,.table){
+    background:#fff!important;
+    color:#172033!important;
+    border-color:#d9e1eb!important
+}
+html[data-app-theme="light"] body.light-mode main :is(table,.table) thead :is(th,td){
+    background:#075dd8!important;
+    color:#fff!important;
+    border-color:#075dd8!important
+}
+html[data-app-theme="light"] body.light-mode main :is(table,.table) tbody tr:not(.table-danger):not(.danger):not(.atrasada):not(.atrasado):not(.vencido)>:is(td,th){
+    background:#fff!important;
+    color:#172033!important;
+    border-color:#d9e1eb!important
+}
+html[data-app-theme="light"] body.light-mode main :is(table,.table) tbody tr:not(.table-danger):not(.danger):not(.atrasada):not(.atrasado):not(.vencido)>:is(td,th) *:not(.btn):not(.btn *):not(.badge):not(.badge *){
+    color:inherit!important
+}
+html[data-app-theme="light"] body.light-mode main :is(table,.table) tbody tr:not(.table-danger):not(.danger):not(.atrasada):not(.atrasado):not(.vencido):nth-child(even)>:is(td,th){
+    background:#f7f9fc!important
+}
+html[data-app-theme="light"] body.light-mode main :is(table,.table) tbody tr:not(.table-danger):not(.danger):not(.atrasada):not(.atrasado):not(.vencido):hover>:is(td,th){
+    background:#eaf3ff!important
+}
+html[data-app-theme="light"] body.light-mode main :is(table,.table) tbody tr:is(.table-danger,.danger,.atrasada,.atrasado,.vencido)>:is(td,th){
+    background:#fde8e8!important;
+    color:#7f1d1d!important;
+    border-color:#f3baba!important
+}
+html[data-app-theme="light"] body.light-mode main :is(table,.table) tbody tr:is(.table-danger,.danger,.atrasada,.atrasado,.vencido)>:is(td,th) *:not(.btn):not(.btn *):not(.badge):not(.badge *){
+    color:inherit!important
+}
+html[data-app-theme="light"] body.light-mode main :is(.bg-dark,.table-dark){
+    background:#fff!important;
+    color:#172033!important;
+    border-color:#d9e1eb!important
+}
+html[data-app-theme="light"] body.light-mode main :is(.modal-header,.modal-footer,.card-header,.card-footer){
+    border-color:#d9e1eb!important
+}
+
 .global-theme-toggle{position:fixed;right:18px;bottom:82px;width:48px;height:48px;border-radius:50%;border:1px solid var(--app-border);background:var(--app-surface);color:var(--app-text);box-shadow:var(--app-shadow);display:grid;place-items:center;font-size:19px;cursor:pointer;z-index:10050;transition:transform .2s ease,border-color .2s ease}
 .global-theme-toggle:hover{transform:translateY(-2px);border-color:var(--app-accent)}.global-theme-toggle:focus-visible{outline:3px solid color-mix(in srgb,var(--app-accent) 45%,transparent);outline-offset:2px}
 @media(max-width:768px){.global-theme-toggle{width:44px;height:44px;right:12px;bottom:72px}}
