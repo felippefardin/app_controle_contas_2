@@ -267,6 +267,11 @@ if ($tenant_id && $connMaster) {
     .btn-quick.receita { background: linear-gradient(135deg, #00b09b, #96c93d); color: white; }
     .btn-quick.despesa { background: linear-gradient(135deg, #ff5f6d, #ffc371); color: white; }
     .btn-quick.venda   { background: linear-gradient(135deg, #36d1dc, #5b86e5); color: white; }
+    html[data-app-theme="dark"] .btn-quick,
+    html[data-app-theme="dark"] .btn-quick i,
+    html[data-app-theme="dark"] .btn-quick span {
+        color: #111 !important;
+    }
 
     /* KPIs */
     .dashboard-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 30px; }
