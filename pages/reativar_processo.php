@@ -21,6 +21,8 @@ if (!$user) {
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+<link rel="stylesheet" href="../assets/css/universal-theme.css">
+<script src="../assets/js/global-theme.js"></script>
     <meta charset="UTF-8">
     <title>Reativar Conta</title>
     <link rel="stylesheet" href="../assets/css/style.css">

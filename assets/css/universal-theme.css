@@ -1,0 +1,23 @@
+:root{color-scheme:dark;--app-bg:#0f1115;--app-surface:#191c22;--app-surface-2:#22262e;--app-input:#272c35;--app-text:#f1f5f9;--app-muted:#a9b4c2;--app-border:#374151;--app-accent:#00bfff;--app-shadow:0 12px 32px rgba(0,0,0,.32)}
+html[data-app-theme="light"]{color-scheme:light;--app-bg:#f4f7fb;--app-surface:#fff;--app-surface-2:#f8fafc;--app-input:#fff;--app-text:#172033;--app-muted:#5d6878;--app-border:#d9e1eb;--app-accent:#087cba;--app-shadow:0 12px 32px rgba(20,41,70,.10)}
+html[data-app-theme] body{background-color:var(--app-bg)!important;color:var(--app-text)!important;transition:background-color .2s ease,color .2s ease}
+html[data-app-theme] :is(.card,.modal-content,.dropdown-menu,.accordion-item,.list-group-item,.offcanvas,.toast,.popover,.pricing-card,.feature-card,.guide-section,.guide-card,.summary-card,.dashboard-card,.stat-card,.info-card,.form-container,.login-container,.register-container,.content-card,.panel,.box,.widget,.table-wrapper,.search-container,.plano-card,.main-container,.content-wrapper){background-color:var(--app-surface)!important;color:var(--app-text)!important;border-color:var(--app-border)!important}
+html[data-app-theme] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),select,textarea,.form-control,.form-select,.select2-selection,.select2-dropdown,.input-group-text){background-color:var(--app-input)!important;color:var(--app-text)!important;border-color:var(--app-border)!important}
+html[data-app-theme="dark"] body,html[data-app-theme="dark"] main{color:var(--app-text)}
+html[data-app-theme="dark"] :is(.card,.modal-content,.dropdown-menu,.accordion-item,.list-group-item,.offcanvas,.toast,.popover,.pricing-card,.feature-card,.guide-section,.guide-card,.summary-card,.dashboard-card,.stat-card,.info-card,.form-container,.login-container,.register-container,.content-card,.panel,.box,.widget,.table-wrapper,.search-container){background-color:var(--app-surface)!important;color:var(--app-text)!important;border-color:var(--app-border)!important}
+html[data-app-theme="dark"] :is(.bg-white,.bg-light,.table-light,.modal-header,.modal-footer,.accordion-button,.dropdown-item){background-color:var(--app-surface-2)!important;color:var(--app-text)!important}
+html[data-app-theme="dark"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),select,textarea,.form-control,.form-select,.select2-selection,.select2-dropdown,.input-group-text){background-color:var(--app-input)!important;color:var(--app-text)!important;border-color:var(--app-border)!important}
+html[data-app-theme="dark"] :is(input,textarea)::placeholder{color:#8894a4!important;opacity:1}
+html[data-app-theme="dark"] :is(table,.table,.table>:not(caption)>*>*,thead,tbody,tr,td,th){color:var(--app-text);border-color:var(--app-border)}
+html[data-app-theme="dark"] .table-striped>tbody>tr:nth-of-type(odd)>*{--bs-table-accent-bg:rgba(255,255,255,.035);color:var(--app-text)}
+html[data-app-theme="dark"] .table-hover>tbody>tr:hover>*{--bs-table-accent-bg:rgba(0,191,255,.08);color:var(--app-text)}
+html[data-app-theme="dark"] :is(h1,h2,h3,h4,h5,h6,label,legend,strong,.card-title,.modal-title,.accordion-button){color:var(--app-text)}
+html[data-app-theme="dark"] :is(.text-dark,.text-body,.text-secondary,.text-muted,small,.form-text,.subtitle,.card-subtitle){color:var(--app-muted)!important}
+html[data-app-theme="dark"] :is(.navbar,.header,header:not(.hero):not(.hero-section)){border-color:var(--app-border)}
+html[data-app-theme="dark"] :is(.alert-light,.alert-secondary){background-color:var(--app-surface-2);border-color:var(--app-border);color:var(--app-text)}
+html[data-app-theme="dark"] .btn-close{filter:invert(1) grayscale(100%) brightness(180%)}
+html[data-app-theme="dark"] a:not(.btn):not([class*="text-"]){color:#60d2ff}
+html[data-app-theme="dark"] hr{border-color:var(--app-border);opacity:.8}
+.global-theme-toggle{position:fixed;right:18px;bottom:82px;width:48px;height:48px;border-radius:50%;border:1px solid var(--app-border);background:var(--app-surface);color:var(--app-text);box-shadow:var(--app-shadow);display:grid;place-items:center;font-size:19px;cursor:pointer;z-index:10050;transition:transform .2s ease,border-color .2s ease}
+.global-theme-toggle:hover{transform:translateY(-2px);border-color:var(--app-accent)}.global-theme-toggle:focus-visible{outline:3px solid color-mix(in srgb,var(--app-accent) 45%,transparent);outline-offset:2px}
+@media(max-width:768px){.global-theme-toggle{width:44px;height:44px;right:12px;bottom:72px}}

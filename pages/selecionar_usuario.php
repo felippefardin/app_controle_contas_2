@@ -47,6 +47,8 @@ if (isset($_GET['status']) && $_GET['status'] == 'email_enviado') {
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<link rel="stylesheet" href="../assets/css/universal-theme.css">
+<script src="../assets/js/global-theme.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Selecionar Usuário - App Controle de Contas</title>

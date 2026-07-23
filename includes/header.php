@@ -27,6 +27,8 @@ $classeBody = ($temaAtual === 'light') ? 'light-mode' : '';
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <link rel="stylesheet" href="../assets/css/theme.css">
+<link rel="stylesheet" href="../assets/css/universal-theme.css">
+<script src="../assets/js/global-theme.js"></script>
 </head>
 
 <body class="<?= $classeBody ?>">
@@ -97,6 +99,10 @@ window.fetch = (resource, options = {}) => {
 // TOGGLE DE TEMA (PERSISTENTE)
 // ===============================
 function toggleTheme() {
+    if (window.appTheme) {
+        window.appTheme.toggle();
+        return;
+    }
     const body = document.body;
     const icon = document.querySelector('#themeToggle i');
 

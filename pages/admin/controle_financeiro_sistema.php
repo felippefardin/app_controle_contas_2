@@ -89,6 +89,8 @@ $json_pendente = json_encode($chart_data_pendente);
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+<link rel="stylesheet" href="../../assets/css/universal-theme.css">
+<script src="../../assets/js/global-theme.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controle Financeiro & Usuários</title>

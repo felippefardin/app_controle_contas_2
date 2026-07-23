@@ -33,6 +33,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['select_user_id'])) {
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<link rel="stylesheet" href="../assets/css/universal-theme.css">
+<script src="../assets/js/global-theme.js"></script>
     <meta charset="UTF-8">
     <title>Selecionar Usuário</title>
     <style>

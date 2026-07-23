@@ -33,6 +33,8 @@ try {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="assets/css/universal-theme.css" rel="stylesheet">
+    <script src="assets/js/global-theme.js"></script>
     <style>
         :root{--brand:#075dd8;--brand-dark:#0647a6;--accent:#00bfff;--ink:#122033;--muted:#617086;--surface:#f5f8fc;--line:#dfe7f1;--success:#168a4b}
         html{scroll-behavior:smooth;scroll-padding-top:88px}body{font-family:Inter,"Segoe UI",sans-serif;color:var(--ink);background:#fff}
@@ -315,11 +317,6 @@ document.querySelectorAll('[data-screen]').forEach(button=>button.addEventListen
     button.classList.add('active');
     const image=document.getElementById('systemScreen'); image.src=button.dataset.screen; image.alt=button.dataset.alt;
 }));
-const themeButton=document.getElementById('darkModeToggle');
-const themeIcon=themeButton.querySelector('i');
-function applyTheme(theme){document.body.classList.toggle('dark-mode',theme==='dark');themeIcon.className=theme==='dark'?'bi bi-sun-fill':'bi bi-moon-stars-fill';}
-applyTheme(localStorage.getItem('theme')||'light');
-themeButton.addEventListener('click',()=>{const theme=document.body.classList.contains('dark-mode')?'light':'dark';localStorage.setItem('theme',theme);applyTheme(theme)});
 if(window.VLibras)new window.VLibras.Widget('https://vlibras.gov.br/app');
 </script>
 </body>

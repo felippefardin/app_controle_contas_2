@@ -24,6 +24,8 @@ $result_chamados = $master_conn->query($sql_chamados);
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+<link rel="stylesheet" href="../../assets/css/universal-theme.css">
+<script src="../../assets/js/global-theme.js"></script>
     <meta charset="UTF-8">
     <title>Chamados Resolvidos</title>
     <!-- <link rel="stylesheet" href="../../assets/css/style.css"> -->
