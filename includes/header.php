@@ -139,18 +139,28 @@ function toggleTheme() {
 // ===============================
 // ACESSIBILIDADE – FONTE
 // ===============================
+const fontScaleStorageKey = 'app_font_scale';
+
+function applyFontScale(scale) {
+    const safeScale = Math.min(1.5, Math.max(0.8, Number(scale) || 1));
+    document.body.style.zoom = String(safeScale);
+    return safeScale;
+}
+
 function adjustFontSize(amount) {
-    const els = [document.documentElement, document.body];
-    els.forEach(el => {
-        let size = parseFloat(getComputedStyle(el).fontSize) || 16;
-        el.style.fontSize = (size + amount) + 'px';
-    });
+    const currentScale = Number(localStorage.getItem(fontScaleStorageKey)) || 1;
+    const nextScale = applyFontScale(currentScale + (amount * 0.1));
+    localStorage.setItem(fontScaleStorageKey, String(nextScale));
 }
 
 function resetFontSize() {
     document.documentElement.style.fontSize = '';
     document.body.style.fontSize = '';
+    document.body.style.zoom = '';
+    localStorage.removeItem(fontScaleStorageKey);
 }
+
+applyFontScale(localStorage.getItem(fontScaleStorageKey) || 1);
 </script>
 
 <?php require_once __DIR__ . '/meta_notificacao.php'; ?>
