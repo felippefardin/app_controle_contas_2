@@ -21,6 +21,7 @@ include_once '../includes/header.php';
 .profile-chip{display:inline-flex;gap:8px;align-items:center;margin-top:18px;background:rgba(255,255,255,.16);padding:8px 13px;border-radius:999px}
 .tutorial-search{margin-top:22px;position:relative;max-width:720px}.tutorial-search i{position:absolute;left:16px;top:15px;color:#607080}
 .tutorial-search input{width:100%;box-sizing:border-box;padding:13px 15px 13px 44px;border-radius:10px;border:1px solid #c8d9e4;background:#fff;color:#17212b;font-size:16px}
+.tutorial-search-status{display:block;margin-top:8px;color:#eaf8ff;font-size:14px;min-height:20px}
 .tutorial-layout{display:grid;grid-template-columns:285px minmax(0,1fr);gap:24px}.tutorial-nav{position:sticky;top:90px;align-self:start;max-height:calc(100vh - 120px);overflow:auto;background:var(--t-card);border:1px solid var(--t-border);border-radius:14px;padding:15px}
 .tutorial-nav strong{display:block;color:var(--t-accent);padding:8px 10px 12px}.tutorial-nav a{display:flex;gap:9px;align-items:center;color:#d8dee4;text-decoration:none;padding:10px;border-radius:8px;font-size:14px}
 .tutorial-nav a:hover,.tutorial-nav a.active{background:#113747;color:#65d5ff}.guide-section{scroll-margin-top:100px;background:var(--t-card);border:1px solid var(--t-border);border-radius:14px;padding:26px;margin-bottom:22px}
@@ -42,7 +43,11 @@ include_once '../includes/header.php';
         <h1>Manual atualizado do sistema</h1>
         <p>Olá, <?= htmlspecialchars($nomeUsuario, ENT_QUOTES, 'UTF-8') ?>. Este guia acompanha a organização atual do dashboard e explica as rotinas de caixa, PDV, estoque, financeiro, metas, equipe, fiscal e suporte.</p>
         <span class="profile-chip"><i class="fas fa-user-shield"></i> Perfil atual: <?= htmlspecialchars(ucfirst($perfil), ENT_QUOTES, 'UTF-8') ?></span>
-        <div class="tutorial-search"><i class="fas fa-search"></i><input id="tutorialSearch" type="search" placeholder="Pesquisar: abrir caixa, PDV, metas, PIX, permissões..." autocomplete="off"></div>
+        <div class="tutorial-search">
+            <i class="fas fa-search"></i>
+            <input id="tutorialSearch" type="search" placeholder="Pesquisar: abrir caixa, PDV, metas, PIX, permissões..." autocomplete="off">
+            <small id="tutorialSearchStatus" class="tutorial-search-status" aria-live="polite"></small>
+        </div>
     </section>
 
     <div class="tutorial-layout">
@@ -232,17 +237,48 @@ document.addEventListener('DOMContentLoaded', function () {
     const sections = Array.from(document.querySelectorAll('.guide-section'));
     const links = Array.from(document.querySelectorAll('.tutorial-nav a'));
     const empty = document.getElementById('searchEmpty');
+    const status = document.getElementById('tutorialSearchStatus');
 
-    search.addEventListener('input', function () {
-        const term = this.value.trim().toLocaleLowerCase('pt-BR');
+    const normalize = value => value
+        .toLocaleLowerCase('pt-BR')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+
+    function filterTutorial() {
+        const term = normalize(search.value.trim());
+        const primaryMatches = term
+            ? sections.filter(section => {
+                const title = section.querySelector('h2')?.textContent || '';
+                return normalize(`${section.id} ${section.dataset.keywords || ''} ${title}`).includes(term);
+            })
+            : [];
+        const prioritizePrimary = primaryMatches.length > 0;
         let visible = 0;
+
         sections.forEach(section => {
-            const haystack = (section.textContent + ' ' + (section.dataset.keywords || '')).toLocaleLowerCase('pt-BR');
-            const show = !term || haystack.includes(term);
+            const title = section.querySelector('h2')?.textContent || '';
+            const primary = normalize(`${section.id} ${section.dataset.keywords || ''} ${title}`);
+            const fullText = normalize(`${section.textContent} ${section.dataset.keywords || ''}`);
+            const show = !term || (prioritizePrimary ? primary.includes(term) : fullText.includes(term));
             section.classList.toggle('hidden-by-search', !show);
-            if (show) visible++;
+            const link = links.find(item => item.getAttribute('href') === `#${section.id}`);
+            if (link) link.hidden = !show;
+            if (show) {
+                visible++;
+            }
         });
+
         empty.classList.toggle('visible', visible === 0);
+        status.textContent = term
+            ? `${visible} tópico${visible === 1 ? '' : 's'} encontrado${visible === 1 ? '' : 's'}.`
+            : '';
+    }
+
+    search.addEventListener('input', filterTutorial);
+    search.addEventListener('keydown', event => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        document.querySelector('.guide-section:not(.hidden-by-search)')?.scrollIntoView({behavior: 'smooth', block: 'start'});
     });
 
     const observer = new IntersectionObserver(entries => {
