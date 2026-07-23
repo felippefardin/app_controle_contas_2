@@ -53,6 +53,8 @@ display_flash_message();
         .table thead th { background-color: #0af; color: #fff; }
         .table tbody tr { background-color: #2c2c2c; }
         .table tbody tr:hover { background-color: #3c3c3c; }
+        html[data-app-theme="light"] body.light-mode .table tbody td,
+        html[data-app-theme="light"] body.light-mode .table tbody td * { color: #fff !important; }
         .modal-content { background-color: #222; border: 1px solid #444; }
         .modal-header, .modal-footer { border-color: #444; }
         .close { color: #fff; text-shadow: none; opacity: 0.7; }
