@@ -1,6 +1,7 @@
 <?php
 require_once '../includes/session_init.php';
 include('../database.php');
+require_once '../includes/audit.php';
 
 require_tenant_admin();
 require_page_permission('contas_receber.php');
@@ -36,9 +37,7 @@ $stmt_update->bind_param("i", $id_codigo);
 $stmt_update->execute();
 
 // Excluir a conta a receber
-$stmt_delete = $conn->prepare("DELETE FROM contas_receber WHERE id = ? AND usuario_id = ?");
-$stmt_delete->bind_param("ii", $id_conta, $ownerId);
-$stmt_delete->execute();
+soft_delete_record($conn, 'contas_receber', (int) $id_conta, $ownerId);
 
 header('Location: ../pages/contas_receber.php');
 exit;

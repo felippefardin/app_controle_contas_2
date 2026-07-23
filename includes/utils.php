@@ -45,7 +45,7 @@ function set_flash_message($tipo, $mensagem) {
 function calcularMediaMensalHistorica($conn, $usuarioId) {
     // Média de entradas (Receber Baixado + Caixa Diário)
     $sqlEntradas = "SELECT SUM(valor) / 6 as media FROM (
-                        SELECT valor FROM contas_receber WHERE usuario_id = $usuarioId AND status = 'baixada' 
+                        SELECT valor FROM contas_receber WHERE usuario_id = $usuarioId AND status = 'baixada' AND deleted_at IS NULL
                         AND data_baixa >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
                         UNION ALL
                         SELECT valor FROM caixa_diario WHERE usuario_id = $usuarioId 
@@ -54,7 +54,7 @@ function calcularMediaMensalHistorica($conn, $usuarioId) {
     
     // Média de saídas (Pagar Baixado)
     $sqlSaidas = "SELECT SUM(valor) / 6 as media FROM contas_pagar 
-                  WHERE usuario_id = $usuarioId AND status = 'baixada' 
+                  WHERE usuario_id = $usuarioId AND status = 'baixada' AND deleted_at IS NULL
                   AND data_baixa >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)";
 
     $resE = $conn->query($sqlEntradas)->fetch_assoc();

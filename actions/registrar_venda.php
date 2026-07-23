@@ -51,7 +51,7 @@ try {
         $id_produto = (int)$item['id'];
         $quantidade_pedida = (float)$item['quantidade'];
 
-        $stmt = $conn->prepare("SELECT nome, quantidade_estoque FROM produtos WHERE id = ? AND id_usuario = ?");
+        $stmt = $conn->prepare("SELECT nome, quantidade_estoque FROM produtos WHERE id = ? AND id_usuario = ? AND deleted_at IS NULL");
         $stmt->bind_param("ii", $id_produto, $id_usuario);
         $stmt->execute();
         $res = $stmt->get_result();

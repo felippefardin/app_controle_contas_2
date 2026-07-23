@@ -15,7 +15,7 @@ include('../includes/header.php');
 // Exibe a mensagem centralizada
 display_flash_message();
 
-$where = ["cr.status='baixada'", "cr.usuario_id = " . intval($usuarioId)];
+$where = ["cr.status='baixada'", "cr.deleted_at IS NULL", "cr.usuario_id = " . intval($usuarioId)];
 
 if (!empty($_GET['cliente'])) {
     $where[] = "pf.nome LIKE '%" . $conn->real_escape_string($_GET['cliente']) . "%'";
@@ -323,7 +323,7 @@ function submitBulkExcluir() {
     const selected = Array.from(document.querySelectorAll('.check-item:checked')).map(cb => cb.value);
     if (selected.length === 0) return;
     
-    if (!confirm(`Tem certeza que deseja excluir ${selected.length} registros permanentemente?`)) return;
+    if (!confirm(`Deseja mover ${selected.length} registros para a lixeira?`)) return;
 
     fetch('../actions/bulk_action.php', {
         method: 'POST',

@@ -30,7 +30,7 @@ $conn = getTenantConnection();
 
 // 1. Buscar o e-mail atual antes da mudança (necessário para localizar no Master)
 $emailAntigo = '';
-$stmtGetOld = $conn->prepare("SELECT email FROM usuarios WHERE id = ?");
+$stmtGetOld = $conn->prepare("SELECT email FROM usuarios WHERE id = ? AND deleted_at IS NULL");
 $stmtGetOld->bind_param("i", $id);
 $stmtGetOld->execute();
 $stmtGetOld->bind_result($emailAntigo);
@@ -47,12 +47,12 @@ if ($novo_nivel === 'padrao' && isset($_POST['permissoes']) && is_array($_POST['
 if (!empty($senha)) {
     // Atualização com nova senha
     $senha_hash = password_hash($senha, PASSWORD_DEFAULT);
-    $sql = "UPDATE usuarios SET nome=?, email=?, cpf=?, nivel_acesso=?, senha=?, permissoes=? WHERE id=?";
+    $sql = "UPDATE usuarios SET nome=?, email=?, cpf=?, nivel_acesso=?, senha=?, permissoes=? WHERE id=? AND deleted_at IS NULL";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("ssssssi", $nome, $email, $cpf, $novo_nivel, $senha_hash, $json_permissoes, $id);
 } else {
     // Atualização sem alterar a senha
-    $sql = "UPDATE usuarios SET nome=?, email=?, cpf=?, nivel_acesso=?, permissoes=? WHERE id=?";
+    $sql = "UPDATE usuarios SET nome=?, email=?, cpf=?, nivel_acesso=?, permissoes=? WHERE id=? AND deleted_at IS NULL";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("sssssi", $nome, $email, $cpf, $novo_nivel, $json_permissoes, $id);
 }

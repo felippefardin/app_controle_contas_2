@@ -29,7 +29,7 @@ $userFilterCategorias = "id_usuario = " . intval($usuarioId);
 
 // --- FUNÇÃO GET TOTAIS ---
 function getTotais($conn, $tabela, $status, $userFilter, $mes = null, $colunaData = 'data_vencimento') {
-    $sql = "SELECT COUNT(id) AS total_contas, SUM(valor) AS valor_total FROM $tabela WHERE status = ? AND $userFilter";
+    $sql = "SELECT COUNT(id) AS total_contas, SUM(valor) AS valor_total FROM $tabela WHERE status = ? AND deleted_at IS NULL AND $userFilter";
     if ($mes) {
         $sql .= " AND DATE_FORMAT($colunaData, '%Y-%m') = '$mes'";
     }
@@ -77,11 +77,11 @@ for ($i = 11; $i >= 0; $i--) {
     $mes = date('Y-m', strtotime("-$i month"));
     $labels[] = date('M/Y', strtotime($mes . '-01'));
 
-    $stmt = $conn->prepare("SELECT SUM(valor) AS total FROM contas_receber WHERE $userFilter AND status='pendente' AND DATE_FORMAT(data_vencimento,'%Y-%m')=?");
+    $stmt = $conn->prepare("SELECT SUM(valor) AS total FROM contas_receber WHERE $userFilter AND deleted_at IS NULL AND status='pendente' AND DATE_FORMAT(data_vencimento,'%Y-%m')=?");
     $stmt->bind_param("s", $mes); $stmt->execute();
     $entradasPendentes[] = floatval($stmt->get_result()->fetch_assoc()['total'] ?? 0); $stmt->close();
 
-    $stmt = $conn->prepare("SELECT SUM(valor) AS total FROM contas_receber WHERE $userFilter AND status='baixada' AND DATE_FORMAT(data_baixa,'%Y-%m')=?");
+    $stmt = $conn->prepare("SELECT SUM(valor) AS total FROM contas_receber WHERE $userFilter AND deleted_at IS NULL AND status='baixada' AND DATE_FORMAT(data_baixa,'%Y-%m')=?");
     $stmt->bind_param("s", $mes); $stmt->execute();
     $tr = floatval($stmt->get_result()->fetch_assoc()['total'] ?? 0); $stmt->close();
 
@@ -90,11 +90,11 @@ for ($i = 11; $i >= 0; $i--) {
     $tc = floatval($stmt->get_result()->fetch_assoc()['total'] ?? 0); $stmt->close();
     $entradasBaixadas[] = $tr + $tc;
 
-    $stmt = $conn->prepare("SELECT SUM(valor) AS total FROM contas_pagar WHERE $userFilter AND status='pendente' AND DATE_FORMAT(data_vencimento,'%Y-%m')=?");
+    $stmt = $conn->prepare("SELECT SUM(valor) AS total FROM contas_pagar WHERE $userFilter AND deleted_at IS NULL AND status='pendente' AND DATE_FORMAT(data_vencimento,'%Y-%m')=?");
     $stmt->bind_param("s", $mes); $stmt->execute();
     $saidasPendentes[] = floatval($stmt->get_result()->fetch_assoc()['total'] ?? 0); $stmt->close();
 
-    $stmt = $conn->prepare("SELECT SUM(valor) AS total FROM contas_pagar WHERE $userFilter AND status='baixada' AND DATE_FORMAT(data_baixa,'%Y-%m')=?");
+    $stmt = $conn->prepare("SELECT SUM(valor) AS total FROM contas_pagar WHERE $userFilter AND deleted_at IS NULL AND status='baixada' AND DATE_FORMAT(data_baixa,'%Y-%m')=?");
     $stmt->bind_param("s", $mes); $stmt->execute();
     $saidasBaixadas[] = floatval($stmt->get_result()->fetch_assoc()['total'] ?? 0); $stmt->close();
 }
@@ -108,11 +108,11 @@ $stmt->close();
 $totaisPorCategoria = [];
 foreach ($categorias as $c) {
     $id = $c['id']; $nome = $c['nome'];
-    $stmt = $conn->prepare("SELECT SUM(valor) as total FROM contas_receber WHERE $userFilter AND id_categoria=? AND status='baixada'");
+    $stmt = $conn->prepare("SELECT SUM(valor) as total FROM contas_receber WHERE $userFilter AND deleted_at IS NULL AND id_categoria=? AND status='baixada'");
     $stmt->bind_param("i", $id); $stmt->execute();
     $receber = $stmt->get_result()->fetch_assoc()['total'] ?? 0; $stmt->close();
 
-    $stmt = $conn->prepare("SELECT SUM(valor) as total FROM contas_pagar WHERE $userFilter AND id_categoria=? AND status='baixada'");
+    $stmt = $conn->prepare("SELECT SUM(valor) as total FROM contas_pagar WHERE $userFilter AND deleted_at IS NULL AND id_categoria=? AND status='baixada'");
     $stmt->bind_param("i", $id); $stmt->execute();
     $pagar = $stmt->get_result()->fetch_assoc()['total'] ?? 0; $stmt->close();
 

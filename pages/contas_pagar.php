@@ -37,7 +37,7 @@ $stmt->execute();
 $categorias_despesa = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
 // Query Principal
-$where = ["cp.status='pendente'", "cp.usuario_id = " . intval($usuarioId)];
+$where = ["cp.status='pendente'", "cp.deleted_at IS NULL", "cp.usuario_id = " . intval($usuarioId)];
 if (!empty($_GET['data_inicio'])) $where[] = "cp.data_vencimento >= '" . $conn->real_escape_string($_GET['data_inicio']) . "'";
 if (!empty($_GET['data_fim'])) $where[] = "cp.data_vencimento <= '" . $conn->real_escape_string($_GET['data_fim']) . "'";
 

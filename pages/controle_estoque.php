@@ -20,7 +20,7 @@ $perfil     = $_SESSION['nivel_acesso'];
 require_once '../includes/header.php';
 
 // 3. QUERY
-$where = ["id_usuario = " . intval($usuarioId)];
+$where = ["deleted_at IS NULL", "id_usuario = " . intval($usuarioId)];
 $sql = "SELECT * FROM produtos";
 if (!empty($where)) {
     $sql .= " WHERE " . implode(" AND ", $where);
@@ -204,7 +204,7 @@ display_flash_message();
                 </button>
             </div>
             <div class="modal-body">
-                Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita.
+                Deseja mover este produto para a lixeira? Ele poderá ser restaurado.
             </div>
             <div class="modal-footer">
                 <form action="../actions/excluir_produto_action.php" method="POST">

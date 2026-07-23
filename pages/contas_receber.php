@@ -43,7 +43,7 @@ $stmt_bancos->execute();
 $lista_bancos_pix = $stmt_bancos->get_result()->fetch_all(MYSQLI_ASSOC);
 
 // Query Principal
-$where = ["cr.status='pendente'", "cr.usuario_id = " . intval($usuarioId)];
+$where = ["cr.status='pendente'", "cr.deleted_at IS NULL", "cr.usuario_id = " . intval($usuarioId)];
 if (!empty($_GET['data_inicio'])) $where[] = "cr.data_vencimento >= '" . $conn->real_escape_string($_GET['data_inicio']) . "'";
 if (!empty($_GET['data_fim'])) $where[] = "cr.data_vencimento <= '" . $conn->real_escape_string($_GET['data_fim']) . "'";
 
@@ -663,4 +663,3 @@ function submitBulk() {
 <?php include('../includes/footer.php'); ?>
 </body>
 </html>
-

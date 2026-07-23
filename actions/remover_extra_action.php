@@ -38,7 +38,7 @@ try {
     $limite_base = $mapa_planos[$plano_atual] ?? 3;
     $novo_limite_total = $limite_base + ($extras_atuais - $qtd_remover);
 
-    $resultCount = $connTenant->query("SELECT COUNT(*) as total FROM usuarios WHERE status = 'ativo'");
+    $resultCount = $connTenant->query("SELECT COUNT(*) as total FROM usuarios WHERE status = 'ativo' AND deleted_at IS NULL");
     $rowC = $resultCount->fetch_assoc();
     $usuarios_ativos = (int)$rowC['total'];
 

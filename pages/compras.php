@@ -94,7 +94,7 @@ if (isset($_GET['action'])) {
     }
 
     if ($_GET['action'] === 'search_produtos') {
-        $sql = "SELECT id, nome, preco_compra, quantidade_estoque FROM produtos WHERE nome LIKE ? AND id_usuario = ?";
+        $sql = "SELECT id, nome, preco_compra, quantidade_estoque FROM produtos WHERE nome LIKE ? AND id_usuario = ? AND deleted_at IS NULL";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("si", $term, $usuarioId);
         $stmt->execute();

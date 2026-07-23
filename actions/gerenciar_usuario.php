@@ -1,6 +1,7 @@
 <?php
 require_once '../includes/session_init.php';
 require_once '../database.php';
+require_once '../includes/audit.php';
 require_tenant_admin();
 require_csrf();
 
@@ -43,7 +44,7 @@ try {
         }
 
         // Verifica se e-mail já existe (excluindo o próprio usuário na edição)
-        $sql_check = "SELECT id FROM usuarios WHERE email = ? AND id != ?";
+        $sql_check = "SELECT id FROM usuarios WHERE email = ? AND id != ? AND deleted_at IS NULL";
         $check_id = $id ? $id : 0;
         $stmt = $conn->prepare($sql_check);
         $stmt->bind_param("si", $email, $check_id);
@@ -60,11 +61,11 @@ try {
             if (!empty($senha)) {
                 // Se forneceu senha nova
                 $hash = password_hash($senha, PASSWORD_DEFAULT);
-                $stmt = $conn->prepare("UPDATE usuarios SET nome=?, email=?, tipo=?, senha=? WHERE id=?");
+                $stmt = $conn->prepare("UPDATE usuarios SET nome=?, email=?, tipo=?, senha=? WHERE id=? AND deleted_at IS NULL");
                 $stmt->bind_param("ssssi", $nome, $email, $tipo, $hash, $id);
             } else {
                 // Mantém a senha antiga
-                $stmt = $conn->prepare("UPDATE usuarios SET nome=?, email=?, tipo=? WHERE id=?");
+                $stmt = $conn->prepare("UPDATE usuarios SET nome=?, email=?, tipo=? WHERE id=? AND deleted_at IS NULL");
                 $stmt->bind_param("sssi", $nome, $email, $tipo, $id);
             }
             $msg = "Usuário atualizado com sucesso!";
@@ -98,13 +99,10 @@ try {
             throw new Exception("ID inválido ou tentativa de excluir a si mesmo.");
         }
 
-        $stmt = $conn->prepare("DELETE FROM usuarios WHERE id = ?");
-        $stmt->bind_param("i", $id);
-        
-        if ($stmt->execute()) {
-            echo json_encode(['success' => true, 'message' => 'Usuário excluído com sucesso.']);
+        if (soft_delete_record($conn, 'usuarios', (int) $id)) {
+            echo json_encode(['success' => true, 'message' => 'Usuário movido para a lixeira.']);
         } else {
-            throw new Exception("Erro ao excluir usuário.");
+            throw new Exception("Erro ao mover usuário para a lixeira.");
         }
     }
 

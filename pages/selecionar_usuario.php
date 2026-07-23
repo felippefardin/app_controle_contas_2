@@ -31,7 +31,7 @@ if (empty($email) && $id_usuario_atual) {
 }
 
 // ✅ 3. BUSCA TODOS OS USUÁRIOS DO CLIENTE
-$sql = "SELECT id, nome, nivel_acesso, foto FROM usuarios ORDER BY nome ASC";
+$sql = "SELECT id, nome, nivel_acesso, foto FROM usuarios WHERE deleted_at IS NULL ORDER BY nome ASC";
 $stmt = $conn->prepare($sql);
 $stmt->execute();
 $result_usuarios = $stmt->get_result();

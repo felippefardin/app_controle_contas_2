@@ -35,7 +35,7 @@ $conn = getTenantConnection();
 
 try {
     // Busca status atual
-    $stmt = $conn->prepare("SELECT status,email FROM usuarios WHERE id = ?");
+    $stmt = $conn->prepare("SELECT status,email FROM usuarios WHERE id = ? AND deleted_at IS NULL");
     $stmt->bind_param("i", $id_usuario_alvo);
     $stmt->execute();
     $res = $stmt->get_result();

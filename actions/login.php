@@ -166,7 +166,7 @@ try {
 
         $tenantConn = getTenantConnection();
         if ($tenantConn) {
-            $stmtTenant = $tenantConn->prepare("SELECT * FROM usuarios WHERE email = ? LIMIT 1");
+            $stmtTenant = $tenantConn->prepare("SELECT * FROM usuarios WHERE email = ? AND deleted_at IS NULL LIMIT 1");
             $stmtTenant->bind_param("s", $email);
             $stmtTenant->execute();
             $userTenant = $stmtTenant->get_result()->fetch_assoc();
@@ -183,7 +183,7 @@ try {
                 $permissoesTenant = is_array($decodedPermissions) ? $decodedPermissions : [];
             }
 
-            $ownerResult = $tenantConn->query("SELECT id FROM usuarios WHERE is_master = 1 OR nivel_acesso IN ('proprietario','master') ORDER BY is_master DESC, id ASC LIMIT 1");
+            $ownerResult = $tenantConn->query("SELECT id FROM usuarios WHERE deleted_at IS NULL AND (is_master = 1 OR nivel_acesso IN ('proprietario','master')) ORDER BY is_master DESC, id ASC LIMIT 1");
             if ($ownerResult && $ownerRow = $ownerResult->fetch_assoc()) {
                 $idProprietarioDados = (int)$ownerRow['id'];
             }

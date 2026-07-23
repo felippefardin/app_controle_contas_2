@@ -51,7 +51,7 @@ if ($is_admin && $tenant_id) {
     $limiteBase = $limites[$planoAtual] ?? 3;
     $limite_total = $limiteBase + $extras;
 
-    $resCount = $connTenant->query("SELECT COUNT(*) AS total FROM usuarios WHERE status = 'ativo'");
+    $resCount = $connTenant->query("SELECT COUNT(*) AS total FROM usuarios WHERE status = 'ativo' AND deleted_at IS NULL");
     $total_ativos = intval($resCount->fetch_assoc()['total']);
     $pode_adicionar = ($total_ativos < $limite_total);
 }
@@ -60,9 +60,9 @@ if ($is_admin && $tenant_id) {
    5. CONSULTA DE USUÁRIOS
    ============================================================ */
 if ($is_admin) {
-    $stmt = $connTenant->prepare("SELECT id, nome, email, cpf, telefone, status, perfil, nivel_acesso FROM usuarios ORDER BY nome ASC");
+    $stmt = $connTenant->prepare("SELECT id, nome, email, cpf, telefone, status, perfil, nivel_acesso FROM usuarios WHERE deleted_at IS NULL ORDER BY nome ASC");
 } else {
-    $stmt = $connTenant->prepare("SELECT id, nome, email, cpf, telefone, status, perfil, nivel_acesso FROM usuarios WHERE id = ?");
+    $stmt = $connTenant->prepare("SELECT id, nome, email, cpf, telefone, status, perfil, nivel_acesso FROM usuarios WHERE id = ? AND deleted_at IS NULL");
     $stmt->bind_param("i", $id_usuario);
 }
 
@@ -183,6 +183,7 @@ body { margin: 0; padding: 0; background: #121212; font-family: Arial, sans-seri
         <h2><i class="fas fa-users"></i> Gerenciar Usuários</h2>
 
         <?php if ($is_admin): ?>
+            <a href="lixeira.php" class="btn-novo" style="background:#6c757d"><i class="fas fa-trash-restore"></i> Lixeira</a>
             <?php if ($pode_adicionar): ?>
                 <div style="display:flex;align-items:center;gap:10px;">
                     <span class="text-muted"><i class="fas fa-chart-pie"></i> Uso: <b><?= $total_ativos ?>/<?= $limite_total ?></b></span>

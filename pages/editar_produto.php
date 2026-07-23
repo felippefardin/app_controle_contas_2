@@ -22,7 +22,7 @@ if (isset($_GET['id'])) {
     $id_produto = (int)$_GET['id'];
     $id_usuario = get_data_owner_id();
 
-    if ($stmt = $conn->prepare("SELECT * FROM produtos WHERE id = ? AND id_usuario = ?")) {
+    if ($stmt = $conn->prepare("SELECT * FROM produtos WHERE id = ? AND id_usuario = ? AND deleted_at IS NULL")) {
         $stmt->bind_param("ii", $id_produto, $id_usuario);
         
         if ($stmt->execute()) {

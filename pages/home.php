@@ -85,9 +85,9 @@ $hoje = date('Y-m-d');
 // 1. Totais Rápidos (KPIs)
 $sqlResumo = "
     SELECT 
-        (SELECT COALESCE(SUM(valor), 0) FROM contas_receber WHERE usuario_id = ? AND status = 'pendente' AND DATE_FORMAT(data_vencimento, '%Y-%m') = ?) as receber_mes,
-        (SELECT COALESCE(SUM(valor), 0) FROM contas_pagar WHERE usuario_id = ? AND status = 'pendente' AND DATE_FORMAT(data_vencimento, '%Y-%m') = ?) as pagar_mes,
-        (SELECT COALESCE(SUM(valor), 0) FROM contas_pagar WHERE usuario_id = ? AND status = 'pendente' AND data_vencimento = ?) as pagar_hoje
+        (SELECT COALESCE(SUM(valor), 0) FROM contas_receber WHERE usuario_id = ? AND deleted_at IS NULL AND status = 'pendente' AND DATE_FORMAT(data_vencimento, '%Y-%m') = ?) as receber_mes,
+        (SELECT COALESCE(SUM(valor), 0) FROM contas_pagar WHERE usuario_id = ? AND deleted_at IS NULL AND status = 'pendente' AND DATE_FORMAT(data_vencimento, '%Y-%m') = ?) as pagar_mes,
+        (SELECT COALESCE(SUM(valor), 0) FROM contas_pagar WHERE usuario_id = ? AND deleted_at IS NULL AND status = 'pendente' AND data_vencimento = ?) as pagar_hoje
 ";
 $stmtDash = $conn->prepare($sqlResumo);
 $stmtDash->bind_param("isisis", $usuario_id, $mesAtual, $usuario_id, $mesAtual, $usuario_id, $hoje);
@@ -98,10 +98,10 @@ $stmtDash->close();
 // 2. Saldo em Caixa
 $sqlSaldo = "
     SELECT 
-    (COALESCE((SELECT SUM(valor) FROM contas_receber WHERE usuario_id = ? AND status = 'baixada'),0) + 
+    (COALESCE((SELECT SUM(valor) FROM contas_receber WHERE usuario_id = ? AND deleted_at IS NULL AND status = 'baixada'),0) +
      COALESCE((SELECT SUM(valor) FROM caixa_diario WHERE usuario_id = ?),0)) 
     - 
-    COALESCE((SELECT SUM(valor) FROM contas_pagar WHERE usuario_id = ? AND status = 'baixada'),0) 
+    COALESCE((SELECT SUM(valor) FROM contas_pagar WHERE usuario_id = ? AND deleted_at IS NULL AND status = 'baixada'),0)
     as saldo_real
 ";
 $stmtSaldo = $conn->prepare($sqlSaldo);
@@ -119,7 +119,7 @@ if ($checkNew && $checkNew->num_rows == 0) {
 
 // 4. Listas de Contas para HOJE
 $listReceberHoje = [];
-$qRH = $conn->prepare("SELECT descricao, valor FROM contas_receber WHERE usuario_id = ? AND status = 'pendente' AND data_vencimento = ? ORDER BY valor DESC");
+$qRH = $conn->prepare("SELECT descricao, valor FROM contas_receber WHERE usuario_id = ? AND deleted_at IS NULL AND status = 'pendente' AND data_vencimento = ? ORDER BY valor DESC");
 $qRH->bind_param("is", $usuario_id, $hoje);
 $qRH->execute();
 $resRH = $qRH->get_result();
@@ -127,7 +127,7 @@ while($row = $resRH->fetch_assoc()) { $listReceberHoje[] = $row; }
 $qRH->close();
 
 $listPagarHoje = [];
-$qPH = $conn->prepare("SELECT descricao, valor FROM contas_pagar WHERE usuario_id = ? AND status = 'pendente' AND data_vencimento = ? ORDER BY valor DESC");
+$qPH = $conn->prepare("SELECT descricao, valor FROM contas_pagar WHERE usuario_id = ? AND deleted_at IS NULL AND status = 'pendente' AND data_vencimento = ? ORDER BY valor DESC");
 $qPH->bind_param("is", $usuario_id, $hoje);
 $qPH->execute();
 $resPH = $qPH->get_result();

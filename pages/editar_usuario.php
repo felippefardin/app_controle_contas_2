@@ -26,7 +26,7 @@ if (!$id_usuario) {
 }
 
 // Busca dados do usuário e suas permissões atuais
-$stmt = $conn->prepare("SELECT * FROM usuarios WHERE id = ?");
+$stmt = $conn->prepare("SELECT * FROM usuarios WHERE id = ? AND deleted_at IS NULL");
 $stmt->bind_param("i", $id_usuario);
 $stmt->execute();
 $user = $stmt->get_result()->fetch_assoc();

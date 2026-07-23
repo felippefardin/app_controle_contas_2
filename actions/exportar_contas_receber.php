@@ -29,7 +29,7 @@ $sql = "SELECT cr.*, pf.nome as nome_cliente, c.nome as nome_categoria, u.nome a
         LEFT JOIN pessoas_fornecedores pf ON cr.id_pessoa_fornecedor = pf.id
         LEFT JOIN categorias c ON cr.id_categoria = c.id
         LEFT JOIN usuarios u ON cr.baixado_por = u.id
-        WHERE cr.usuario_id = ? AND cr.status = ?";
+        WHERE cr.usuario_id = ? AND cr.deleted_at IS NULL AND cr.status = ?";
 
 $params = [$usuarioId, $status];
 $types = 'is';

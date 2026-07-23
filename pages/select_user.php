@@ -14,7 +14,7 @@ if ($conn->connect_error) {
 }
 
 // Consulta o usuário principal e os usuários secundários
-$stmt = $conn->prepare("SELECT id, nome, email, foto FROM usuarios WHERE id = ? OR owner_id = ? ORDER BY nome ASC");
+$stmt = $conn->prepare("SELECT id, nome, email, foto FROM usuarios WHERE deleted_at IS NULL AND (id = ? OR owner_id = ?) ORDER BY nome ASC");
 $stmt->bind_param("ii", $ownerId, $ownerId);
 $stmt->execute();
 $result = $stmt->get_result();

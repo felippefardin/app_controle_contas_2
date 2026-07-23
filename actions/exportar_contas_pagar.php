@@ -48,7 +48,7 @@ $sql = "SELECT cp.*,
         LEFT JOIN pessoas_fornecedores pf ON cp.id_pessoa_fornecedor = pf.id
         LEFT JOIN categorias c ON cp.id_categoria = c.id
         LEFT JOIN usuarios u ON cp.baixado_por = u.id
-        WHERE cp.usuario_id = ?";
+        WHERE cp.usuario_id = ? AND cp.deleted_at IS NULL";
 
 $params[] = $usuarioId;
 $types .= 'i';
