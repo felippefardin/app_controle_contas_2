@@ -161,6 +161,65 @@ display_flash_message();
         .modal-content { background-color: #222; color: #eee; border: 1px solid #444; }
         .modal-header, .modal-footer { border-color: #444; }
         .close { color: #eee; }
+
+        html[data-app-theme="light"] body.light-mode main .container {
+            background: #fff !important;
+            color: #172033 !important;
+            border: 1px solid #d9e2ec !important;
+            box-shadow: 0 10px 28px rgba(31, 45, 61, .12) !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container h1,
+        html[data-app-theme="light"] body.light-mode main .container h2,
+        html[data-app-theme="light"] body.light-mode main .container h4,
+        html[data-app-theme="light"] body.light-mode main .container label {
+            color: #172033 !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container .card.bg-dark {
+            background: #f7f9fc !important;
+            color: #172033 !important;
+            border-color: #cfd9e5 !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container .card-header {
+            background: #edf5ff !important;
+            border-color: #cfd9e5 !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container .form-control,
+        html[data-app-theme="light"] body.light-mode main .container .select2-selection--single {
+            background: #fff !important;
+            color: #172033 !important;
+            border-color: #b9c7d8 !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container .select2-selection__rendered {
+            color: #172033 !important;
+        }
+        html[data-app-theme="light"] body.light-mode .select2-dropdown,
+        html[data-app-theme="light"] body.light-mode .select2-results__option {
+            background: #fff !important;
+            color: #172033 !important;
+            border-color: #b9c7d8 !important;
+        }
+        html[data-app-theme="light"] body.light-mode .select2-results__option--highlighted {
+            background: #075dd8 !important;
+            color: #fff !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container .table thead th {
+            background: #075dd8 !important;
+            color: #fff !important;
+            border-color: #075dd8 !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container .table tbody td,
+        html[data-app-theme="light"] body.light-mode main .container .table tbody td * {
+            background: #fff !important;
+            color: #172033 !important;
+            border-color: #d9e2ec !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container .table tbody tr:hover td {
+            background: #edf5ff !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container .total-compra {
+            color: #137a3b !important;
+        }
+
         @media (max-width: 768px) {
             .container { padding: 15px; margin-top: 15px; width: 95%; }
             h1 { font-size: 1.5rem; }
