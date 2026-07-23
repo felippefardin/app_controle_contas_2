@@ -1,4 +1,9 @@
 {
+    "scripts": {
+        "test": "php tests/run.php",
+        "test:unit": "php tests/run.php unit",
+        "test:integration": "php tests/run.php integration"
+    },
     "require": {
         "dompdf/dompdf": "^3.0",
         "phpoffice/phpspreadsheet": "^2.0",
