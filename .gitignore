@@ -10,6 +10,7 @@ includes/config/nfe_config.php
 # Ignora arquivos dentro da pasta, mas mantem a pasta
 assets/uploads/*
 !assets/uploads/.gitkeep
+!assets/uploads/.htaccess
 assets/uploads/chat_files/*
 !assets/uploads/chat_files/.gitkeep
 comprovantes/*
@@ -24,6 +25,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+!.env.testing.example
 
 # Cópias locais de segurança não pertencem ao repositório nem à pasta pública
 /backup-codex-*/

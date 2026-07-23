@@ -1,0 +1,10 @@
+Options -Indexes
+
+# Arquivos enviados por usuários nunca podem ser executados pelo servidor.
+<FilesMatch "\.(?:php[0-9]?|phtml|phar|cgi|pl|py|sh|bat|cmd|exe)$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+</IfModule>

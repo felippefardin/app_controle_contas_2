@@ -2,7 +2,8 @@
     "scripts": {
         "test": "php tests/run.php",
         "test:unit": "php tests/run.php unit",
-        "test:integration": "php tests/run.php integration"
+        "test:integration": "php tests/run.php integration",
+        "preflight": "php scripts/preflight.php --target=test"
     },
     "require": {
         "dompdf/dompdf": "^3.0",

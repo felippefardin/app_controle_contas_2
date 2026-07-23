@@ -30,6 +30,11 @@ if (!file_exists($dotenvPath . '/.env')) {
 
 $dotenv = Dotenv::createImmutable($dotenvPath);
 $dotenv->safeLoad();
+require_once __DIR__ . '/includes/environment.php';
+
+$showErrors = env_bool('APP_DEBUG', !app_is_production());
+ini_set('display_errors', $showErrors ? '1' : '0');
+ini_set('display_startup_errors', $showErrors ? '1' : '0');
 
 /*
 |--------------------------------------------------------------------------
@@ -72,6 +77,11 @@ function getMasterConnection(): mysqli
 
         error_log($e->getMessage());
 
+        if (app_is_production()) {
+            http_response_code(503);
+            die('Serviço temporariamente indisponível.');
+        }
+
         die(
             "<h2>Erro ao conectar no banco MASTER</h2>
             <b>Mensagem:</b> {$e->getMessage()}<br><br>
@@ -110,6 +120,12 @@ function getTenantConnection(): ?mysqli
         return $conn;
 
     } catch (mysqli_sql_exception $e) {
+
+        error_log($e->getMessage());
+        if (app_is_production()) {
+            http_response_code(503);
+            die('Serviço temporariamente indisponível.');
+        }
 
         die(
             "<h2>Erro ao conectar no banco do Tenant</h2>
