@@ -6,6 +6,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 require_once '../includes/session_init.php';
 require_once '../database.php';
+require_once '../includes/caixa_service.php';
 
 try {
     // 1. VERIFICA LOGIN
@@ -45,6 +46,10 @@ try {
 
     // INICIA TRANSAÇÃO
     $conn->begin_transaction();
+    $sessao_caixa = caixa_buscar_sessao($conn, $id_usuario, date('Y-m-d'), true);
+    if (!$sessao_caixa || $sessao_caixa['status'] !== 'aberto') {
+        throw new Exception('Abra o caixa de hoje antes de registrar a venda.');
+    }
 
     // 3. VERIFICA ESTOQUE
     foreach ($itens_venda as $item) {
@@ -158,6 +163,15 @@ try {
         throw new Exception("Erro ao lançar no financeiro: " . $stmt_fin->error);
     }
     $stmt_fin->close();
+
+    caixa_registrar_venda(
+        $conn,
+        $id_usuario,
+        (int)($_SESSION['usuario_id'] ?? 0),
+        (int)$venda_id,
+        (float)$total_venda_liquido,
+        (string)$forma_pagamento
+    );
 
     // A meta ativa continua acumulando vendas mesmo depois de atingida.
     // Uma nova notificacao so e criada na primeira venda que cruza a meta.

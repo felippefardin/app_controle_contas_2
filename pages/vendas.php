@@ -3,6 +3,7 @@ require_once '../includes/session_init.php';
 require_once '../includes/check_plan.php';
 require_once '../database.php';
 require_once '../includes/utils.php'; // Importa utils para o Flash Message e CSS
+require_once '../includes/caixa_service.php';
 
 // ----------------------------
 // 1. VERIFICA SE USUÃRIO ESTÃ LOGADO
@@ -22,6 +23,8 @@ if ($conn === null) {
 // ----------------------------
 $id_usuario = get_data_owner_id();
 $perfil     = $_SESSION['nivel_acesso'];
+$sessao_caixa = caixa_buscar_sessao($conn, $id_usuario, date('Y-m-d'));
+$caixa_aberto = $sessao_caixa && $sessao_caixa['status'] === 'aberto';
 
 // ----------------------------
 // 3. BLOCO AJAX PARA BUSCAS
@@ -489,7 +492,27 @@ label {
 
     <div id="alert-container"></div>
 
-    <form id="form-venda">
+    <?php if ($caixa_aberto): ?>
+        <div class="alert alert-success d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-lock-open"></i> Caixa aberto hoje com saldo inicial de
+                <strong>R$ <?= number_format((float)$sessao_caixa['valor_abertura'], 2, ',', '.') ?></strong>.
+            </span>
+            <a class="btn btn-sm btn-outline-light" href="lancamento_caixa.php">Ver movimentações</a>
+        </div>
+    <?php elseif ($sessao_caixa && $sessao_caixa['status'] === 'fechado'): ?>
+        <div class="alert alert-secondary">
+            <i class="fas fa-lock"></i> O caixa de hoje já foi fechado. Um novo caixa poderá ser aberto amanhã.
+        </div>
+    <?php else: ?>
+        <div class="alert alert-warning d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-exclamation-triangle"></i> Abra o caixa para começar as vendas de hoje.</span>
+            <button type="button" class="btn btn-success" data-toggle="modal" data-target="#modalAbrirCaixa">
+                <i class="fas fa-lock-open"></i> Abrir caixa
+            </button>
+        </div>
+    <?php endif; ?>
+
+    <form id="form-venda"<?= $caixa_aberto ? '' : ' style="opacity:.45;pointer-events:none"' ?>>
 
         <div class="form-group">
             <label for="cliente_id">Cliente</label>
@@ -567,6 +590,35 @@ label {
         </div>
 
     </form>
+
+    <div class="modal fade" id="modalAbrirCaixa" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content bg-dark text-light">
+                <form method="post" action="../actions/abrir_caixa.php">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="fas fa-cash-register"></i> Abrir caixa de hoje</h5>
+                        <button type="button" class="close text-light" data-dismiss="modal"><span>&times;</span></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                        <div class="form-group">
+                            <label>Dinheiro inicial em caixa (opcional)</label>
+                            <input type="text" name="valor_abertura" class="form-control" value="0,00" inputmode="decimal">
+                            <small class="text-muted">Pode abrir com zero. Se houver troco ou fundo de caixa, informe o valor.</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Observação (opcional)</label>
+                            <input type="text" name="observacao" class="form-control" maxlength="255" placeholder="Ex.: fundo de troco">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-success">Confirmar abertura</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 
 <?php if ($perfil === 'admin' || $perfil === 'proprietario'): ?>
