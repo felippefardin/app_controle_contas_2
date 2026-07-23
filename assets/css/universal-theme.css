@@ -8,6 +8,9 @@ html[data-app-theme="light"] :is(.card,.modal-content,.accordion-item,.pricing-c
 html[data-app-theme="light"] :is(.card,.modal-content,.form-container,.login-container,.register-container,.content-card,.panel,.box,.widget).text-white{color:var(--app-text)!important}
 html[data-app-theme="light"] :is(.table,table) tbody :is(td,th){color:var(--app-text)!important}
 html[data-app-theme="light"] :is(.text-muted,.text-secondary,.form-text,.card-subtitle,small){color:var(--app-muted)!important}
+html[data-app-theme="light"] body.light-mode main>:is(.container,.container-fluid){background-color:var(--app-surface)!important;color:var(--app-text)!important;border-color:var(--app-border)!important}
+html[data-app-theme="light"] body.light-mode main>:is(.container,.container-fluid) :is(h1,h2,h3,h4,h5,h6,label,legend,p){color:var(--app-text)!important}
+html[data-app-theme="light"] body.light-mode main>:is(.container,.container-fluid) :is(.card-resumo,.summary-card){background-color:var(--app-surface-2)!important;color:var(--app-text)!important}
 html[data-app-theme="dark"] body,html[data-app-theme="dark"] main{color:var(--app-text)}
 html[data-app-theme="dark"] :is(.card,.modal-content,.dropdown-menu,.accordion-item,.list-group-item,.offcanvas,.toast,.popover,.pricing-card,.feature-card,.guide-section,.guide-card,.summary-card,.dashboard-card,.stat-card,.info-card,.form-container,.login-container,.register-container,.content-card,.panel,.box,.widget,.table-wrapper,.search-container){background-color:var(--app-surface)!important;color:var(--app-text)!important;border-color:var(--app-border)!important}
 html[data-app-theme="dark"] :is(.bg-white,.bg-light,.table-light,.modal-header,.modal-footer,.accordion-button,.dropdown-item){background-color:var(--app-surface-2)!important;color:var(--app-text)!important}
@@ -17,6 +20,9 @@ html[data-app-theme="dark"] :is(table,.table,.table>:not(caption)>*>*,thead,tbod
 html[data-app-theme="dark"] .table-striped>tbody>tr:nth-of-type(odd)>*{--bs-table-accent-bg:rgba(255,255,255,.035);color:var(--app-text)}
 html[data-app-theme="dark"] .table-hover>tbody>tr:hover>*{--bs-table-accent-bg:rgba(0,191,255,.08);color:var(--app-text)}
 html[data-app-theme="dark"] :is(h1,h2,h3,h4,h5,h6,label,legend,strong,.card-title,.modal-title,.accordion-button){color:var(--app-text)}
+html[data-app-theme="dark"] :is(.card-resumo,.summary-card,.total-card,.stat-card),html[data-app-theme="dark"] :is(.card-resumo,.summary-card,.total-card,.stat-card) *{color:#f8fafc!important}
+html[data-app-theme="dark"] main>:is(.container,.container-fluid) :is(h1,h2,h3,h4,h5,h6,label,legend){color:#f8fafc!important}
+html[data-app-theme="dark"] main>:is(.container,.container-fluid) :is(p,span,td){color:inherit}
 html[data-app-theme="dark"] :is(.text-dark,.text-body,.text-secondary,.text-muted,small,.form-text,.subtitle,.card-subtitle){color:var(--app-muted)!important}
 html[data-app-theme="dark"] :is(.navbar,.header,header:not(.hero):not(.hero-section)){border-color:var(--app-border)}
 html[data-app-theme="dark"] :is(.alert-light,.alert-secondary){background-color:var(--app-surface-2);border-color:var(--app-border);color:var(--app-text)}
