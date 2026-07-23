@@ -28,6 +28,7 @@ try {
     <meta name="description" content="Controle vendas, estoque, caixa, contas e equipe em um só sistema. Feito para MEIs e pequenas empresas.">
     <meta name="theme-color" content="#075dd8">
     <title>App Controle Pro | Vendas, estoque, caixa e financeiro</title>
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
