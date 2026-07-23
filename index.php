@@ -1,1200 +1,326 @@
 <?php
 require_once 'database.php';
 require_once 'includes/session_init.php';
+
+$feedbacks = null;
+try {
+    $connFeedback = getMasterConnection();
+    if ($connFeedback) {
+        $feedbacks = $connFeedback->query(
+            "SELECT nome, descricao, pontuacao
+             FROM feedbacks
+             WHERE aprovado = 1
+               AND LOWER(TRIM(nome)) NOT IN ('teste','test')
+               AND LOWER(TRIM(descricao)) NOT IN ('teste','test')
+               AND CHAR_LENGTH(TRIM(descricao)) >= 20
+             ORDER BY criado_em DESC LIMIT 6"
+        );
+    }
+} catch (Throwable $ignored) {
+    $feedbacks = null;
+}
 ?>
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>App Controle de Contas - Seu Parceiro de Negócios</title>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Controle vendas, estoque, caixa, contas e equipe em um só sistema. Feito para MEIs e pequenas empresas.">
+    <meta name="theme-color" content="#075dd8">
+    <title>App Controle Pro | Vendas, estoque, caixa e financeiro</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
-
     <style>
-        :root {
-            --primary-color: #0d6efd;
-            --primary-dark: #0a58ca;
-            --accent-color: #ffc107;
-            --bg-light: #f8f9fa;
-            --text-dark: #212529;
-        }
-
-        body {
-            font-family: "Poppins", sans-serif;
-            background-color: var(--bg-light);
-            color: #495057;
-            overflow-x: hidden;
-        }
-
-        /* --- Navbar --- */
-        .navbar {
-            padding: 15px 0;
-            background-color: #fff !important;
-        }
-        .navbar-brand {
-            font-weight: 800;
-            color: var(--primary-color) !important;
-            font-size: 1.5rem;
-            letter-spacing: -0.5px;
-        }
-        .nav-link {
-            font-weight: 500;
-            color: var(--text-dark) !important;
-            margin: 0 10px;
-            transition: color 0.3s;
-        }
-        .nav-link:hover {
-            color: var(--primary-color) !important;
-        }
-
-        /* --- Hero Section --- */
-        .hero-section {
-            background: linear-gradient(135deg, #f0f8ff 0%, #ffffff 100%);
-            padding: 40px 0 10px;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .hero-bg-shape {
-            position: absolute;
-            top: -10%;
-            right: -10%;
-            width: 50%;
-            height: 100%;
-            background: linear-gradient(45deg, rgba(13, 110, 253, 0.1), rgba(13, 110, 253, 0.05));
-            border-radius: 50% 0 0 50%;
-            z-index: 0;
-        }
-
-        .hero-content {
-            position: relative;
-            z-index: 1;
-        }
-
-        .hero-title {
-            font-size: 3.2rem;
-            font-weight: 800;
-            line-height: 1.2;
-            color: var(--text-dark);
-            margin-bottom: 20px;
-        }
-        
-        .text-highlight {
-            color: var(--primary-color);
-        }
-
-        .hero-lead {
-            font-size: 1.25rem;
-            color: #6c757d;
-            margin-bottom: 40px;
-            font-weight: 400;
-        }
-
-        /* Placeholder Imagem Dashboard */
-        .project-screenshot-wrapper {
-            position: relative;
-            margin-top: 20px;
-        }
-        
-        .project-screenshot {
-            background-color: #fff;
-            border-radius: 15px;
-            box-shadow: 0 20px 50px rgba(13, 110, 253, 0.15);
-            border: 1px solid rgba(0,0,0,0.05);
-            overflow: hidden;
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* --- Cards --- */
-        .feature-card {
-            background: #ffffff;
-            border: none;
-            border-radius: 15px;
-            padding: 40px 30px;
-            transition: all 0.3s ease;
-            height: 100%;
-            border: 1px solid #f0f0f0;
-        }
-        .feature-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.08);
-            border-color: rgba(13, 110, 253, 0.3);
-        }
-        .feature-icon-box {
-            width: 70px;
-            height: 70px;
-            background-color: rgba(13, 110, 253, 0.1);
-            color: var(--primary-color);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.8rem;
-            margin-bottom: 25px;
-        }
-
-        /* --- Planos --- */
-        .pricing-section { background-color: #fff; }
-        .pricing-card {
-            border: 1px solid #dee2e6;
-            border-radius: 15px;
-            padding: 30px;
-            background: #fff;
-            transition: all 0.3s ease;
-            position: relative;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-        }
-        .pricing-card.featured {
-            border: 2px solid var(--primary-color);
-            background: linear-gradient(to bottom, #f8fbff, #fff);
-            transform: scale(1.05);
-            z-index: 2;
-            box-shadow: 0 10px 30px rgba(13, 110, 253, 0.15);
-        }
-        .pricing-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--text-dark);
-            margin-bottom: 10px;
-        }
-        .pricing-price {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: var(--primary-color);
-        }
-        .pricing-price small {
-            font-size: 0.9rem;
-            color: #6c757d;
-            font-weight: 400;
-        }
-        .trial-badge {
-            background-color: #e9ecef;
-            color: var(--text-dark);
-            font-size: 0.85rem;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-weight: 600;
-            display: inline-block;
-            margin-bottom: 20px;
-        }
-        .featured .trial-badge {
-            background-color: var(--accent-color);
-            color: #000;
-        }
-
-        /* --- Promoção Indique e Ganhe --- */
-        .promo-referral {
-            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-color) 100%);
-            border-radius: 20px;
-            padding: 2.5rem;
-            position: relative;
-            overflow: hidden;
-            color: white;
-            box-shadow: 0 15px 30px rgba(13, 110, 253, 0.25);
-            border: 2px solid var(--accent-color);
-            margin-bottom: 4rem;
-        }
-
-        .promo-referral::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
-            animation: rotateBg 10s linear infinite;
-        }
-
-        @keyframes rotateBg {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
-        .promo-icon-animate {
-            animation: bounce 2s infinite;
-            display: inline-block;
-        }
-        @keyframes bounce {
-            0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
-            40% {transform: translateY(-10px);}
-            60% {transform: translateY(-5px);}
-        }
-
-        .promo-badge {
-            background-color: var(--accent-color);
-            color: #000;
-            font-weight: 800;
-            padding: 0.5rem 1.5rem;
-            border-radius: 50px;
-            text-transform: uppercase;
-            font-size: 0.9rem;
-            box-shadow: 0 5px 15px rgba(255, 193, 7, 0.4);
-            display: inline-block;
-            margin-bottom: 1rem;
-        }
-
-        /* --- Botões --- */
-        .btn-primary-custom {
-            background-color: var(--primary-color);
-            color: #fff;
-            padding: 15px 40px;
-            border-radius: 50px;
-            font-weight: 600;
-            font-size: 1.1rem;
-            border: none;
-            box-shadow: 0 10px 20px rgba(13, 110, 253, 0.3);
-            transition: all 0.3s ease;
-        }
-        .btn-primary-custom:hover {
-            background-color: var(--primary-dark);
-            transform: translateY(-2px);
-            box-shadow: 0 15px 25px rgba(13, 110, 253, 0.4);
-            color: #fff;
-        }
-        
-        .btn-outline-custom {
-            border: 2px solid var(--primary-color);
-            color: var(--primary-color);
-            padding: 15px 40px;
-            border-radius: 50px;
-            font-weight: 600;
-            font-size: 1.1rem;
-            background: transparent;
-            transition: all 0.3s ease;
-        }
-        .btn-outline-custom:hover {
-            background-color: rgba(13, 110, 253, 0.05);
-            color: var(--primary-dark);
-        }
-
-        .cta-section {
-            background: linear-gradient(135deg, #0d6efd 0%, #0043a8 100%);
-            padding: 100px 0;
-            color: white;
-            text-align: center;
-        }
-
-        /* Responsivo */
-        @media (max-width: 991px) {
-            .hero-section { padding: 40px 0 10px; text-align: center; }
-            .hero-title { font-size: 2.5rem; }
-            .project-screenshot-wrapper { margin-top: 60px; }
-            .hero-bg-shape { display: none; }
-            .pricing-card.featured { transform: scale(1); margin-top: 20px; margin-bottom: 20px;}
-        }
-
-        /* --- DARK MODE CSS --- */
-        body.dark-mode {
-            --bg-light: #121212;
-            --text-dark: #f1f1f1;
-            background-color: var(--bg-light);
-            color: var(--text-dark);
-        }
-        
-        /* Overrides (Sobrescritas com !important para vencer o Bootstrap) */
-        body.dark-mode .navbar {
-            background-color: #1f1f1f !important;
-            border-bottom: 1px solid #333;
-        }
-        body.dark-mode .navbar-brand, 
-        body.dark-mode .nav-link {
-            color: #e0e0e0 !important;
-        }
-        body.dark-mode .nav-link:hover {
-            color: var(--primary-color) !important;
-        }
-        
-        body.dark-mode .hero-section {
-            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%) !important;
-        }
-        
-        body.dark-mode .hero-bg-shape {
-            background: linear-gradient(45deg, rgba(13, 110, 253, 0.2), rgba(13, 110, 253, 0.1));
-        }
-
-        body.dark-mode .hero-title, 
-        body.dark-mode h1, body.dark-mode h2, body.dark-mode h3, body.dark-mode h4, body.dark-mode h5, body.dark-mode h6 {
-            color: #ffffff !important;
-        }
-        
-        body.dark-mode p, 
-        body.dark-mode .text-muted, 
-        body.dark-mode small {
-            color: #b0b3b8 !important;
-        }
-
-        body.dark-mode .feature-card, 
-        body.dark-mode .pricing-card {
-            background-color: #1f1f1f !important;
-            border-color: #333 !important;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        
-        body.dark-mode .pricing-card.featured {
-            background: linear-gradient(to bottom, #2c2c2c, #1f1f1f) !important;
-            border-color: var(--primary-color) !important;
-        }
-        
-        /* Seções com fundo específico */
-        body.dark-mode #funcionalidades,
-        body.dark-mode #recursos-detalhados,
-        body.dark-mode #faq,
-        body.dark-mode .bg-white {
-            background-color: #121212 !important;
-        }
-        
-        body.dark-mode #pfpj, 
-        body.dark-mode #feedbacks,
-        body.dark-mode .bg-light {
-            background-color: #181818 !important;
-        }
-
-        /* Acordeão FAQ */
-        body.dark-mode .accordion-item {
-            background-color: #1f1f1f;
-            border-color: #333;
-            color: #fff;
-        }
-        body.dark-mode .accordion-button {
-            background-color: #1f1f1f;
-            color: #fff;
-        }
-        body.dark-mode .accordion-button:not(.collapsed) {
-            background-color: #2c2c2c;
-            color: var(--primary-color);
-        }
-
-        /* Modal */
-        body.dark-mode .modal-content {
-            background-color: #1f1f1f;
-            border: 1px solid #444;
-            color: #fff;
-        }
-        body.dark-mode .modal-header, 
-        body.dark-mode .modal-footer {
-            background-color: #1f1f1f;
-            border-color: #333;
-        }
-        body.dark-mode .btn-close {
-            filter: invert(1) grayscale(100%) brightness(200%);
-        }
-        
-        /* Hover Effects */
-        body.dark-mode .hover-effect:hover {
-            background-color: #262626 !important;
-        }
-        
-        /* Containers de imagem */
-        body.dark-mode .img-container-3d {
-            background-color: #2c2c2c !important;
-            border-color: #444;
-        }
-        
-        body.dark-mode .pricing-price small {
-            color: #aaa !important;
-        }
+        :root{--brand:#075dd8;--brand-dark:#0647a6;--accent:#00bfff;--ink:#122033;--muted:#617086;--surface:#f5f8fc;--line:#dfe7f1;--success:#168a4b}
+        html{scroll-behavior:smooth;scroll-padding-top:88px}body{font-family:Inter,"Segoe UI",sans-serif;color:var(--ink);background:#fff}
+        .navbar{background:rgba(255,255,255,.96);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);padding:14px 0}.navbar-brand{font-weight:800;color:var(--brand)!important}.nav-link{font-weight:600;color:#334155!important}.nav-link:hover{color:var(--brand)!important}
+        .btn-brand{background:var(--brand);border:1px solid var(--brand);color:#fff;font-weight:700;border-radius:10px;padding:12px 22px;box-shadow:0 10px 24px rgba(7,93,216,.2)}.btn-brand:hover{background:var(--brand-dark);border-color:var(--brand-dark);color:#fff;transform:translateY(-1px)}
+        .btn-soft{background:#fff;border:1px solid #b9c9dc;color:var(--ink);font-weight:700;border-radius:10px;padding:12px 22px}.btn-soft:hover{border-color:var(--brand);color:var(--brand)}
+        .hero{padding:145px 0 85px;background:radial-gradient(circle at 85% 18%,rgba(0,191,255,.18),transparent 30%),linear-gradient(135deg,#f4f9ff,#fff 62%)}.eyebrow{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:#e8f2ff;color:var(--brand);font-size:.84rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+        .hero h1{font-weight:800;font-size:clamp(2.4rem,5vw,4.4rem);line-height:1.05;letter-spacing:-.055em;margin:22px 0}.hero h1 span{color:var(--brand)}.hero-lead{font-size:1.16rem;line-height:1.7;color:var(--muted);max-width:650px}.micro-proof{display:flex;gap:22px;flex-wrap:wrap;color:#475569;font-size:.9rem}.micro-proof i{color:var(--success)}
+        .app-preview{background:#111827;border-radius:18px;padding:10px;box-shadow:0 28px 70px rgba(20,49,83,.25);position:relative}.app-preview img{display:block;width:100%;border-radius:11px}.preview-label{position:absolute;background:#fff;border:1px solid var(--line);box-shadow:0 8px 25px rgba(15,23,42,.16);border-radius:11px;padding:10px 13px;font-weight:700;font-size:.82rem}.preview-label i{color:var(--brand)}.label-one{left:-25px;bottom:50px}.label-two{right:-18px;top:45px}
+        .section{padding:88px 0}.section-soft{background:var(--surface)}.section-kicker{color:var(--brand);font-size:.82rem;text-transform:uppercase;font-weight:800;letter-spacing:.08em}.section-title{font-weight:800;letter-spacing:-.035em;font-size:clamp(2rem,4vw,3rem)}.section-lead{color:var(--muted);font-size:1.08rem;max-width:760px}
+        .benefit-card,.feature-card,.step-card,.trust-card{height:100%;background:#fff;border:1px solid var(--line);border-radius:16px;padding:26px}.benefit-card:hover,.feature-card:hover{border-color:#9fc4f5;box-shadow:0 15px 38px rgba(26,61,102,.09);transform:translateY(-3px)}.benefit-card,.feature-card{transition:.25s}.icon-box{width:52px;height:52px;border-radius:13px;display:grid;place-items:center;background:#e8f2ff;color:var(--brand);font-size:1.4rem;margin-bottom:18px}.benefit-card h3,.feature-card h3{font-size:1.05rem;font-weight:800}.benefit-card p,.feature-card p,.step-card p,.trust-card p{color:var(--muted);margin-bottom:0;line-height:1.6}
+        .step-number{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--brand);color:#fff;font-weight:800;margin-bottom:16px}.screen-showcase{border-radius:18px;border:1px solid var(--line);background:#fff;box-shadow:0 22px 55px rgba(15,23,42,.12);overflow:hidden}.screen-showcase img{width:100%;display:block}.screen-tabs{display:flex;gap:8px;flex-wrap:wrap}.screen-tabs button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 13px;font-weight:700;color:#526176}.screen-tabs button.active{background:var(--brand);border-color:var(--brand);color:#fff}
+        .fiscal-note{background:#fff7df;border:1px solid #f0ce68;color:#6d5411;border-radius:13px;padding:17px}.trust-band{background:#0c1b31;color:#fff}.trust-band .section-lead{color:#bdc9d8}.trust-card{background:#142740;border-color:#29405d}.trust-card h3{font-size:1rem;font-weight:800}.trust-card p{color:#bdc9d8}.trust-card i{color:#66d2ff}
+        .testimonial{height:100%;background:#fff;border:1px solid var(--line);border-radius:16px;padding:24px}.testimonial .stars{color:#f4a900}.avatar{width:42px;height:42px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:800}
+        .pricing-card{height:100%;border:1px solid var(--line);border-radius:18px;background:#fff;padding:29px;display:flex;flex-direction:column}.pricing-card.featured{border:2px solid var(--brand);box-shadow:0 20px 45px rgba(7,93,216,.14);position:relative}.popular{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--brand);color:#fff;border-radius:999px;padding:6px 15px;font-size:.75rem;font-weight:800;white-space:nowrap}.price{font-size:2.5rem;font-weight:800;color:var(--brand);letter-spacing:-.05em}.price small{font-size:.9rem;font-weight:500;color:var(--muted);letter-spacing:0}.pricing-card li{margin:9px 0;color:#4b5b70}.pricing-card li i{color:var(--success)}.pricing-card .not-included,.pricing-card .not-included i{color:#9aa6b5}
+        .referral{background:linear-gradient(135deg,#0647a6,#075dd8);color:#fff;border-radius:20px;padding:36px}.faq .accordion-item{border:1px solid var(--line);border-radius:12px!important;margin-bottom:10px;overflow:hidden}.faq .accordion-button{font-weight:700;box-shadow:none!important}
+        .final-cta{background:linear-gradient(135deg,#075dd8,#003f9b);color:#fff;border-radius:24px;padding:55px}.footer-link{color:#aebdd0;text-decoration:none}.footer-link:hover{color:#fff}
+        body.dark-mode{background:#0c111b;color:#e8eef6;--ink:#eef4fb;--muted:#aab8ca;--surface:#111a27;--line:#29374a}body.dark-mode .navbar{background:rgba(12,17,27,.96)}body.dark-mode .benefit-card,body.dark-mode .feature-card,body.dark-mode .step-card,body.dark-mode .screen-showcase,body.dark-mode .testimonial,body.dark-mode .pricing-card,body.dark-mode .accordion-item,body.dark-mode .accordion-button,body.dark-mode .accordion-body{background:#152032;color:#eef4fb}body.dark-mode .hero{background:radial-gradient(circle at 85% 18%,rgba(0,191,255,.15),transparent 30%),#0d1522}body.dark-mode .btn-soft,body.dark-mode .screen-tabs button{background:#152032;color:#dbe7f4}body.dark-mode .screen-tabs button.active{background:var(--brand);color:#fff}
+        @media(max-width:991px){.hero{text-align:center;padding-top:120px}.hero-lead{margin-inline:auto}.hero-actions,.micro-proof{justify-content:center}.app-preview{margin-top:42px}.preview-label{display:none}}@media(max-width:575px){.section{padding:65px 0}.final-cta,.referral{padding:30px 22px}.hero-actions .btn{width:100%}}
     </style>
 </head>
 <body>
-
-
-    <nav class="navbar navbar-expand-lg navbar-light fixed-top shadow-sm">
-        <div class="container">
-            <a class="navbar-brand" href="index.php">
-                <i class="bi bi-wallet2"></i> App Controle Pro
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto align-items-center">
-                    <li class="nav-item me-2">
-    <button id="darkModeToggle" class="btn btn-link nav-link text-dark" style="font-size: 1.2rem;">
-        <i class="bi bi-moon-stars-fill"></i>
-    </button>
-</li>
-                    <li class="nav-item"><a class="nav-link" href="#funcionalidades">Por que nós?</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#planos">Parceria</a></li>
-                    <li class="nav-item ms-lg-3">
-                        <a class="btn btn-outline-primary px-4 rounded-pill" href="pages/login.php">
-                            Área do Cliente
-                        </a>
-                    </li>
-                    <li class="nav-item ms-lg-2 mt-2 mt-lg-0">
-                        <a class="btn btn-primary px-4 rounded-pill shadow-sm" href="pages/registro.php">
-                            Cadastrar Grátis
-                        </a>
-                    </li>
-                </ul>
-            </div>
+<nav class="navbar navbar-expand-lg fixed-top">
+    <div class="container">
+        <a class="navbar-brand" href="index.php"><i class="bi bi-wallet2 me-2"></i>App Controle Pro</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-label="Abrir menu"><span class="navbar-toggler-icon"></span></button>
+        <div class="collapse navbar-collapse" id="mainNav">
+            <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-1">
+                <li class="nav-item"><a class="nav-link" href="#como-funciona">Como funciona</a></li>
+                <li class="nav-item"><a class="nav-link" href="#recursos">Recursos</a></li>
+                <li class="nav-item"><a class="nav-link" href="#planos">Planos</a></li>
+                <li class="nav-item"><a class="nav-link" href="#faq">Dúvidas</a></li>
+                <li class="nav-item"><button id="darkModeToggle" class="btn nav-link" aria-label="Alternar tema"><i class="bi bi-moon-stars-fill"></i></button></li>
+                <li class="nav-item ms-lg-2"><a class="btn btn-soft" href="pages/login.php">Entrar</a></li>
+                <li class="nav-item ms-lg-2 mt-2 mt-lg-0"><a class="btn btn-brand" href="pages/registro.php">Testar grátis</a></li>
+            </ul>
         </div>
-    </nav>
+    </div>
+</nav>
 
-    <header class="hero-section">
-    <style>
-        .img-container-3d {
-            position: relative;
-            /* 1. Define uma altura fixa para padronizar todos os quadros */
-            height: 200px; 
-            width: 100%;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            z-index: 1;
-        }
-
-        .img-container-3d img {
-            /* 2. Remove o arredondamento (Sem Borda) */
-            border-radius: 0; 
-            
-            /* Sombra inicial mais sutil */
-            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
-            transition: box-shadow 0.4s ease;
-            
-            /* 3. Garante que a imagem preencha 100% do container */
-            width: 100%;
-            height: 100%;
-            
-            /* 'cover' faz a imagem preencher tudo sem distorcer (pode cortar as pontas). 
-               Se quiser ver a imagem INTEIRA espremida, mude para 'fill' */
-            object-fit: cover; 
-            object-position: center top; /* Foca no topo da imagem */
-        }
-
-        /* Efeito de Hover (Mouse em cima) */
-        .img-container-3d:hover {
-            transform: scale(1.15) translateY(-5px) translateZ(20px); /* Aumenta e salta */
-            z-index: 10; /* Traz para frente */
-            cursor: pointer;
-        }
-
-        .img-container-3d:hover img {
-            /* Sombra projetada para dar efeito 3D de elevação */
-            box-shadow: 0 25px 50px rgba(0,0,0,0.4); 
-        }
-    </style>
-
-    <header class="hero-section">
-    <style>
-        .img-container-3d {
-            position: relative;
-            /* 1. Aumentei a altura para a imagem ficar maior na tela */
-            height: 260px; 
-            width: 100%;
-            
-            /* Fundo suave para preencher espaços vazios caso a imagem não seja quadrada */
-            background-color: #f8f9fa; 
-            border: 1px solid #eee; /* Borda sutil para delimitar a área */
-            
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            z-index: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .img-container-3d img {
-            border-radius: 0;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            transition: box-shadow 0.4s ease;
-            
-            /* Garante que a imagem nunca ultrapasse o tamanho do box */
-            max-width: 100%;
-            max-height: 100%;
-            
-            /* 2. 'contain' força a imagem a aparecer inteira, sem cortes */
-            object-fit: contain; 
-        }
-
-        /* Efeito Hover (Mouse em cima) */
-        .img-container-3d:hover {
-            transform: scale(1.15) translateY(-5px);
-            z-index: 10;
-            cursor: pointer;
-            border-color: transparent; /* Remove borda no hover para ficar mais limpo */
-        }
-
-        .img-container-3d:hover img {
-            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
-        }
-    </style>
-
-<header class="hero-section">
-    <style>
-        .img-container-3d {
-            position: relative;
-            /* 1. Mantém a altura fixa de 200px para alinhar a grade */
-            height: 200px; 
-            width: 100%;
-            
-            /* Fundo para preencher o espaço caso a imagem não seja da mesma proporção */
-            background-color: #000000; 
-            border-radius: 12px; /* Borda arredondada no container */
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1); /* Sombra no container */
-            overflow: hidden; /* Garante que nada saia das bordas arredondadas */
-            
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            z-index: 1;
-        }
-
-        .img-container-3d img {
-            /* 2. Força a imagem a ocupar todo o espaço disponível */
-            width: 100%;
-            height: 100%;
-            
-            /* 3. O SEGREDO DO "SEM CORTE": */
-            /* 'contain' garante que a imagem inteira apareça, ajustando o tamanho sem cortar nada */
-            object-fit: contain; 
-            object-position: center;
-            
-            transition: transform 0.4s ease;
-        }
-
-        /* Efeito Hover (Mouse em cima) */
-        .img-container-3d:hover {
-            transform: scale(1.5) translateY(-5px); /* Efeito 3D mais suave */
-            z-index: 10;
-            cursor: pointer;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-        }
-    </style>
-
-    <div class="hero-bg-shape"></div>
-    <div class="container hero-content">
-        <div class="row align-items-center">
-            
-            <div class="col-lg-6 mb-5 mb-lg-0">
-                <h1 class="hero-title">Não somos um simples produto, somos <span class="text-highlight">parceiros do seu negócio.</span></h1>
-                <p class="hero-lead">
-                    Nosso intuito é ver você crescer de forma descomplicada, organizada e intuitiva. Fecha com a gente que, além de um parceiro, você leva um produto de qualidade e seguro.
-                </p>
-                <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center justify-content-lg-start">
-                    <a href="pages/registro.php" class="btn btn-primary-custom">
-                        Fechar Parceria Agora
-                    </a>
-                    <a href="#funcionalidades" class="btn btn-outline-custom">
-                        Conhecer Solução
-                    </a>
-                </div>
-                <div class="mt-4 text-muted small">
-                    <i class="bi bi-shield-check text-primary me-2"></i> Segurança Garantida
-                    <i class="bi bi-graph-up-arrow text-success ms-3 me-2"></i> Foco no Crescimento
-                </div>
-            </div>
-            
+<header class="hero">
+    <div class="container">
+        <div class="row align-items-center g-5">
             <div class="col-lg-6">
-                <div class="row g-3">
-                    
-                    <div class="col-6">
-                        <div class="img-container-3d">
-                            <img src="img/telaestoque.png" alt="Controle de Estoque">
-                        </div>
-                    </div>
-                    
-                    <div class="col-6">
-                        <div class="img-container-3d">
-                            <img src="img/telahome.png" alt="Dashboard Principal">
-                        </div>
-                    </div>
-                    
-                    <div class="col-6">
-                        <div class="img-container-3d">
-                            <img src="img/telapagar.png" alt="Contas a Pagar">
-                        </div>
-                    </div>
-                    
-                    <div class="col-6">
-                        <div class="img-container-3d">
-                            <img src="img/telavendas.png" alt="Gestão de Vendas">
-                        </div>
-                    </div>
-
+                <span class="eyebrow"><i class="bi bi-stars"></i> Gestão simples para pequenas empresas</span>
+                <h1>Controle vendas, estoque, caixa e financeiro <span>em um só lugar.</span></h1>
+                <p class="hero-lead">Feito para MEIs e pequenas empresas que querem organizar a operação, acompanhar resultados e trabalhar em equipe sem depender de várias planilhas.</p>
+                <div class="hero-actions d-flex flex-column flex-sm-row gap-3 mt-4">
+                    <a class="btn btn-brand btn-lg" href="pages/registro.php">Testar grátis por 15 dias <i class="bi bi-arrow-right ms-1"></i></a>
+                    <a class="btn btn-soft btn-lg" href="#demonstracao"><i class="bi bi-play-circle me-1"></i> Ver o sistema</a>
+                </div>
+                <div class="micro-proof mt-4">
+                    <span><i class="bi bi-check-circle-fill me-1"></i> Acesso pelo navegador</span>
+                    <span><i class="bi bi-check-circle-fill me-1"></i> Computador e celular</span>
+                    <span><i class="bi bi-check-circle-fill me-1"></i> Suporte humanizado</span>
                 </div>
             </div>
-
+            <div class="col-lg-6">
+                <div class="app-preview">
+                    <img src="img/telahome.png" alt="Dashboard do App Controle Pro" fetchpriority="high">
+                    <div class="preview-label label-one"><i class="bi bi-cash-register me-1"></i> PDV e caixa diário</div>
+                    <div class="preview-label label-two"><i class="bi bi-graph-up-arrow me-1"></i> Resultados em uma tela</div>
+                </div>
+            </div>
         </div>
     </div>
 </header>
 
-    <section id="funcionalidades" class="py-5">
-        <div class="container py-5">
-            <div class="text-center mb-5">
-                <h6 class="text-primary fw-bold text-uppercase">Ferramentas para Crescer</h6>
-                <h2 class="fw-bold display-6">Gestão descomplicada e intuitiva</h2>
-            </div>
-            <div class="row g-4">
-                <div class="col-lg-4 col-md-6">
-                    <div class="feature-card">
-                        <div class="feature-icon-box">
-                            <i class="bi bi-arrow-down-up"></i>
-                        </div>
-                        <h4 class="fw-bold mb-3">Controle Total do Fluxo</h4>
-                        <p class="text-muted">Organize suas contas a pagar e receber com clareza. Tenha a tranquilidade de um sistema que trabalha pelo seu equilíbrio financeiro.</p>
-                    </div>
-                </div>
-                <div class="col-lg-4 col-md-6">
-                    <div class="feature-card">
-                        <div class="feature-icon-box">
-                            <i class="bi bi-people"></i>
-                        </div>
-                        <h4 class="fw-bold mb-3">Cresça em Equipe</h4>
-                        <p class="text-muted">Nossa plataforma escala com você. Adicione colaboradores e defina permissões de forma segura à medida que seu negócio expande.</p>
-                    </div>
-                </div>
-                <div class="col-lg-4 col-md-6">
-                    <div class="feature-card">
-                        <div class="feature-icon-box">
-                            <i class="bi bi-file-earmark-spreadsheet"></i>
-                        </div>
-                        <h4 class="fw-bold mb-3">Decisões Estratégicas</h4>
-                        <p class="text-muted">Transforme dados em ações. Nossos relatórios e exportações fornecem a visão intuitiva que você precisa para alavancar resultados.</p>
-                    </div>
-                </div>
-            </div>
+<section class="section section-soft">
+    <div class="container">
+        <div class="text-center mb-5">
+            <span class="section-kicker">Menos improviso, mais controle</span>
+            <h2 class="section-title mt-2">Saiba o que acontece na empresa todos os dias</h2>
+            <p class="section-lead mx-auto">O sistema conecta as rotinas que normalmente ficam espalhadas em cadernos, planilhas e aplicativos diferentes.</p>
         </div>
-    </section>
-
-    <section id="pfpj" class="py-5" style="background-color: #f1f5f9;">
-        <div class="container py-5">
-            <div class="row align-items-center">
-                <div class="col-md-6 mb-4 mb-md-0">
-                    <img src="img/ChatGPT Image 10 de nov. de 2025, 12_38_54.png" alt="Crescimento Organizado" class="img-fluid rounded-4 shadow-lg">
-                </div>
-                <div class="col-md-6 ps-md-5">
-                    <h2 class="fw-bold mb-4 display-6">Intuindo seu Sucesso</h2>
-                    <p class="lead mb-4">Nosso foco não é apenas entregar um software, mas ver você prosperar com organização.</p>
-                    
-                    <div class="d-flex mb-4">
-                        <div class="me-3">
-                            <i class="bi bi-laptop fs-2 text-primary"></i>
-                        </div>
-                        <div>
-                            <h5 class="fw-bold">Acessibilidade que facilita</h5>
-                            <p class="text-muted mb-0">Seu negócio não para, e nós também não. Acesse de onde estiver, de forma simples e responsiva.</p>
-                        </div>
-                    </div>
-                    
-                    <div class="d-flex">
-                        <div class="me-3">
-                            <i class="bi bi-shield-lock fs-2 text-primary"></i>
-                        </div>
-                        <div>
-                            <h5 class="fw-bold">Parceria Segura</h5>
-                            <p class="text-muted mb-0">Garantimos a proteção dos seus dados para que você foque apenas no que importa: crescer.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section id="recursos-detalhados" class="py-5 bg-white">
-        <div class="container py-5">
-            <div class="text-center mb-5">
-                <h6 class="text-primary fw-bold text-uppercase">Explore o Sistema</h6>
-                <h2 class="fw-bold display-6">Funcionalidades para cada setor</h2>
-                <p class="lead text-muted">Uma plataforma completa com ferramentas essenciais integradas.</p>
-            </div>
-            <div class="row g-4 text-start">
-                
-                <div class="col-md-6 col-lg-3">
-                    <div class="d-flex align-items-start h-100 p-3 rounded hover-effect">
-                        <div class="flex-shrink-0 text-primary fs-3">
-                            <i class="bi bi-cash-coin"></i>
-                        </div>
-                        <div class="ms-3">
-                            <h5 class="fw-bold h6">Gestão Financeira</h5>
-                            <p class="small text-muted mb-0">Contas a pagar, receber, fluxo de caixa diário e conciliação bancária.</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-6 col-lg-3">
-                    <div class="d-flex align-items-start h-100 p-3 rounded hover-effect">
-                        <div class="flex-shrink-0 text-primary fs-3">
-                            <i class="bi bi-receipt"></i>
-                        </div>
-                        <div class="ms-3">
-                            <h5 class="fw-bold h6">Emissão Fiscal</h5>
-                            <p class="small text-muted mb-0">Emissão de NFC-e, DANFE, XML e configurações fiscais simplificadas.</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-6 col-lg-3">
-                    <div class="d-flex align-items-start h-100 p-3 rounded hover-effect">
-                        <div class="flex-shrink-0 text-primary fs-3">
-                            <i class="bi bi-box-seam"></i>
-                        </div>
-                        <div class="ms-3">
-                            <h5 class="fw-bold h6">Controle de Estoque</h5>
-                            <p class="small text-muted mb-0">Gestão de produtos, baixa automática e inventário em tempo real.</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-6 col-lg-3">
-                    <div class="d-flex align-items-start h-100 p-3 rounded hover-effect">
-                        <div class="flex-shrink-0 text-primary fs-3">
-                            <i class="bi bi-cart-check"></i>
-                        </div>
-                        <div class="ms-3">
-                            <h5 class="fw-bold h6">Vendas e PDV</h5>
-                            <p class="small text-muted mb-0">Frente de caixa ágil (PDV), histórico de vendas e gestão de compras.</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-6 col-lg-3">
-                    <div class="d-flex align-items-start h-100 p-3 rounded hover-effect">
-                        <div class="flex-shrink-0 text-primary fs-3">
-                            <i class="bi bi-bar-chart-line"></i>
-                        </div>
-                        <div class="ms-3">
-                            <h5 class="fw-bold h6">Relatórios Avançados</h5>
-                            <p class="small text-muted mb-0">DRE, performance de vendas e exportação para PDF e Excel.</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-6 col-lg-3">
-                    <div class="d-flex align-items-start h-100 p-3 rounded hover-effect">
-                        <div class="flex-shrink-0 text-primary fs-3">
-                            <i class="bi bi-people-fill"></i>
-                        </div>
-                        <div class="ms-3">
-                            <h5 class="fw-bold h6">Gestão de Equipe</h5>
-                            <p class="small text-muted mb-0">Controle de acesso granular e auditoria de ações dos usuários.</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-6 col-lg-3">
-                    <div class="d-flex align-items-start h-100 p-3 rounded hover-effect">
-                        <div class="flex-shrink-0 text-primary fs-3">
-                            <i class="bi bi-calendar-event"></i>
-                        </div>
-                        <div class="ms-3">
-                            <h5 class="fw-bold h6">Agenda e Lembretes</h5>
-                            <p class="small text-muted mb-0">Calendário integrado com alertas de vencimentos e compromissos.</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-6 col-lg-3">
-                    <div class="d-flex align-items-start h-100 p-3 rounded hover-effect">
-                        <div class="flex-shrink-0 text-primary fs-3">
-                            <i class="bi bi-headset"></i>
-                        </div>
-                        <div class="ms-3">
-                            <h5 class="fw-bold h6">Suporte Humanizado</h5>
-                            <p class="small text-muted mb-0">Chat online integrado e abertura de chamados de suporte.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <?php
-    require_once 'database.php';
-    $conn = getMasterConnection();
-    $feedbacks = $conn->query("SELECT * FROM feedbacks WHERE aprovado = 1 ORDER BY criado_em DESC LIMIT 6");
-    if ($feedbacks->num_rows > 0):
-    ?>
-    <section id="feedbacks" class="py-5 bg-light">
-        <div class="container">
-            <div class="text-center mb-5">
-                <h6 class="text-primary fw-bold text-uppercase">Resultados Reais</h6>
-                <h2 class="fw-bold display-6">Quem fechou com a gente aprova</h2>
-            </div>
-            <div class="row g-4">
-                <?php while($f = $feedbacks->fetch_assoc()): ?>
-                <div class="col-md-4">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body p-4">
-                            <div class="text-warning mb-3">
-                                <?= str_repeat('<i class="bi bi-star-fill"></i>', $f['pontuacao']) ?>
-                            </div>
-                            <p class="card-text text-muted fst-italic">"<?= htmlspecialchars($f['descricao']) ?>"</p>
-                            <div class="d-flex align-items-center mt-4">
-                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width:40px; height:40px; font-weight:bold;">
-                                    <?= strtoupper(substr($f['nome'], 0, 1)) ?>
-                                </div>
-                                <div class="ms-3">
-                                    <h6 class="fw-bold mb-0"><?= htmlspecialchars($f['nome']) ?></h6>
-                                    <small class="text-muted">Parceiro</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <?php endwhile; ?>
-            </div>
-        </div>
-    </section>
-    <?php endif; $conn->close(); ?>
-
-    <section id="planos" class="pricing-section py-5">
-        <div class="container py-5">
-            
-            <div class="row justify-content-center">
-                <div class="col-lg-10">
-                    <div class="promo-referral text-center">
-                        <div class="position-relative" style="z-index: 2;">
-                            <span class="promo-badge">
-                                <i class="bi bi-megaphone-fill promo-icon-animate me-2"></i> Super Novidade
-                            </span>
-                            <h2 class="fw-bold display-5 mb-3">
-                                Quer sua mensalidade <span style="color: var(--accent-color);">100% GRÁTIS?</span>
-                            </h2>
-                            <p class="fs-4 opacity-90 mb-4">
-                                É muito simples: <strong>Indique 3 amigos</strong> e ganhe <strong>1 MÊS OFF</strong>. 
-                                <br>
-                                <span class="fw-bold text-warning">E O MELHOR: É ACUMULATIVO!</span>
-                                <br>
-                                <span class="fs-6 mt-2 d-block opacity-75">(Ex: 6 amigos indicados = 2 meses grátis para você)</span>
-                            </p>
-                            <a href="pages/registro.php" class="btn btn-light text-primary fw-bold rounded-pill px-5 py-3 shadow-lg">
-                                COMEÇAR A INDICAR AGORA <i class="bi bi-arrow-right-short fs-4 align-middle"></i>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="text-center mb-5">
-                <h6 class="text-primary fw-bold text-uppercase">Vamos crescer juntos?</h6>
-                <h2 class="fw-bold display-6">Escolha sua parceria ideal</h2>
-                <p class="lead text-muted">Soluções flexíveis que acompanham o momento do seu negócio.</p>
-            </div>
-            
-            <div class="row g-4 justify-content-center">
-                
-               <div class="col-lg-4 col-md-6">
-                    <div class="pricing-card">
-                        <div class="text-center mb-3">
-                            <span class="trial-badge">Start</span>
-                            <h3 class="pricing-title">Básico</h3>
-                            <div class="pricing-price">R$19,00<small>/mês</small></div>
-                        </div>
-                        <ul class="list-unstyled mb-4 flex-grow-1">
-                            <li class="mb-3 d-flex align-items-center">
-                                <i class="bi bi-person text-primary me-2 fs-5"></i> 
-                                <strong>Para quem está começando</strong>
-                            </li>
-                            <li class="mb-2 ms-4 text-muted small"><i class="bi bi-dot"></i> Até 3 Usuários</li>
-                            <li class="mb-3 ms-4 text-muted small"><i class="bi bi-dot"></i> Apenas Contas a Pagar/Receber</li>
-                            <hr>
-                            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i> Controle de Vencimentos</li>
-                            <!-- <li class="mb-2 text-muted" style="opacity: 0.7;">
-                                <i class="bi bi-x-circle-fill text-danger me-2"></i> 
-                                <span style="text-decoration: line-through;">Frente de Caixa (PDV)</span>
-                            </li> -->
-                            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i> Suporte Parceiro</li>
-                        </ul>
-                        <button type="button" class="btn btn-outline-primary rounded-pill w-100 py-2 fw-bold" onclick="abrirModalPlano('basico')">
-                            Quero este Parceiro
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="col-lg-4 col-md-6">
-                    <div class="pricing-card featured">
-                        <div class="text-center mb-3">
-                            <span class="trial-badge">Melhor Escolha</span>
-                            <h3 class="pricing-title text-primary">Plus</h3>
-                            <div class="pricing-price">R$39,00<small>/mês</small></div>
-                        </div>
-                        <ul class="list-unstyled mb-4 flex-grow-1">
-                            <li class="mb-3 d-flex align-items-center">
-                                <i class="bi bi-people-fill text-primary me-2 fs-5"></i> 
-                                <strong>Para acelerar seu negócio</strong>
-                            </li>
-                            <li class="mb-2 ms-4 text-muted small"><i class="bi bi-dot"></i> Até 6 Usuários</li>
-                            <li class="mb-3 ms-4 text-muted small"><i class="bi bi-dot"></i> Visão Completa (Relatórios)</li>
-                            <hr>
-                            <li class="mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i> Treinamento via Chat</li>
-                            <li class="mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i> Suporte Prioritário</li>
-                        </ul>
-                        <button type="button" class="btn btn-primary-custom w-100 py-3" onclick="abrirModalPlano('plus')">
-                            Fechar com o Plus
-                        </button>
-                    </div>
-                </div>
-
-                <div class="col-lg-4 col-md-6">
-                    <div class="pricing-card">
-                        <div class="text-center mb-3">
-                            <span class="trial-badge bg-success text-white">Full Service</span>
-                            <h3 class="pricing-title">Essencial</h3>
-                            <div class="pricing-price">R$59,00<small>/mês</small></div>
-                        </div>
-                        <ul class="list-unstyled mb-4 flex-grow-1">
-                            <li class="mb-3 d-flex align-items-center">
-                                <i class="bi bi-buildings-fill text-primary me-2 fs-5"></i> 
-                                <strong>Gestão corporativa e segura</strong>
-                            </li>
-                            <li class="mb-2 ms-4 text-muted small"><i class="bi bi-dot"></i> Até 16 Usuários</li>
-                            <li class="mb-3 ms-4 text-muted small"><i class="bi bi-dot"></i> Auditoria e Segurança Total</li>
-                            <hr>
-                            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i> Consultoria via Vídeo</li>
-                            <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i> Suporte Dedicado VIP</li>
-                        </ul>
-                        <button type="button" class="btn btn-outline-primary rounded-pill w-100 py-2 fw-bold" onclick="abrirModalPlano('essencial')">
-                            Quero o Essencial
-                        </button>
-                    </div>
-                </div>
-                
-            </div>
-        </div>
-    </section>
-
-    <section id="faq" class="py-5 bg-white">
-        <div class="container">
-            <div class="text-center mb-5">
-                <h2 class="fw-bold">Dúvidas sobre nossa parceria?</h2>
-            </div>
-            
-            <div class="row justify-content-center">
-                <div class="col-lg-8">
-                    <div class="accordion" id="accordionFAQ">
-                        <div class="accordion-item border-0 mb-3 shadow-sm rounded">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
-                                    É complicado começar?
-                                </button>
-                            </h2>
-                            <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#accordionFAQ">
-                                <div class="accordion-body text-muted">
-                                    De jeito nenhum! Nosso sistema é intuitivo e feito para descomplicar. Você acessa pelo navegador e já começa a organizar.
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="accordion-item border-0 mb-3 shadow-sm rounded">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
-                                    Minha equipe pode acessar?
-                                </button>
-                            </h2>
-                            <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#accordionFAQ">
-                                <div class="accordion-body text-muted">
-                                    Com certeza. Queremos que seu time cresça junto. Nossos planos permitem múltiplos usuários para uma gestão colaborativa.
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="accordion-item border-0 mb-3 shadow-sm rounded">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
-                                    Tenho suporte se precisar?
-                                </button>
-                            </h2>
-                            <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#accordionFAQ">
-                                <div class="accordion-body text-muted">
-                                    Sempre! Somos parceiros. Oferecemos suporte humanizado para garantir que você tire o máximo proveito da ferramenta.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section id="cta" class="cta-section">
-        <div class="container">
-            <div class="col-lg-8 mx-auto">
-                <h2 class="fw-bold mb-3 display-5">Pronto para ter um parceiro de verdade?</h2>
-                <p class="lead mb-5 opacity-75">Fecha com a gente e leve organização, simplicidade e qualidade para o dia a dia da sua empresa.</p>
-                <a href="pages/registro.php" class="btn btn-light btn-lg fw-bold px-5 py-3 rounded-pill shadow text-primary">
-                    QUERO SER PARCEIRO
-                </a>
-            </div>
-        </div>
-    </section>
-
-    <footer class="bg-dark text-white py-4 text-center">
-        <div class="container">
-            <div class="mb-3">
-                <i class="bi bi-wallet2 fs-4 text-primary"></i> <span class="fw-bold fs-5 ms-2">App Controle de Contas</span>
-            </div>
-            <p class="mb-0 text-secondary">&copy; <?php echo date('Y'); ?> Felipe Fardin. Todos os direitos reservados.</p>
-        </div>
-    </footer>
-
-    <div class="modal fade" id="modalDetalhesPlano" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg">
-                <div class="modal-header bg-light">
-                    <h5 class="modal-title fw-bold text-dark" id="modalPlanoTitulo">Detalhes da Parceria</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <div class="text-center mb-4">
-                        <h2 class="fw-bold text-primary display-4" id="modalPlanoPreco">R$ 0,00</h2>
-                        <small class="text-muted fw-bold text-uppercase" id="modalPlanoBadge">Período de Teste</small>
-                        <p class="text-muted mt-2" id="modalPlanoDesc">Descrição curta do plano.</p>
-                    </div>
-                    
-                    <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">O que você leva:</h6>
-                    <ul class="list-unstyled" id="modalPlanoLista">
-                        </ul>
-                </div>
-                <div class="modal-footer border-0 bg-light justify-content-between">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Voltar</button>
-                    <a href="#" id="btnAssinarModal" class="btn btn-primary-custom px-4">
-                        Fechar Parceria <i class="bi bi-arrow-right ms-2"></i>
-                    </a>
-                </div>
-            </div>
+        <div class="row g-4">
+            <div class="col-md-6 col-xl-3"><article class="benefit-card"><div class="icon-box"><i class="bi bi-cash-stack"></i></div><h3>Confira o dinheiro do caixa</h3><p>Abertura, vendas, entradas, retiradas e fechamento diário no mesmo fluxo.</p></article></div>
+            <div class="col-md-6 col-xl-3"><article class="benefit-card"><div class="icon-box"><i class="bi bi-box-seam"></i></div><h3>Evite falta de produtos</h3><p>Acompanhe estoque, compras, baixas automáticas e quantidades mínimas.</p></article></div>
+            <div class="col-md-6 col-xl-3"><article class="benefit-card"><div class="icon-box"><i class="bi bi-calendar2-check"></i></div><h3>Não perca vencimentos</h3><p>Organize contas a pagar e receber e registre baixas quando acontecerem.</p></article></div>
+            <div class="col-md-6 col-xl-3"><article class="benefit-card"><div class="icon-box"><i class="bi bi-bullseye"></i></div><h3>Acompanhe metas e equipe</h3><p>Visualize o desempenho e compartilhe os dados com permissões individuais.</p></article></div>
         </div>
     </div>
+</section>
 
-    <script>
-        // Dados dos planos centralizados para fácil manutenção
-        const dadosPlanos = {
-            'basico': {
-                titulo: 'Plano Básico',
-                preco: 'R$ 19,00<small class="fs-6 text-muted">/mês</small>',
-                badge: '15 Dias Grátis',
-                desc: 'Foco total no controle de contas a pagar e receber (Sem Vendas).',
-                features: [
-                    'Até 3 Usuários',
-                    'Gestão de Contas (Pagar/Receber)',
-                    'Controle de Vencimentos',
-                    'Suporte Parceiro por E-mail',
-                    'Acesso via Celular e PC',
-                    // Item visual para destacar a restrição no modal
-                    '<span class="text-danger fw-bold"><i class="bi bi-x-circle"></i> Não inclui Módulo de Vendas (PDV)</span>'
-                ]
-            },
-            'plus': {
-                titulo: 'Plano Plus',
-                preco: 'R$ 39,00<small class="fs-6 text-muted">/mês</small>',
-                badge: '15 Dias Grátis - Mais Escolhido',
-                desc: 'Para quem quer crescer com inteligência e apoio.',
-                features: [
-                    'Todos benefícios do Básico',
-                    'Até 6 Usuários',
-                    'Relatórios de Crescimento',
-                    'Exportação (Excel/PDF)',
-                    'Suporte Prioritário',
-                    'Acesso ao PDV',
-                    'Controle de Vencimentos',
-                    'Gestão de Anexos',
-                    '01 chamada grátis de consultoria via chat online',
-                    '01 chamada grátis de consultoria via vídeo',
-                ]
-            },
-            'essencial': {
-                titulo: 'Plano Essencial',
-                preco: 'R$ 59,00<small class="fs-6 text-muted">/mês</small>',
-                badge: '30 Dias Grátis',
-                desc: 'A parceria completa para segurança e escala total.',
-                features: [
-                    'Até 16 Usuários',
-                    'Auditoria e Segurança Total',
-                    'Todas as funcionalidades',
-                    'Suporte Dedicado VIP (WhatsApp)',
-                    'Treinamento Inicial Completo',
-                    'Backup Diário Automático',
-                    '03 chamadas grátis de consultoria via chat online',
-                    '01 chamada grátis de consultoria via vídeo',
-                ]
-            }
-        };
-
-        function abrirModalPlano(planoKey) {
-            const data = dadosPlanos[planoKey];
-            if (!data) return;
-
-            // Preenche os elementos do modal
-            document.getElementById('modalPlanoTitulo').innerText = data.titulo;
-            document.getElementById('modalPlanoPreco').innerHTML = data.preco;
-            document.getElementById('modalPlanoBadge').innerText = data.badge;
-            document.getElementById('modalPlanoDesc').innerText = data.desc;
-
-            // Monta a lista de features com ícones
-            const listaEl = document.getElementById('modalPlanoLista');
-            listaEl.innerHTML = ''; // Limpa anterior
-            data.features.forEach(feat => {
-                const li = document.createElement('li');
-                li.className = 'mb-2 d-flex align-items-center';
-                li.innerHTML = `<i class="bi bi-check-circle-fill text-success me-2"></i> ${feat}`;
-                listaEl.appendChild(li);
-            });
-
-            // Atualiza o link do botão de ação
-            const btnAssinar = document.getElementById('btnAssinarModal');
-            // Mantém a estrutura de URL existente: pages/registro.php?plano=xyz
-            btnAssinar.href = `pages/registro.php?plano=${planoKey}`;
-
-            // Abre o modal usando Bootstrap 5
-            const modalEl = document.getElementById('modalDetalhesPlano');
-            const modal = new bootstrap.Modal(modalEl);
-            modal.show();
-        }
-    </script>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-    
-    <div vw class="enabled">
-        <div vw-access-button class="active"></div>
-        <div vw-plugin-wrapper>
-            <div class="vw-plugin-top-wrapper"></div>
+<section id="como-funciona" class="section">
+    <div class="container">
+        <div class="row align-items-end mb-5">
+            <div class="col-lg-7"><span class="section-kicker">Comece sem complicação</span><h2 class="section-title mt-2">Organize sua empresa em três passos</h2></div>
+            <div class="col-lg-5"><p class="section-lead mb-0">Não precisa instalar. Crie a conta e use diretamente pelo navegador.</p></div>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-4"><article class="step-card"><div class="step-number">1</div><h3 class="h5 fw-bold">Crie sua conta</h3><p>Escolha o plano adequado e aproveite o período de teste informado.</p></article></div>
+            <div class="col-md-4"><article class="step-card"><div class="step-number">2</div><h3 class="h5 fw-bold">Cadastre sua operação</h3><p>Inclua clientes, fornecedores, produtos, categorias, bancos e equipe.</p></article></div>
+            <div class="col-md-4"><article class="step-card"><div class="step-number">3</div><h3 class="h5 fw-bold">Registre e acompanhe</h3><p>Venda, controle o caixa, atualize o estoque e acompanhe os resultados.</p></article></div>
         </div>
     </div>
-    <script src="https://vlibras.gov.br/app/vlibras-plugin.js"></script>
-    <script>
-        new window.VLibras.Widget('https://vlibras.gov.br/app');
+</section>
 
-        // Lógica do Dark Mode
-        const toggleBtn = document.getElementById('darkModeToggle');
-        const themeIcon = toggleBtn.querySelector('i');
-        const body = document.body;
+<section id="demonstracao" class="section section-soft">
+    <div class="container">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-5">
+                <span class="section-kicker">Veja antes de decidir</span>
+                <h2 class="section-title mt-2">Uma visão clara da operação</h2>
+                <p class="section-lead">Use os botões para conhecer algumas das principais telas do sistema.</p>
+                <div class="screen-tabs mt-4" role="group" aria-label="Telas do sistema">
+                    <button type="button" class="active" data-screen="img/telahome.png" data-alt="Dashboard principal">Dashboard</button>
+                    <button type="button" data-screen="img/telavendas.png" data-alt="Tela de vendas e PDV">PDV</button>
+                    <button type="button" data-screen="img/telaestoque.png" data-alt="Tela de controle de estoque">Estoque</button>
+                    <button type="button" data-screen="img/telapagar.png" data-alt="Tela de contas a pagar">Financeiro</button>
+                    <button type="button" data-screen="img/imgrelatorios.png" data-alt="Tela de relatórios">Relatórios</button>
+                </div>
+            </div>
+            <div class="col-lg-7"><div class="screen-showcase"><img id="systemScreen" src="img/telahome.png" alt="Dashboard principal" loading="lazy"></div></div>
+        </div>
+    </div>
+</section>
 
-        // Verifica preferência salva
-        const savedTheme = localStorage.getItem('theme');
-        
-        if (savedTheme === 'dark') {
-            body.classList.add('dark-mode');
-            themeIcon.classList.remove('bi-moon-stars-fill');
-            themeIcon.classList.add('bi-sun-fill');
-            toggleBtn.classList.remove('text-dark');
-            toggleBtn.classList.add('text-light');
-        }
+<section id="recursos" class="section">
+    <div class="container">
+        <div class="text-center mb-5"><span class="section-kicker">Recursos integrados</span><h2 class="section-title mt-2">As ferramentas essenciais para sua rotina</h2></div>
+        <div class="row g-4">
+            <div class="col-md-6 col-lg-4"><article class="feature-card"><div class="icon-box"><i class="bi bi-cart-check"></i></div><h3>Vendas e PDV</h3><p>Recibos, descontos, formas de pagamento, cancelamento e histórico de vendas.</p></article></div>
+            <div class="col-md-6 col-lg-4"><article class="feature-card"><div class="icon-box"><i class="bi bi-safe"></i></div><h3>Ciclo diário do caixa</h3><p>Saldo inicial, movimentos automáticos, sangrias e fechamento com dinheiro esperado.</p></article></div>
+            <div class="col-md-6 col-lg-4"><article class="feature-card"><div class="icon-box"><i class="bi bi-boxes"></i></div><h3>Produtos e estoque</h3><p>Compras, custos, estoque mínimo e baixa automática após as vendas.</p></article></div>
+            <div class="col-md-6 col-lg-4"><article class="feature-card"><div class="icon-box"><i class="bi bi-wallet2"></i></div><h3>Controle financeiro</h3><p>Contas a pagar e receber, cobranças por e-mail, PIX e relatórios.</p></article></div>
+            <div class="col-md-6 col-lg-4"><article class="feature-card"><div class="icon-box"><i class="bi bi-people"></i></div><h3>Equipe e permissões</h3><p>Dados compartilhados na empresa com acesso individual para cada função.</p></article></div>
+            <div class="col-md-6 col-lg-4"><article class="feature-card"><div class="icon-box"><i class="bi bi-headset"></i></div><h3>Suporte integrado</h3><p>Chat para assinantes, atendimento externo e protocolos de conversa.</p></article></div>
+        </div>
+        <div class="fiscal-note mt-4"><strong><i class="bi bi-info-circle me-1"></i> Módulo fiscal em evolução:</strong> a configuração e os testes de NFC-e estão disponíveis em ambiente de homologação. A emissão real depende de credenciamento, certificado e validação fiscal.</div>
+    </div>
+</section>
 
-        toggleBtn.addEventListener('click', () => {
-            body.classList.toggle('dark-mode');
-            
-            const isDark = body.classList.contains('dark-mode');
-            
-            // Troca ícone
-            if (isDark) {
-                themeIcon.classList.remove('bi-moon-stars-fill');
-                themeIcon.classList.add('bi-sun-fill');
-                toggleBtn.classList.remove('text-dark');
-                toggleBtn.classList.add('text-light');
-                localStorage.setItem('theme', 'dark');
-            } else {
-                themeIcon.classList.remove('bi-sun-fill');
-                themeIcon.classList.add('bi-moon-stars-fill');
-                toggleBtn.classList.remove('text-light');
-                toggleBtn.classList.add('text-dark');
-                localStorage.setItem('theme', 'light');
-            }
-        });
-    </script>
-    <script id="chatway" async="true" src="https://cdn.chatway.app/widget.js?id=UZngkYYwWRrZ"></script>
+<section class="section trust-band">
+    <div class="container">
+        <div class="text-center mb-5"><span class="section-kicker text-info">Confiança para trabalhar</span><h2 class="section-title mt-2">Controle de acesso e atendimento de verdade</h2><p class="section-lead mx-auto">Explicamos o que já está implementado, sem promessas genéricas.</p></div>
+        <div class="row g-4">
+            <div class="col-md-6 col-lg-3"><article class="trust-card"><i class="bi bi-person-lock fs-2"></i><h3 class="mt-3">Permissões individuais</h3><p>Cada integrante acessa apenas os módulos autorizados.</p></article></div>
+            <div class="col-md-6 col-lg-3"><article class="trust-card"><i class="bi bi-journal-check fs-2"></i><h3 class="mt-3">Registros de auditoria</h3><p>Ações importantes podem ser rastreadas no sistema.</p></article></div>
+            <div class="col-md-6 col-lg-3"><article class="trust-card"><i class="bi bi-shield-check fs-2"></i><h3 class="mt-3">Proteção de dados</h3><p>Consentimento, documentos e práticas de acesso alinhadas à LGPD.</p></article></div>
+            <div class="col-md-6 col-lg-3"><article class="trust-card"><i class="bi bi-chat-heart fs-2"></i><h3 class="mt-3">Suporte humanizado</h3><p>Atendimento com protocolo e canais definidos por plano.</p></article></div>
+        </div>
+    </div>
+</section>
+
+<?php if ($feedbacks && $feedbacks->num_rows > 0): ?>
+<section class="section section-soft">
+    <div class="container">
+        <div class="text-center mb-5"><span class="section-kicker">Avaliações publicadas</span><h2 class="section-title mt-2">Quem usa conta como foi a experiência</h2></div>
+        <div class="row g-4">
+            <?php while ($feedback = $feedbacks->fetch_assoc()): ?>
+                <div class="col-md-6 col-lg-4">
+                    <article class="testimonial">
+                        <div class="stars mb-3"><?= str_repeat('<i class="bi bi-star-fill"></i>', max(1, min(5, (int)$feedback['pontuacao']))) ?></div>
+                        <p>“<?= htmlspecialchars($feedback['descricao'], ENT_QUOTES, 'UTF-8') ?>”</p>
+                        <div class="d-flex align-items-center gap-3 mt-4"><div class="avatar"><?= htmlspecialchars(mb_strtoupper(mb_substr($feedback['nome'], 0, 1)), ENT_QUOTES, 'UTF-8') ?></div><div><strong><?= htmlspecialchars($feedback['nome'], ENT_QUOTES, 'UTF-8') ?></strong><div class="small text-muted">Cliente verificado</div></div></div>
+                    </article>
+                </div>
+            <?php endwhile; ?>
+        </div>
+    </div>
+</section>
+<?php endif; if (isset($connFeedback) && $connFeedback instanceof mysqli) $connFeedback->close(); ?>
+
+<section id="planos" class="section">
+    <div class="container">
+        <div class="text-center mb-5"><span class="section-kicker">Planos transparentes</span><h2 class="section-title mt-2">Escolha conforme o momento da empresa</h2><p class="section-lead mx-auto">Confira os detalhes antes de criar a conta. Você poderá selecionar o plano no cadastro.</p></div>
+        <div class="row g-4 justify-content-center">
+            <div class="col-lg-4">
+                <article class="pricing-card">
+                    <span class="eyebrow align-self-start">Organização financeira</span><h3 class="h4 fw-bold mt-3">Básico</h3><div class="price">R$ 19<small>,00/mês</small></div><p class="text-muted">Para começar pelas contas da empresa.</p>
+                    <ul class="list-unstyled flex-grow-1"><li><i class="bi bi-check-circle-fill me-2"></i>Até 3 usuários</li><li><i class="bi bi-check-circle-fill me-2"></i>Contas a pagar e receber</li><li><i class="bi bi-check-circle-fill me-2"></i>Controle de vencimentos</li><li><i class="bi bi-check-circle-fill me-2"></i>Acesso por celular e computador</li><li class="not-included"><i class="bi bi-x-circle me-2"></i>Não inclui PDV</li></ul>
+                    <button class="btn btn-soft w-100" type="button" onclick="abrirModalPlano('basico')">Conhecer o Básico</button>
+                </article>
+            </div>
+            <div class="col-lg-4">
+                <article class="pricing-card featured">
+                    <span class="popular">MAIS ESCOLHIDO</span><span class="eyebrow align-self-start">Vendas e operação</span><h3 class="h4 fw-bold mt-3">Profissional <small class="text-muted fs-6">(Plus)</small></h3><div class="price">R$ 39<small>,00/mês</small></div><p class="text-muted">Para controlar a operação completa.</p>
+                    <ul class="list-unstyled flex-grow-1"><li><i class="bi bi-check-circle-fill me-2"></i>Tudo do Básico</li><li><i class="bi bi-check-circle-fill me-2"></i>Até 6 usuários</li><li><i class="bi bi-check-circle-fill me-2"></i>PDV, caixa, estoque e compras</li><li><i class="bi bi-check-circle-fill me-2"></i>Metas e relatórios</li><li><i class="bi bi-check-circle-fill me-2"></i>Suporte prioritário</li></ul>
+                    <button class="btn btn-brand w-100" type="button" onclick="abrirModalPlano('plus')">Testar o Profissional</button>
+                </article>
+            </div>
+            <div class="col-lg-4">
+                <article class="pricing-card">
+                    <span class="eyebrow align-self-start">Equipe e escala</span><h3 class="h4 fw-bold mt-3">Empresa <small class="text-muted fs-6">(Essencial)</small></h3><div class="price">R$ 59<small>,00/mês</small></div><p class="text-muted">Para equipes maiores e atendimento dedicado.</p>
+                    <ul class="list-unstyled flex-grow-1"><li><i class="bi bi-check-circle-fill me-2"></i>Todos os recursos disponíveis</li><li><i class="bi bi-check-circle-fill me-2"></i>Até 16 usuários</li><li><i class="bi bi-check-circle-fill me-2"></i>Auditoria e permissões</li><li><i class="bi bi-check-circle-fill me-2"></i>Treinamento inicial</li><li><i class="bi bi-check-circle-fill me-2"></i>Suporte dedicado</li></ul>
+                    <button class="btn btn-soft w-100" type="button" onclick="abrirModalPlano('essencial')">Conhecer o Empresa</button>
+                </article>
+            </div>
+        </div>
+        <p class="text-center text-muted small mt-4">O período de teste e as condições finais são exibidos antes da confirmação do cadastro. Consulte os detalhes de cada plano.</p>
+    </div>
+</section>
+
+<section class="section pt-0">
+    <div class="container">
+        <div class="referral text-center">
+            <span class="eyebrow bg-warning text-dark">Indique e ganhe</span>
+            <h2 class="fw-bold mt-3">Indique 3 amigos e ganhe 1 mês de mensalidade</h2>
+            <p class="mb-4 opacity-75">A promoção é acumulativa conforme as regras da campanha. Crie sua conta para receber o código individual de indicação.</p>
+            <a class="btn btn-light text-primary fw-bold px-4 py-3" href="pages/registro.php">Criar conta e receber meu código</a>
+        </div>
+    </div>
+</section>
+
+<section id="faq" class="section section-soft faq">
+    <div class="container">
+        <div class="text-center mb-5"><span class="section-kicker">Perguntas frequentes</span><h2 class="section-title mt-2">Tire suas dúvidas antes de começar</h2></div>
+        <div class="row justify-content-center"><div class="col-lg-9"><div class="accordion" id="faqList">
+            <?php
+            $faqs = [
+                ['Preciso instalar alguma coisa?', 'Não. O acesso é feito pelo navegador em computador ou celular com conexão à internet.'],
+                ['O sistema funciona no celular?', 'Sim. As principais telas são responsivas e podem ser acessadas pelo navegador do celular.'],
+                ['Minha equipe pode acessar?', 'Sim. A quantidade depende do plano, e cada usuário pode receber permissões específicas.'],
+                ['Como funciona o teste grátis?', 'O período aplicável aparece nos detalhes do plano e no cadastro antes da confirmação.'],
+                ['O plano Básico possui PDV?', 'Não. O PDV e os recursos de vendas estão disponíveis a partir do plano Profissional (Plus).'],
+                ['O sistema já emite nota fiscal real?', 'O módulo fiscal está em homologação e preparado para testes. Emissão real depende de credenciamento, certificado e validação fiscal.'],
+                ['Como são processados os pagamentos da assinatura?', 'A cobrança recorrente pode ser processada pelo Mercado Pago, conforme a opção disponível no cadastro.'],
+                ['Posso cancelar ou trocar de plano?', 'A gestão da assinatura permite acompanhar o plano e solicitar alterações conforme as condições contratadas.'],
+                ['Tenho suporte se precisar?', 'Sim. O sistema possui suporte interno para assinantes, protocolos e canais que variam conforme o plano.'],
+            ];
+            foreach ($faqs as $index => $faq): $id = 'faqItem' . $index;
+            ?>
+            <div class="accordion-item"><h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#<?= $id ?>"><?= htmlspecialchars($faq[0], ENT_QUOTES, 'UTF-8') ?></button></h3><div id="<?= $id ?>" class="accordion-collapse collapse" data-bs-parent="#faqList"><div class="accordion-body text-muted"><?= htmlspecialchars($faq[1], ENT_QUOTES, 'UTF-8') ?></div></div></div>
+            <?php endforeach; ?>
+        </div></div></div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+        <div class="final-cta text-center">
+            <h2 class="section-title">Pronto para organizar sua empresa?</h2>
+            <p class="lead opacity-75 mx-auto mb-4" style="max-width:720px">Crie sua conta, conheça o sistema e escolha o plano que acompanha o momento do seu negócio.</p>
+            <a class="btn btn-light text-primary fw-bold btn-lg px-5" href="pages/registro.php">Começar meu teste grátis</a>
+        </div>
+    </div>
+</section>
+
+<footer class="bg-dark text-white py-5">
+    <div class="container">
+        <div class="row g-4 align-items-center">
+            <div class="col-md-5"><div class="fw-bold fs-5"><i class="bi bi-wallet2 text-info me-2"></i>App Controle Pro</div><p class="text-secondary small mt-2 mb-0">Gestão integrada para MEIs e pequenas empresas.</p></div>
+            <div class="col-md-4 d-flex flex-wrap gap-3 justify-content-md-center"><a class="footer-link" href="pages/protecao_de_dados.php">Proteção de dados</a><a class="footer-link" href="pages/suporte.php">Suporte</a><a class="footer-link" href="pages/login.php">Área do cliente</a></div>
+            <div class="col-md-3 text-md-end text-secondary small">&copy; <?= date('Y') ?> Felipe Fardin.<br>Todos os direitos reservados.</div>
+        </div>
+    </div>
+</footer>
+
+<div class="modal fade" id="modalDetalhesPlano" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0 shadow-lg">
+        <div class="modal-header"><h2 class="modal-title h5 fw-bold" id="modalPlanoTitulo">Detalhes do plano</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+        <div class="modal-body p-4"><div class="text-center mb-4"><div class="price" id="modalPlanoPreco"></div><span class="eyebrow" id="modalPlanoBadge"></span><p class="text-muted mt-3" id="modalPlanoDesc"></p></div><h3 class="h6 fw-bold">O que está incluído:</h3><ul class="list-unstyled" id="modalPlanoLista"></ul></div>
+        <div class="modal-footer"><button type="button" class="btn btn-soft" data-bs-dismiss="modal">Voltar</button><a href="#" id="btnAssinarModal" class="btn btn-brand">Criar conta neste plano</a></div>
+    </div></div>
+</div>
+
+<div vw class="enabled"><div vw-access-button class="active"></div><div vw-plugin-wrapper><div class="vw-plugin-top-wrapper"></div></div></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://vlibras.gov.br/app/vlibras-plugin.js"></script>
+<script>
+const dadosPlanos = {
+    basico:{titulo:'Plano Básico',preco:'R$ 19,00/mês',badge:'Organização financeira',desc:'Para controlar contas a pagar e receber sem o módulo de vendas.',features:['Até 3 usuários','Contas a pagar e receber','Controle de vencimentos','Acesso por celular e computador','Suporte por e-mail']},
+    plus:{titulo:'Plano Profissional (Plus)',preco:'R$ 39,00/mês',badge:'Mais escolhido',desc:'Para controlar vendas, caixa, estoque e financeiro.',features:['Até 6 usuários','Todos os recursos do Básico','PDV e caixa diário','Estoque e compras','Metas e relatórios','Suporte prioritário']},
+    essencial:{titulo:'Plano Empresa (Essencial)',preco:'R$ 59,00/mês',badge:'Equipe e escala',desc:'Para empresas com mais usuários e atendimento dedicado.',features:['Até 16 usuários','Todos os recursos disponíveis','Auditoria e permissões','Treinamento inicial','Suporte dedicado']}
+};
+function abrirModalPlano(chave){
+    const plano=dadosPlanos[chave]; if(!plano)return;
+    document.getElementById('modalPlanoTitulo').textContent=plano.titulo;
+    document.getElementById('modalPlanoPreco').textContent=plano.preco;
+    document.getElementById('modalPlanoBadge').textContent=plano.badge;
+    document.getElementById('modalPlanoDesc').textContent=plano.desc;
+    const lista=document.getElementById('modalPlanoLista'); lista.innerHTML='';
+    plano.features.forEach(item=>{const li=document.createElement('li');li.className='mb-2';li.innerHTML='<i class="bi bi-check-circle-fill text-success me-2"></i>'+item;lista.appendChild(li)});
+    document.getElementById('btnAssinarModal').href='pages/registro.php?plano='+encodeURIComponent(chave);
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetalhesPlano')).show();
+}
+document.querySelectorAll('[data-screen]').forEach(button=>button.addEventListener('click',()=>{
+    document.querySelectorAll('[data-screen]').forEach(item=>item.classList.remove('active'));
+    button.classList.add('active');
+    const image=document.getElementById('systemScreen'); image.src=button.dataset.screen; image.alt=button.dataset.alt;
+}));
+const themeButton=document.getElementById('darkModeToggle');
+const themeIcon=themeButton.querySelector('i');
+function applyTheme(theme){document.body.classList.toggle('dark-mode',theme==='dark');themeIcon.className=theme==='dark'?'bi bi-sun-fill':'bi bi-moon-stars-fill';}
+applyTheme(localStorage.getItem('theme')||'light');
+themeButton.addEventListener('click',()=>{const theme=document.body.classList.contains('dark-mode')?'light':'dark';localStorage.setItem('theme',theme);applyTheme(theme)});
+if(window.VLibras)new window.VLibras.Widget('https://vlibras.gov.br/app');
+</script>
 </body>
 </html>
