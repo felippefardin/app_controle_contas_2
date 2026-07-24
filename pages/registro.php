@@ -1,4 +1,4 @@
-<?php 
+<?php
 // pages/registro.php
 require_once __DIR__ . '/../includes/session_init.php';
 require_once __DIR__ . '/../includes/utils.php';
@@ -18,8 +18,8 @@ display_flash_message();
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<link rel="stylesheet" href="../assets/css/universal-theme.css">
-<script src="../assets/js/global-theme.js"></script>
+  <link rel="stylesheet" href="../assets/css/universal-theme.css">
+  <script src="../assets/js/global-theme.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cadastro - App Controle de Contas</title>
@@ -33,7 +33,25 @@ display_flash_message();
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
 
 <style>
-  body { background-color: #121212; color: #eee; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+  :root {
+      --bg-body: #f5f8fc;
+      --bg-form: #ffffff;
+      --text-main: #122033;
+      --text-muted: #617086;
+      --border-color: #dfe7f1;
+      --input-bg: #fff;
+      --input-text: #122033;
+      --card-bg: #fff;
+  }
+
+  body { 
+      background-color: var(--bg-body); 
+      color: var(--text-main); 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      margin: 0; 
+      padding: 0; 
+      transition: background 0.3s, color 0.3s;
+  }
   
   .form-container { 
       display: flex; 
@@ -46,32 +64,32 @@ display_flash_message();
   }
   
   form { 
-      background-color: #1f1f1f; 
+      background-color: var(--bg-form); 
       padding: 30px 40px; 
       border-radius: 12px; 
       max-width: 850px; 
       width: 100%; 
       box-sizing: border-box; 
-      border: 1px solid rgba(0, 191, 255, 0.2); 
-      box-shadow: 0 0 25px rgba(0, 191, 255, 0.08); 
+      border: 1px solid var(--border-color); 
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); 
   }
 
   h2 { text-align: center; margin-bottom: 20px; color: #00bfff; border-bottom: 2px solid #00bfff; padding-bottom: 10px; }
-  label { display: block; margin-top: 15px; font-weight: bold; font-size: 0.95rem; color: #ccc; }
+  label { display: block; margin-top: 15px; font-weight: bold; font-size: 0.95rem; color: var(--text-main); }
   
   select, input:not([type="radio"]):not([type="checkbox"]) { 
       width: 100%; 
       padding: 12px; 
       margin-top: 6px; 
       border-radius: 6px; 
-      border: 1px solid #333; 
-      background-color: #222; 
-      color: #eee; 
+      border: 1px solid var(--border-color); 
+      background-color: var(--input-bg); 
+      color: var(--input-text); 
       font-size: 1rem; 
       box-sizing: border-box; 
   }
   
-  input:focus, select:focus { outline: 2px solid #00bfff; background-color: #333; color: #fff; }
+  input:focus, select:focus { outline: 2px solid #00bfff; background-color: var(--input-bg); color: var(--input-text); }
   
   .input-group { position: relative; width: 100%; }
   .input-group input { padding-right: 40px; }
@@ -83,24 +101,32 @@ display_flash_message();
   .btn-submit { width: 100%; margin-top: 25px; padding: 12px 16px; border: none; border-radius: 8px; background-color: #28a745; color: #fff; font-weight: bold; font-size: 1.1rem; cursor: pointer; transition: 0.3s; }
   .btn-submit:hover { background-color: #218838; }
   
-  .login-link { text-align: center; margin-top: 15px; }
+  .login-link { text-align: center; margin-top: 15px; color: var(--text-main); }
   .login-link a { color: #00bfff; text-decoration: none; }
 
-  /* CSS DOS PLANOS */
-  .planos-container { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
-  .plano-card { flex: 1; background: #2a2a2a; border: 1px solid #444; border-radius: 8px; padding: 15px; cursor: pointer; transition: all 0.3s; position: relative; min-width: 200px; }
-  .plano-card:hover { border-color: #00bfff; background: #333; }
-  .plano-card input[type="radio"] { display: none; }
-  .plano-card.selected { border-color: #00bfff; background: #2c3e50; box-shadow: 0 0 10px rgba(0, 191, 255, 0.2); }
-  .plano-titulo { color: #00bfff; font-weight: bold; font-size: 1.1rem; display: block; margin-bottom: 5px; }
-  .plano-preco { font-size: 1.2rem; color: #fff; font-weight: bold; display: block; margin-bottom: 5px; }
-  .plano-desc { font-size: 0.85rem; color: #bbb; line-height: 1.4; }
+  /* CSS DOS PLANOS COM DESTAQUE FORTE NA SELEÇÃO */
+  .planos-container { display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+  .plano-card { flex: 1; background: var(--card-bg); border: 2px solid var(--border-color); border-radius: 10px; padding: 18px; cursor: pointer; transition: all 0.25s ease; position: relative; min-width: 200px; }
+  .plano-card:hover { border-color: #00bfff; }
+  .plano-card input[type="radio"] { position: absolute; opacity: 0; cursor: pointer; }
+  
+  /* SELEÇÃO FORTE E EVIDENTE */
+  .plano-card.selected { 
+      border: 3px solid #00bfff !important; 
+      background: rgba(0, 191, 255, 0.12) !important; 
+      box-shadow: 0 0 15px rgba(0, 191, 255, 0.4); 
+      transform: translateY(-2px);
+  }
+  
+  .plano-titulo { color: #00bfff; font-weight: bold; font-size: 1.15rem; display: block; margin-bottom: 5px; }
+  .plano-preco { font-size: 1.25rem; color: var(--text-main); font-weight: bold; display: block; margin-bottom: 5px; }
+  .plano-desc { font-size: 0.85rem; color: var(--text-muted); line-height: 1.4; }
   .trial-badge { background: #ffc107; color: #000; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; position: absolute; top: 10px; right: 10px; }
 
   /* CSS BENEFICIOS */
-  .benefits-section { margin-top: 25px; border-top: 1px solid #333; padding-top: 20px; }
+  .benefits-section { margin-top: 25px; border-top: 1px solid var(--border-color); padding-top: 20px; }
   .benefit-toggle { cursor: pointer; color: #ff9f43; font-weight: bold; display: flex; align-items: center; gap: 8px; }
-  .benefit-content { display: none; background: #252525; padding: 15px; border-radius: 8px; margin-top: 10px; border: 1px solid #444; }
+  .benefit-content { display: none; background: var(--bg-body); padding: 15px; border-radius: 8px; margin-top: 10px; border: 1px solid var(--border-color); }
   .benefit-content.open { display: block; }
   
   .btn-check { background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin-top: 6px; font-size: 0.9rem; height: 46px; }
@@ -118,18 +144,18 @@ display_flash_message();
   .btn-primary { background-color: #007bff; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; height: 46px; margin-top: 6px; }
   .btn-success { background-color: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
 
-  /* MODAL DARK THEME */
-  .modal-content { background-color: #1f1f1f; color: #eee; border: 1px solid #444; }
-  .modal-header { border-bottom: 1px solid #333; }
-  .modal-footer { border-top: 1px solid #333; }
+  /* MODAL THEME */
+  .modal-content { background-color: var(--bg-form); color: var(--text-main); border: 1px solid var(--border-color); }
+  .modal-header { border-bottom: 1px solid var(--border-color); }
+  .modal-footer { border-top: 1px solid var(--border-color); }
   .modal-title { color: #00bfff; }
 
-  /* FLASH CARD FLUTUANTE (VERMELHO) */
+  /* FLASH CARD FLUTUANTE */
   #custom-flash-card {
       position: fixed;
       top: 20px;
       right: 20px;
-      background-color: #dc3545; /* Vermelho Bootstrap */
+      background-color: #dc3545;
       color: white;
       padding: 15px 25px;
       border-radius: 8px;
@@ -150,9 +176,20 @@ display_flash_message();
       pointer-events: auto;
   }
 
-  /* UTILS PARA RESPONSIVIDADE */
   .flex-group { display: flex; gap: 10px; align-items: flex-end; }
   
+  /* SUPORTE AO DARK-MODE VIA CLASSE */
+  body.dark-mode {
+      --bg-body: #0c111b;
+      --bg-form: #152032;
+      --text-main: #eef4fb;
+      --text-muted: #aab8ca;
+      --border-color: #29374a;
+      --input-bg: #111a27;
+      --input-text: #eef4fb;
+      --card-bg: #1c2b42;
+  }
+
   @media (max-width: 768px) {
       .form-container { padding: 10px; align-items: flex-start; }
       form { padding: 20px 15px; }
@@ -178,29 +215,29 @@ display_flash_message();
 
     <label>Escolha seu Plano (Teste Grátis):</label>
     <div class="planos-container">
-      <label class="plano-card <?php echo (!isset($old['plano']) || $old['plano'] == 'basico') ? 'selected' : ''; ?>" id="card-basico">
-        <input type="radio" name="plano" value="basico" <?php echo (!isset($old['plano']) || $old['plano'] == 'basico') ? 'checked' : ''; ?> onchange="selectPlan(this)">
+      <div class="plano-card <?php echo (!isset($old['plano']) || $old['plano'] == 'basico') ? 'selected' : ''; ?>" id="card-basico" onclick="selectCardPlan('basico')">
+        <input type="radio" name="plano" id="radio_basico" value="basico" <?php echo (!isset($old['plano']) || $old['plano'] == 'basico') ? 'checked' : ''; ?>>
         <span class="trial-badge">15 Dias Grátis</span>
         <span class="plano-titulo">Básico</span>
         <span class="plano-preco">R$ 19,00/mês</span>
         <div class="plano-desc">3 Usuários • Gestão Simples</div>
-      </label>
+      </div>
 
-      <label class="plano-card <?php echo (isset($old['plano']) && $old['plano'] == 'plus') ? 'selected' : ''; ?>" id="card-plus">
-        <input type="radio" name="plano" value="plus" <?php echo (isset($old['plano']) && $old['plano'] == 'plus') ? 'checked' : ''; ?> onchange="selectPlan(this)">
+      <div class="plano-card <?php echo (isset($old['plano']) && $old['plano'] == 'plus') ? 'selected' : ''; ?>" id="card-plus" onclick="selectCardPlan('plus')">
+        <input type="radio" name="plano" id="radio_plus" value="plus" <?php echo (isset($old['plano']) && $old['plano'] == 'plus') ? 'checked' : ''; ?>>
         <span class="trial-badge">15 Dias Grátis</span>
         <span class="plano-titulo">Plus</span>
         <span class="plano-preco">R$ 39,00/mês</span>
         <div class="plano-desc">6 Usuários • Intermediário</div>
-      </label>
+      </div>
 
-      <label class="plano-card <?php echo (isset($old['plano']) && $old['plano'] == 'essencial') ? 'selected' : ''; ?>" id="card-essencial">
-        <input type="radio" name="plano" value="essencial" <?php echo (isset($old['plano']) && $old['plano'] == 'essencial') ? 'checked' : ''; ?> onchange="selectPlan(this)">
+      <div class="plano-card <?php echo (isset($old['plano']) && $old['plano'] == 'essencial') ? 'selected' : ''; ?>" id="card-essencial" onclick="selectCardPlan('essencial')">
+        <input type="radio" name="plano" id="radio_essencial" value="essencial" <?php echo (isset($old['plano']) && $old['plano'] == 'essencial') ? 'checked' : ''; ?>>
         <span class="trial-badge">30 Dias Grátis</span>
         <span class="plano-titulo">Essencial</span>
         <span class="plano-preco">R$ 59,00/mês</span>
         <div class="plano-desc">16 Usuários • Completo</div>
-      </label>
+      </div>
     </div>
 
     <label for="tipo_pessoa">Tipo de Pessoa:</label>
@@ -271,7 +308,7 @@ display_flash_message();
                 </div>
                 <span id="msgCupom" style="display:block; margin-top:5px;"></span>
             </div>
-            <hr style="border-color: #444; margin: 15px 0;">
+            <hr style="border-color: var(--border-color); margin: 15px 0;">
             <div id="formIndicacao">
                 <label for="inputCodigoIndicacao" style="color: #00bfff;">Código de Indicação:</label>
                 <div class="input-group mt-2">
@@ -296,7 +333,7 @@ display_flash_message();
     </div>
 
     <div style="margin-top: 20px; display:flex; justify-content:center;">
-        <div class="cf-turnstile" data-sitekey="0x4AAAAAACDq-KxXYje-dbsU" data-theme="dark"></div>
+        <div class="cf-turnstile" data-sitekey="0x4AAAAAACDq-KxXYje-dbsU" data-theme="auto"></div>
     </div>
 
     <button class="btn-submit" type="submit">Finalizar Cadastro e Testar Grátis</button>
@@ -332,7 +369,6 @@ display_flash_message();
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-  // Funções Utilitárias e LocalStorage
   function saveLocal(key, value) { localStorage.setItem('reg_' + key, value); }
   function loadLocal() {
       const fields = ['tipo_pessoa', 'nome', 'tipo_doc', 'documento', 'telefone', 'email', 'cupom', 'inputCodigoIndicacao'];
@@ -348,23 +384,24 @@ display_flash_message();
       });
   }
 
-  // --- NOVA FUNÇÃO PARA EXIBIR FLASH CARD FLUTUANTE ---
   function showFloatingError(msg) {
       const card = document.getElementById('custom-flash-card');
       const msgSpan = document.getElementById('flash-card-msg');
-      
       msgSpan.innerText = msg;
       card.classList.add('show');
-      
-      // Some automaticamente após 5 segundos
-      setTimeout(() => {
-          card.classList.remove('show');
-      }, 5000);
+      setTimeout(() => { card.classList.remove('show'); }, 5000);
   }
 
-  function selectPlan(radio) {
+  function selectCardPlan(plano) {
     document.querySelectorAll('.plano-card').forEach(c => c.classList.remove('selected'));
-    radio.closest('.plano-card').classList.add('selected');
+    const selectedCard = document.getElementById('card-' + plano);
+    if(selectedCard) {
+        selectedCard.classList.add('selected');
+        const radio = selectedCard.querySelector('input[type="radio"]');
+        if(radio) {
+            radio.checked = true;
+        }
+    }
   }
 
   function toggleBenefits() {
@@ -477,23 +514,19 @@ display_flash_message();
             return; 
         }
 
-        // Verifica se já houve o aceite. Se não, verifica duplicidade ANTES de mostrar o modal.
         if (!form.querySelector('input[name="aceite_lgpd"]')) {
-            e.preventDefault(); // Impede envio imediato
+            e.preventDefault();
 
-            // 1. Preparar dados para checagem AJAX
             const formData = new FormData();
             formData.append('ajax_check', '1');
             formData.append('email', document.getElementById('email').value);
             formData.append('documento', document.getElementById('documento').value);
 
-            // 2. Feedback visual no botão
             const submitBtn = form.querySelector('.btn-submit');
             const originalText = submitBtn.innerText;
             submitBtn.innerText = 'Verificando...';
             submitBtn.disabled = true;
 
-            // 3. Chamar registro_processa.php em modo JSON
             fetch('registro_processa.php', {
                 method: 'POST',
                 body: formData
@@ -503,7 +536,6 @@ display_flash_message();
                 submitBtn.innerText = originalText;
                 submitBtn.disabled = false;
 
-                // 4. Se houver duplicidade, mostrar erro no FLASH CARD e PARAR.
                 if (data.email_exists) {
                     showFloatingError("Este E-mail já está cadastrado no sistema.");
                     document.getElementById('email').classList.add('input-invalid');
@@ -515,7 +547,6 @@ display_flash_message();
                     return;
                 }
 
-                // 5. Se for ÚNICO, aí sim abre o Modal LGPD
                 const modalElement = document.getElementById('modalLGPD');
                 const modalLGPD = new bootstrap.Modal(modalElement);
                 modalLGPD.show();

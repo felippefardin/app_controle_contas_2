@@ -44,16 +44,41 @@ try {
         .btn-soft{background:#fff;border:1px solid #b9c9dc;color:var(--ink);font-weight:700;border-radius:10px;padding:12px 22px}.btn-soft:hover{border-color:var(--brand);color:var(--brand)}
         .hero{padding:145px 0 85px;background:radial-gradient(circle at 85% 18%,rgba(0,191,255,.18),transparent 30%),linear-gradient(135deg,#f4f9ff,#fff 62%)}.eyebrow{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:#e8f2ff;color:var(--brand);font-size:.84rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
         .hero h1{font-weight:800;font-size:clamp(2.4rem,5vw,4.4rem);line-height:1.05;letter-spacing:-.055em;margin:22px 0}.hero h1 span{color:var(--brand)}.hero-lead{font-size:1.16rem;line-height:1.7;color:var(--muted);max-width:650px}.micro-proof{display:flex;gap:22px;flex-wrap:wrap;color:#475569;font-size:.9rem}.micro-proof i{color:var(--success)}
-        .app-preview{background:#111827;border-radius:18px;padding:10px;box-shadow:0 28px 70px rgba(20,49,83,.25);position:relative}.app-preview img{display:block;width:100%;border-radius:11px}.preview-label{position:absolute;background:#fff;border:1px solid var(--line);box-shadow:0 8px 25px rgba(15,23,42,.16);border-radius:11px;padding:10px 13px;font-weight:700;font-size:.82rem}.preview-label i{color:var(--brand)}.label-one{left:-25px;bottom:50px}.label-two{right:-18px;top:45px}
+        .app-preview{background:#111827;border-radius:18px;padding:10px;box-shadow:0 28px 70px rgba(20,49,83,.25);position:relative}.app-preview img{display:block;width:100%;border-radius:11px}
+        
+        .preview-label{position:absolute;background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:0 8px 25px rgba(15,23,42,.16);border-radius:11px;padding:10px 13px;font-weight:700;font-size:.82rem;white-space:nowrap;z-index:2}
+        .preview-label i{color:var(--brand)}
+        .label-one{left:-25px;bottom:50px}.label-two{right:-18px;top:45px}
+
         .section{padding:88px 0}.section-soft{background:var(--surface)}.section-kicker{color:var(--brand);font-size:.82rem;text-transform:uppercase;font-weight:800;letter-spacing:.08em}.section-title{font-weight:800;letter-spacing:-.035em;font-size:clamp(2rem,4vw,3rem)}.section-lead{color:var(--muted);font-size:1.08rem;max-width:760px}
         .benefit-card,.feature-card,.step-card,.trust-card{height:100%;background:#fff;border:1px solid var(--line);border-radius:16px;padding:26px}.benefit-card:hover,.feature-card:hover{border-color:#9fc4f5;box-shadow:0 15px 38px rgba(26,61,102,.09);transform:translateY(-3px)}.benefit-card,.feature-card{transition:.25s}.icon-box{width:52px;height:52px;border-radius:13px;display:grid;place-items:center;background:#e8f2ff;color:var(--brand);font-size:1.4rem;margin-bottom:18px}.benefit-card h3,.feature-card h3{font-size:1.05rem;font-weight:800}.benefit-card p,.feature-card p,.step-card p,.trust-card p{color:var(--muted);margin-bottom:0;line-height:1.6}
         .step-number{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--brand);color:#fff;font-weight:800;margin-bottom:16px}.screen-showcase{border-radius:18px;border:1px solid var(--line);background:#fff;box-shadow:0 22px 55px rgba(15,23,42,.12);overflow:hidden}.screen-showcase img{width:100%;display:block}.screen-tabs{display:flex;gap:8px;flex-wrap:wrap}.screen-tabs button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 13px;font-weight:700;color:#526176}.screen-tabs button.active{background:var(--brand);border-color:var(--brand);color:#fff}
-        .fiscal-note{background:#fff7df;border:1px solid #f0ce68;color:#6d5411;border-radius:13px;padding:17px}.trust-band{background:#0c1b31;color:#fff}.trust-band .section-lead{color:#bdc9d8}.trust-card{background:#142740;border-color:#29405d}.trust-card h3{font-size:1rem;font-weight:800}.trust-card p{color:#bdc9d8}.trust-card i{color:#66d2ff}
+        
+        .fiscal-note{background:#fff7df;border:1px solid #f0ce68;color:#59430c;border-radius:13px;padding:17px}
+
+        .trust-band{background:#0c1b31;color:#fff}.trust-band .section-lead{color:#bdc9d8}.trust-card{background:#142740;border-color:#29405d}.trust-card h3{font-size:1rem;font-weight:800}.trust-card p{color:#bdc9d8}.trust-card i{color:#66d2ff}
         .testimonial{height:100%;background:#fff;border:1px solid var(--line);border-radius:16px;padding:24px}.testimonial .stars{color:#f4a900}.avatar{width:42px;height:42px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:800}
         .pricing-card{height:100%;border:1px solid var(--line);border-radius:18px;background:#fff;padding:29px;display:flex;flex-direction:column}.pricing-card.featured{border:2px solid var(--brand);box-shadow:0 20px 45px rgba(7,93,216,.14);position:relative}.popular{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--brand);color:#fff;border-radius:999px;padding:6px 15px;font-size:.75rem;font-weight:800;white-space:nowrap}.price{font-size:2.5rem;font-weight:800;color:var(--brand);letter-spacing:-.05em}.price small{font-size:.9rem;font-weight:500;color:var(--muted);letter-spacing:0}.pricing-card li{margin:9px 0;color:#4b5b70}.pricing-card li i{color:var(--success)}.pricing-card .not-included,.pricing-card .not-included i{color:#9aa6b5}
-        .referral{background:linear-gradient(135deg,#0647a6,#075dd8);color:#fff;border-radius:20px;padding:36px}.faq .accordion-item{border:1px solid var(--line);border-radius:12px!important;margin-bottom:10px;overflow:hidden}.faq .accordion-button{font-weight:700;box-shadow:none!important}
+        .referral{background:linear-gradient(135deg,#0647a6,#075dd8);color:#fff;border-radius:20px;padding:36px}
+        
+        /* Força a cor preta no texto "Indique e ganhe" em ambos os modos */
+        .referral .eyebrow { color: #000 !important; background-color: #ffc107 !important; }
+
+        .faq .accordion-item{border:1px solid var(--line);border-radius:12px!important;margin-bottom:10px;overflow:hidden}.faq .accordion-button{font-weight:700;box-shadow:none!important}
         .final-cta{background:linear-gradient(135deg,#075dd8,#003f9b);color:#fff;border-radius:24px;padding:55px}.footer-link{color:#aebdd0;text-decoration:none}.footer-link:hover{color:#fff}
-        body.dark-mode{background:#0c111b;color:#e8eef6;--ink:#eef4fb;--muted:#aab8ca;--surface:#111a27;--line:#29374a}body.dark-mode .navbar{background:rgba(12,17,27,.96)}body.dark-mode .benefit-card,body.dark-mode .feature-card,body.dark-mode .step-card,body.dark-mode .screen-showcase,body.dark-mode .testimonial,body.dark-mode .pricing-card,body.dark-mode .accordion-item,body.dark-mode .accordion-button,body.dark-mode .accordion-body{background:#152032;color:#eef4fb}body.dark-mode .hero{background:radial-gradient(circle at 85% 18%,rgba(0,191,255,.15),transparent 30%),#0d1522}body.dark-mode .btn-soft,body.dark-mode .screen-tabs button{background:#152032;color:#dbe7f4}body.dark-mode .screen-tabs button.active{background:var(--brand);color:#fff}
+        
+        /* Ajustes gerais do modo escuro */
+        body.dark-mode{background:#0c111b;color:#e8eef6;--ink:#eef4fb;--muted:#aab8ca;--surface:#111a27;--line:#29374a}
+        body.dark-mode .navbar{background:rgba(12,17,27,.96)}
+        body.dark-mode .benefit-card,body.dark-mode .feature-card,body.dark-mode .step-card,body.dark-mode .screen-showcase,body.dark-mode .testimonial,body.dark-mode .pricing-card,body.dark-mode .accordion-item,body.dark-mode .accordion-button,body.dark-mode .accordion-body{background:#152032;color:#eef4fb}
+        body.dark-mode .hero{background:radial-gradient(circle at 85% 18%,rgba(0,191,255,.15),transparent 30%),#0d1522}
+        body.dark-mode .btn-soft,body.dark-mode .screen-tabs button{background:#152032;color:#dbe7f4}
+        body.dark-mode .screen-tabs button.active{background:var(--brand);color:#fff}
+        body.dark-mode .preview-label{background:#152032;color:#eef4fb;border-color:#29374a}
+        body.dark-mode .fiscal-note{background:#152032;border-color:#29374a;color:#eef4fb}
+        body.dark-mode .pricing-card p,body.dark-mode .pricing-card li,body.dark-mode .pricing-card .text-muted,body.dark-mode .pricing-card small.text-muted{color:#cbd5e1!important}
+        body.dark-mode .pricing-card .not-included,body.dark-mode .pricing-card .not-included i{color:#94a3b8!important}
+
         @media(max-width:991px){.hero{text-align:center;padding-top:120px}.hero-lead{margin-inline:auto}.hero-actions,.micro-proof{justify-content:center}.app-preview{margin-top:42px}.preview-label{display:none}}@media(max-width:575px){.section{padding:65px 0}.final-cta,.referral{padding:30px 22px}.hero-actions .btn{width:100%}}
     </style>
 </head>
@@ -109,7 +134,7 @@ try {
         <div class="text-center mb-5">
             <span class="section-kicker">Menos improviso, mais controle</span>
             <h2 class="section-title mt-2">Saiba o que acontece na empresa todos os dias</h2>
-            <p class="section-lead mx-auto">O sistema conecta as rotinas que normalmente ficam espalhadas em cadernos, planilhas e aplicativos diferentes.</p>
+            <p class="section-lead mx-auto">O sistema conecta las rotinas que normalmente ficam espalhadas em cadernos, planilhas e aplicativos diferentes.</p>
         </div>
         <div class="row g-4">
             <div class="col-md-6 col-xl-3"><article class="benefit-card"><div class="icon-box"><i class="bi bi-cash-stack"></i></div><h3>Confira o dinheiro do caixa</h3><p>Abertura, vendas, entradas, retiradas e fechamento diário no mesmo fluxo.</p></article></div>
@@ -233,7 +258,7 @@ try {
 <section class="section pt-0">
     <div class="container">
         <div class="referral text-center">
-            <span class="eyebrow bg-warning text-dark">Indique e ganhe</span>
+            <span class="eyebrow">Indique e ganhe</span>
             <h2 class="fw-bold mt-3">Indique 3 amigos e ganhe 1 mês de mensalidade</h2>
             <p class="mb-4 opacity-75">A promoção é acumulativa conforme as regras da campanha. Crie sua conta para receber o código individual de indicação.</p>
             <a class="btn btn-light text-primary fw-bold px-4 py-3" href="pages/registro.php">Criar conta e receber meu código</a>

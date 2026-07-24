@@ -27,7 +27,7 @@ html[data-app-theme="dark"] :is(.text-dark,.text-body,.text-secondary,.text-mute
 html[data-app-theme="dark"] :is(.navbar,.header,header:not(.hero):not(.hero-section)){border-color:var(--app-border)}
 html[data-app-theme="dark"] :is(.alert-light,.alert-secondary){background-color:var(--app-surface-2);border-color:var(--app-border);color:var(--app-text)}
 html[data-app-theme="dark"] .btn-close{filter:invert(1) grayscale(100%) brightness(180%)}
-html[data-app-theme="dark"] a:not(.btn):not([class*="text-"]){color:#60d2ff}
+html[data-app-theme="dark"] a:not(.btn):not([class*="text-"]){color:#ffffff}
 html[data-app-theme="dark"] hr{border-color:var(--app-border);opacity:.8}
 
 /* Padrão visual consistente para as páginas legadas no modo claro. */

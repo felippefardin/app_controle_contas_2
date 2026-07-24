@@ -24,7 +24,7 @@ include_once '../includes/header.php';
 .tutorial-search-status{display:block;margin-top:8px;color:#eaf8ff;font-size:14px;min-height:20px}
 .tutorial-layout{display:grid;grid-template-columns:285px minmax(0,1fr);gap:24px}.tutorial-nav{position:sticky;top:90px;align-self:start;max-height:calc(100vh - 120px);overflow:auto;background:var(--t-card);border:1px solid var(--t-border);border-radius:14px;padding:15px}
 .tutorial-nav strong{display:block;color:var(--t-accent);padding:8px 10px 12px}.tutorial-nav a{display:flex;gap:9px;align-items:center;color:#d8dee4;text-decoration:none;padding:10px;border-radius:8px;font-size:14px}
-.tutorial-nav a:hover,.tutorial-nav a.active{background:#113747;color:#65d5ff}.guide-section{scroll-margin-top:100px;background:var(--t-card);border:1px solid var(--t-border);border-radius:14px;padding:26px;margin-bottom:22px}
+.tutorial-nav a:hover,.tutorial-nav a.active{background:#113747;color:#65d5ff}.guide-section{scroll-margin-top:100px;;border:1px solid var(--t-border);border-radius:14px;padding:26px;margin-bottom:22px}
 .guide-section.hidden-by-search{display:none}.section-title{display:flex;gap:13px;align-items:center;margin-bottom:18px}.section-title .icon{width:46px;height:46px;display:grid;place-items:center;border-radius:12px;background:#103846;color:var(--t-accent);font-size:21px}
 .section-title h2{margin:0;color:#fff;font-size:24px}.section-title p{margin:4px 0 0;color:var(--t-muted)}.guide-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
 .guide-card{background:var(--t-card2);border:1px solid var(--t-border);border-radius:11px;padding:18px}.guide-card h3{margin:0 0 10px;color:#fff;font-size:17px}
