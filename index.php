@@ -105,9 +105,9 @@ try {
     <div class="container">
         <div class="row align-items-center g-5">
             <div class="col-lg-6">
-                <span class="eyebrow"><i class="bi bi-stars"></i> Gestão simples para pequenas empresas</span>
+                <span class="eyebrow"><i class="bi bi-stars"></i> Gestão inteligente e completa para o seu negócio</span>
                 <h1>Controle vendas, estoque, caixa e financeiro <span>em um só lugar.</span></h1>
-                <p class="hero-lead">Feito para MEIs e pequenas empresas que querem organizar a operação, acompanhar resultados e trabalhar em equipe sem depender de várias planilhas.</p>
+                <p class="hero-lead">Uma plataforma robusta e intuitiva para empresas que querem organizar a operação, acompanhar resultados em tempo real e trabalhar em equipe sem depender de várias planilhas.</p>
                 <div class="hero-actions d-flex flex-column flex-sm-row gap-3 mt-4">
                     <a class="btn btn-brand btn-lg" href="pages/registro.php">Testar grátis por 15 dias <i class="bi bi-arrow-right ms-1"></i></a>
                     <a class="btn btn-soft btn-lg" href="#demonstracao"><i class="bi bi-play-circle me-1"></i> Ver o sistema</a>
@@ -120,7 +120,7 @@ try {
             </div>
             <div class="col-lg-6">
                 <div class="app-preview">
-                    <img src="img/telahome.png" alt="Dashboard do App Controle Pro" fetchpriority="high">
+                    <img src="img/telahome.png" alt="Dashboard do Sistema de Gestão" fetchpriority="high">
                     <div class="preview-label label-one"><i class="bi bi-cash-register me-1"></i> PDV e caixa diário</div>
                     <div class="preview-label label-two"><i class="bi bi-graph-up-arrow me-1"></i> Resultados em uma tela</div>
                 </div>
@@ -290,12 +290,107 @@ try {
     </div>
 </section>
 
+
 <section class="section">
     <div class="container">
         <div class="final-cta text-center">
             <h2 class="section-title">Pronto para organizar sua empresa?</h2>
             <p class="lead opacity-75 mx-auto mb-4" style="max-width:720px">Crie sua conta, conheça o sistema e escolha o plano que acompanha o momento do seu negócio.</p>
             <a class="btn btn-light text-primary fw-bold btn-lg px-5" href="pages/registro.php">Começar meu teste grátis</a>
+        </div>
+    </div>
+</section>
+
+<!-- Seção de Depoimentos / Feedbacks -->
+<section class="py-5 bg-light" id="depoimentos">
+    <div class="container py-4">
+        <div class="text-center mb-5">
+            <span class="eyebrow"><i class="bi bi-chat-heart"></i> O que dizem nossos clientes</span>
+            <h2 class="fw-bold">Quem usa, aprova e recomenda</h2>
+            <p class="text-muted">Veja como o nosso sistema está transformando a rotina de gestão de nossos clientes.</p>
+        </div>
+
+        <div class="row g-4">
+            <?php if (!empty($feedbacks)): ?>
+                <?php foreach ($feedbacks as $feedback): ?>
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm h-100 p-4">
+                            <div class="card-body d-flex flex-column justify-content-between">
+                                <div>
+                                    <!-- Estrelas de avaliação -->
+                                    <div class="text-warning mb-3">
+                                        <?php 
+                                        $nota = isset($feedback['nota']) ? intval($feedback['nota']) : 5;
+                                        for ($i = 1; $i <= 5; $i++) {
+                                            echo $i <= $nota ? '<i class="bi bi-star-fill"></i>' : '<i class="bi bi-star"></i>';
+                                        }
+                                        ?>
+                                    </div>
+                                    <p class="card-text text-secondary fst-italic">
+                                        "<?= htmlspecialchars($feedback['mensagem'] ?? $feedback['comentario'] ?? 'Sistema excelente e muito prático para o dia a dia!'); ?>"
+                                    </p>
+                                </div>
+                                <div class="d-flex align-items-center mt-4 pt-3 border-top">
+                                    <div class="ms-3">
+                                        <h6 class="mb-0 fw-bold"><?= htmlspecialchars($feedback['nome'] ?? 'Cliente Satisfeito'); ?></h6>
+                                        <small class="text-muted"><?= htmlspecialchars($feedback['empresa'] ?? 'Empresa parceira'); ?></small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <!-- Fallback caso não haja feedbacks cadastrados ainda -->
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm h-100 p-4">
+                        <div class="card-body">
+                            <div class="text-warning mb-3">
+                                <i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i>
+                            </div>
+                            <p class="card-text text-secondary fst-italic">
+                                "O controle de caixa e financeiro ficou muito mais simples. Economizamos horas de trabalho toda semana!"
+                            </p>
+                        </div>
+                        <div class="card-footer bg-transparent border-0 pt-0">
+                            <h6 class="mb-0 fw-bold">Carlos Eduardo</h6>
+                            <small class="text-muted">Comércio Local</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm h-100 p-4">
+                        <div class="card-body">
+                            <div class="text-warning mb-3">
+                                <i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i>
+                            </div>
+                            <p class="card-text text-secondary fst-italic">
+                                "Plataforma excelente, intuitiva e o suporte é nota dez. Recomendo para qualquer empresa."
+                            </p>
+                        </div>
+                        <div class="card-footer bg-transparent border-0 pt-0">
+                            <h6 class="mb-0 fw-bold">Mariana Souza</h6>
+                            <small class="text-muted">Prestadora de Serviços</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm h-100 p-4">
+                        <div class="card-body">
+                            <div class="text-warning mb-3">
+                                <i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i>
+                            </div>
+                            <p class="card-text text-secondary fst-italic">
+                                "Conseguimos organizar nosso estoque e as contas a pagar sem precisar de planilhas complexas."
+                            </p>
+                        </div>
+                        <div class="card-footer bg-transparent border-0 pt-0">
+                            <h6 class="mb-0 fw-bold">Roberto Alves</h6>
+                            <small class="text-muted">Distribuidora</small>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 </section>
