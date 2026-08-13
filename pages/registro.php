@@ -18,8 +18,8 @@ display_flash_message();
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <link rel="stylesheet" href="../assets/css/universal-theme.css">
-  <script src="../assets/js/global-theme.js"></script>
+  <link rel="stylesheet" href="../assets/css/universal-theme.css?v=20260804-theme-button-login">
+  <script src="../assets/js/global-theme.js?v=20260805-icons"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cadastro - App Controle de Contas</title>
@@ -57,15 +57,16 @@ display_flash_message();
       display: flex; 
       justify-content: center; 
       align-items: center; 
-      min-height: calc(100vh - 120px); 
-      padding: 20px; 
+      min-height: 100vh; 
+      padding: 12px 20px; 
       box-sizing: border-box; 
       width: 100%;
   }
   
   form { 
       background-color: var(--bg-form); 
-      padding: 30px 40px; 
+      position: relative;
+      padding: 18px 28px; 
       border-radius: 12px; 
       max-width: 850px; 
       width: 100%; 
@@ -74,13 +75,13 @@ display_flash_message();
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); 
   }
 
-  h2 { text-align: center; margin-bottom: 20px; color: #00bfff; border-bottom: 2px solid #00bfff; padding-bottom: 10px; }
-  label { display: block; margin-top: 15px; font-weight: bold; font-size: 0.95rem; color: var(--text-main); }
+  h2 { text-align: center; margin: -2px 0 10px; color: #00bfff; border-bottom: 2px solid #00bfff; padding-bottom: 7px; font-size: 1.65rem; }
+  label { display: block; margin-top: 8px; font-weight: bold; font-size: 0.9rem; color: var(--text-main); }
   
   select, input:not([type="radio"]):not([type="checkbox"]) { 
       width: 100%; 
-      padding: 12px; 
-      margin-top: 6px; 
+      padding: 9px 11px; 
+      margin-top: 4px; 
       border-radius: 6px; 
       border: 1px solid var(--border-color); 
       background-color: var(--input-bg); 
@@ -98,15 +99,67 @@ display_flash_message();
   .rules, .error-message { font-size: 0.85rem; margin-top: 5px; }
   .error-message { color: #ff4d4d; }
   
-  .btn-submit { width: 100%; margin-top: 25px; padding: 12px 16px; border: none; border-radius: 8px; background-color: #28a745; color: #fff; font-weight: bold; font-size: 1.1rem; cursor: pointer; transition: 0.3s; }
+  .btn-submit { width: 100%; margin-top: 12px; padding: 10px 16px; border: none; border-radius: 8px; background-color: #28a745; color: #fff; font-weight: bold; font-size: 1rem; cursor: pointer; transition: 0.3s; }
   .btn-submit:hover { background-color: #218838; }
   
-  .login-link { text-align: center; margin-top: 15px; color: var(--text-main); }
+  .login-link { text-align: center; margin-top: 8px; color: var(--text-main); font-size:.9rem; }
   .login-link a { color: #00bfff; text-decoration: none; }
 
+  .back-index {
+      display: grid;
+      place-items: center;
+      position: fixed;
+      right: 30px;
+      bottom: 212px;
+      width: 50px;
+      height: 50px;
+      align-items: center;
+      margin-bottom: 0;
+      padding: 0;
+      border: 1px solid var(--border-color);
+      border-radius: 50%;
+      background: var(--card-bg);
+      color: var(--text-main);
+      font-size: 1rem;
+      font-weight: 700;
+      text-decoration: none;
+      box-shadow: 0 4px 10px rgba(0,0,0,.3);
+      z-index: 10062;
+      transition: transform .2s ease, border-color .2s ease, color .2s ease, background-color .2s ease;
+  }
+  .back-index:hover {
+      transform: translateX(-2px);
+      border-color: #00bfff;
+      color: #00a6df;
+      background-color: var(--input-bg);
+  }
+  .back-index:focus-visible {
+      outline: 3px solid rgba(0, 191, 255, .28);
+      outline-offset: 2px;
+  }
+  .back-index-label {
+      position: absolute;
+      right: 60px;
+      padding: 6px 10px;
+      border-radius: 7px;
+      background: var(--card-bg);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      box-shadow: 0 5px 15px rgba(0,0,0,.18);
+      font-size: .78rem;
+      white-space: nowrap;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateX(5px);
+      transition: opacity .2s ease, visibility .2s ease, transform .2s ease;
+      pointer-events: none;
+  }
+  .back-index:hover .back-index-label,
+  .back-index:focus-visible .back-index-label { opacity:1; visibility:visible; transform:translateX(0); }
+
   /* CSS DOS PLANOS COM DESTAQUE FORTE NA SELEÇÃO */
-  .planos-container { display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
-  .plano-card { flex: 1; background: var(--card-bg); border: 2px solid var(--border-color); border-radius: 10px; padding: 18px; cursor: pointer; transition: all 0.25s ease; position: relative; min-width: 200px; }
+  .planos-container { display: flex; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+  .plano-card { flex: 1; background: var(--card-bg); border: 2px solid var(--border-color); border-radius: 10px; padding: 11px 13px; cursor: pointer; transition: all 0.25s ease; position: relative; min-width: 200px; }
   .plano-card:hover { border-color: #00bfff; }
   .plano-card input[type="radio"] { position: absolute; opacity: 0; cursor: pointer; }
   
@@ -118,13 +171,13 @@ display_flash_message();
       transform: translateY(-2px);
   }
   
-  .plano-titulo { color: #00bfff; font-weight: bold; font-size: 1.15rem; display: block; margin-bottom: 5px; }
-  .plano-preco { font-size: 1.25rem; color: var(--text-main); font-weight: bold; display: block; margin-bottom: 5px; }
-  .plano-desc { font-size: 0.85rem; color: var(--text-muted); line-height: 1.4; }
-  .trial-badge { background: #ffc107; color: #000; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; position: absolute; top: 10px; right: 10px; }
+  .plano-titulo { color: #00bfff; font-weight: bold; font-size: 1rem; display: block; margin-bottom: 2px; }
+  .plano-preco { font-size: 1.08rem; color: var(--text-main); font-weight: bold; display: block; margin-bottom: 2px; }
+  .plano-desc { font-size: 0.78rem; color: var(--text-muted); line-height: 1.25; }
+  .trial-badge { background: #ffc107; color: #000; font-size: 0.64rem; padding: 2px 5px; border-radius: 4px; font-weight: bold; position: absolute; top: 8px; right: 8px; }
 
   /* CSS BENEFICIOS */
-  .benefits-section { margin-top: 25px; border-top: 1px solid var(--border-color); padding-top: 20px; }
+  .benefits-section { margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 10px; }
   .benefit-toggle { cursor: pointer; color: #ff9f43; font-weight: bold; display: flex; align-items: center; gap: 8px; }
   .benefit-content { display: none; background: var(--bg-body); padding: 15px; border-radius: 8px; margin-top: 10px; border: 1px solid var(--border-color); }
   .benefit-content.open { display: block; }
@@ -177,6 +230,11 @@ display_flash_message();
   }
 
   .flex-group { display: flex; gap: 10px; align-items: flex-end; }
+  .registration-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+  .registration-grid.three { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .registration-field { min-width:0; }
+  .registration-field .rules,.registration-field .error-message { min-height:0; line-height:1.2; }
+  form > div[style*="margin-top: 20px"] { margin-top:10px!important; }
   
   /* SUPORTE AO DARK-MODE VIA CLASSE */
   body.dark-mode {
@@ -193,7 +251,9 @@ display_flash_message();
   @media (max-width: 768px) {
       .form-container { padding: 10px; align-items: flex-start; }
       form { padding: 20px 15px; }
+      .back-index { right:20px; bottom:196px; width:46px; height:46px; }
       .flex-group { flex-direction: column; align-items: stretch; gap: 0; }
+      .registration-grid,.registration-grid.three { grid-template-columns:1fr; gap:0; }
       .flex-group > div, .flex-group > input, .flex-group > button { width: 100%; margin-top: 5px; }
       .plano-card { min-width: 100%; margin-bottom: 5px; }
       .btn-check, .btn-primary { margin-top: 10px; width: 100%; }
@@ -211,6 +271,7 @@ display_flash_message();
 
 <div class="form-container">
   <form id="cadastroForm" action="registro_processa.php" method="post" novalidate>
+    <a class="back-index" href="../index.php" aria-label="Voltar para a página inicial"><i class="fas fa-arrow-left" aria-hidden="true"></i><span class="back-index-label">Voltar para a página inicial</span></a>
     <h2>Crie sua Conta</h2>
 
     <label>Escolha seu Plano (Teste Grátis):</label>
@@ -240,14 +301,19 @@ display_flash_message();
       </div>
     </div>
 
-    <label for="tipo_pessoa">Tipo de Pessoa:</label>
-    <select id="tipo_pessoa" name="tipo_pessoa" required onchange="saveLocal('tipo_pessoa', this.value)">
-      <option value="fisica" <?php echo (isset($old['tipo_pessoa']) && $old['tipo_pessoa'] == 'fisica') ? 'selected' : ''; ?>>Pessoa Física</option>
-      <option value="juridica" <?php echo (isset($old['tipo_pessoa']) && $old['tipo_pessoa'] == 'juridica') ? 'selected' : ''; ?>>Pessoa Jurídica</option>
-    </select>
-
-    <label id="labelNome" for="nome">Nome Completo:</label>
-    <input type="text" id="nome" name="nome" value="<?php echo htmlspecialchars($old['nome'] ?? ''); ?>" required oninput="saveLocal('nome', this.value)">
+    <div class="registration-grid">
+      <div class="registration-field">
+        <label for="tipo_pessoa">Tipo de Pessoa:</label>
+        <select id="tipo_pessoa" name="tipo_pessoa" required onchange="saveLocal('tipo_pessoa', this.value)">
+          <option value="fisica" <?php echo (isset($old['tipo_pessoa']) && $old['tipo_pessoa'] == 'fisica') ? 'selected' : ''; ?>>Pessoa Física</option>
+          <option value="juridica" <?php echo (isset($old['tipo_pessoa']) && $old['tipo_pessoa'] == 'juridica') ? 'selected' : ''; ?>>Pessoa Jurídica</option>
+        </select>
+      </div>
+      <div class="registration-field">
+        <label id="labelNome" for="nome">Nome Completo:</label>
+        <input type="text" id="nome" name="nome" value="<?php echo htmlspecialchars($old['nome'] ?? ''); ?>" required oninput="saveLocal('nome', this.value)">
+      </div>
+    </div>
 
     <div class="flex-group">
         <div style="flex: 1;" id="div-doc-type">
@@ -263,28 +329,39 @@ display_flash_message();
         </div>
     </div>
 
-    <label for="telefone">Telefone:</label>
-    <input type="text" id="telefone" name="telefone" value="<?php echo htmlspecialchars($old['telefone'] ?? ''); ?>" required oninput="saveLocal('telefone', this.value)">
-
-    <label for="email">Email:</label>
-    <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($old['email'] ?? ''); ?>" required oninput="saveLocal('email', this.value)">
-
-    <label for="email2">Repetir Email:</label>
-    <input type="email" id="email2" name="email2" value="<?php echo htmlspecialchars($old['email'] ?? ''); ?>" required>
-    <div id="emailError" class="error-message"></div>
-
-    <label for="senha">Senha:</label>
-    <div class="input-group">
-      <input type="password" id="senha" name="senha" required
-             pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{6,}$"
-             title="Mínimo 6 caracteres, incluindo letra maiúscula, minúscula, número e caractere especial">
-      <i class="fas fa-eye toggle-password" id="toggleSenha"></i>
+    <div class="registration-grid">
+      <div class="registration-field">
+        <label for="telefone">Telefone:</label>
+        <input type="text" id="telefone" name="telefone" value="<?php echo htmlspecialchars($old['telefone'] ?? ''); ?>" required oninput="saveLocal('telefone', this.value)">
+      </div>
+      <div class="registration-field">
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($old['email'] ?? ''); ?>" required oninput="saveLocal('email', this.value)">
+      </div>
     </div>
-    <div class="rules">Mínimo 6 caracteres, maiúscula, minúscula, número e especial</div>
 
-    <label for="senha2">Repetir Senha:</label>
-    <input type="password" id="senha2" name="senha2" required>
-    <div id="senhaError" class="error-message"></div>
+    <div class="registration-grid three">
+      <div class="registration-field">
+        <label for="email2">Repetir Email:</label>
+        <input type="email" id="email2" name="email2" value="<?php echo htmlspecialchars($old['email'] ?? ''); ?>" required>
+        <div id="emailError" class="error-message"></div>
+      </div>
+      <div class="registration-field">
+        <label for="senha">Senha:</label>
+        <div class="input-group">
+          <input type="password" id="senha" name="senha" required
+                 pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{6,}$"
+                 title="Mínimo 6 caracteres, incluindo letra maiúscula, minúscula, número e caractere especial">
+          <i class="fas fa-eye toggle-password" id="toggleSenha"></i>
+        </div>
+        <div class="rules">6+ caracteres, maiúscula, minúscula, número e especial</div>
+      </div>
+      <div class="registration-field">
+        <label for="senha2">Repetir Senha:</label>
+        <input type="password" id="senha2" name="senha2" required>
+        <div id="senhaError" class="error-message"></div>
+      </div>
+    </div>
 
     <div class="benefits-section">
         <div class="benefit-toggle" onclick="toggleBenefits()">
@@ -425,6 +502,7 @@ display_flash_message();
       msg.innerHTML = '<span style="color:#aaa">Verificando...</span>';
       const formData = new FormData();
       formData.append('codigo', codigo);
+      formData.append('contexto', 'registro');
       fetch('../actions/validar_cupom_api.php', { method: 'POST', body: formData })
       .then(res => res.json())
       .then(data => {

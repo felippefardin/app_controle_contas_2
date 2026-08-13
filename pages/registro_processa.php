@@ -20,6 +20,8 @@ try {
 
 require_once __DIR__ . '/../includes/utils.php';
 require_once __DIR__ . '/../includes/migration_runner.php';
+require_once __DIR__ . '/../includes/cupom_service.php';
+require_once __DIR__ . '/../includes/indicacao_reward_service.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use Dotenv\Dotenv;
@@ -111,6 +113,14 @@ $dias_teste = ($plano_post === 'essencial') ? 30 : 15;
 
 if (!$nome || !$email || !$senha || !$documento) return_error("Preencha todos os campos.", $form_data);
 
+if ($cupom_codigo !== null) {
+    $validacaoCupom = validarCupomPassivo($conn, $cupom_codigo, 0);
+    if (!$validacaoCupom['ok']) {
+        return_error($validacaoCupom['msg'], $form_data);
+    }
+    $cupom_codigo = $validacaoCupom['cupom']['codigo'];
+}
+
 $senha_hash = password_hash($senha, PASSWORD_DEFAULT);
 $arquivoLgpdFisico = null;
 $termoLgpdId = 0;
@@ -145,6 +155,7 @@ try {
         $stmtIndicacao->bind_param('ii', $idIndicador, $new_usuario_id);
         $stmtIndicacao->execute();
         $stmtIndicacao->close();
+        sincronizarRecompensasIndicador($conn, $idIndicador);
     }
 
     $tenantId = 'T' . substr(md5(uniqid($email, true)), 0, 32);
@@ -158,6 +169,15 @@ try {
     $stmtTenant->execute();
     $new_tenant_id = $conn->insert_id;
     $stmtTenant->close();
+
+    if ($codigo_indicacao_recebido !== null) {
+        $stmtBeneficioIndicacao = $conn->prepare(
+            'UPDATE tenants SET indicacao_meses_gratis = 2 WHERE id = ?'
+        );
+        $stmtBeneficioIndicacao->bind_param('i', $new_tenant_id);
+        $stmtBeneficioIndicacao->execute();
+        $stmtBeneficioIndicacao->close();
+    }
 
     $conn->query("UPDATE usuarios SET tenant_id = '$tenantId' WHERE id = $new_usuario_id");
 

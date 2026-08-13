@@ -31,6 +31,10 @@ $formato = $_GET['formato'] ?? 'excel';
 $data_inicio = $_GET['data_inicio'] ?? '';
 $data_fim = $_GET['data_fim'] ?? '';
 $status = $_GET['status'] ?? 'pendente';
+$termo = trim($_GET['termo'] ?? '');
+
+if (!in_array($formato, ['excel', 'pdf', 'xml'], true)) $formato = 'excel';
+if (!in_array($status, ['pendente', 'baixada'], true)) $status = 'pendente';
 
 // 3. QUERY DE DADOS
 $params = [];
@@ -59,11 +63,23 @@ $params[] = $status;
 $types .= 's';
 
 // Filtro de Data (apenas se as datas forem válidas)
-if (!empty($data_inicio) && !empty($data_fim)) {
-    $sql .= " AND $dateField BETWEEN ? AND ?";
+if (!empty($data_inicio)) {
+    $sql .= " AND $dateField >= ?";
     $params[] = $data_inicio;
+    $types .= 's';
+}
+if (!empty($data_fim)) {
+    $sql .= " AND $dateField <= ?";
     $params[] = $data_fim;
-    $types .= 'ss';
+    $types .= 's';
+}
+if ($termo !== '') {
+    $like = '%' . $termo . '%';
+    $sql .= " AND (pf.nome LIKE ? OR cp.fornecedor LIKE ? OR cp.numero LIKE ?
+              OR cp.descricao LIKE ? OR c.nome LIKE ? OR u.nome LIKE ?
+              OR CAST(cp.valor AS CHAR) LIKE ?)";
+    for ($i = 0; $i < 7; $i++) $params[] = $like;
+    $types .= 'sssssss';
 }
 
 $sql .= " ORDER BY $dateField ASC";
@@ -105,6 +121,7 @@ foreach ($headers as $col => $text) {
 // --- DADOS ---
 $rowNum = 2;
 $total = 0.0;
+$exportRows = [];
 
 if ($result && $result->num_rows > 0) {
     while ($row = $result->fetch_assoc()) {
@@ -112,6 +129,17 @@ if ($result && $result->num_rows > 0) {
         $vencimento = $row['data_vencimento'] ? date('d/m/Y', strtotime($row['data_vencimento'])) : '-';
         $valor = (float)$row['valor'];
         $total += $valor;
+        $exportRows[] = [
+            'fornecedor' => $fornecedor,
+            'numero' => $row['numero'] ?? '',
+            'descricao' => $row['descricao'] ?? '',
+            'categoria' => $row['nome_categoria'] ?? '',
+            'vencimento' => $row['data_vencimento'] ?? '',
+            'valor' => number_format($valor, 2, '.', ''),
+            'status' => $status,
+            'data_baixa' => $row['data_baixa'] ?? '',
+            'baixado_por' => $row['nome_quem_baixou'] ?? ''
+        ];
 
         $sheet->setCellValue('A' . $rowNum, $fornecedor);
         $sheet->setCellValue('B' . $rowNum, $row['numero'] ?? '');
@@ -168,7 +196,26 @@ ob_end_clean();
 
 $filename = "relatorio_" . $status . "_" . date('d-m-Y') . "_" . uniqid();
 
-if ($formato === 'pdf') {
+if ($formato === 'xml') {
+    header('Content-Type: application/xml; charset=UTF-8');
+    header('Content-Disposition: attachment;filename="' . $filename . '.xml"');
+    header('Cache-Control: max-age=0');
+    $xml = new DOMDocument('1.0', 'UTF-8');
+    $xml->formatOutput = true;
+    $root = $xml->createElement('contas_pagar');
+    $root->setAttribute('status', $status);
+    $root->setAttribute('total', number_format($total, 2, '.', ''));
+    $xml->appendChild($root);
+    foreach ($exportRows as $dados) {
+        $conta = $xml->createElement('conta');
+        foreach ($dados as $campo => $valorCampo) {
+            $conta->appendChild($xml->createElement($campo))
+                  ->appendChild($xml->createTextNode((string)$valorCampo));
+        }
+        $root->appendChild($conta);
+    }
+    echo $xml->saveXML();
+} elseif ($formato === 'pdf') {
     // Configura PDF usando Dompdf
     header('Content-Type: application/pdf');
     header('Content-Disposition: attachment;filename="' . $filename . '.pdf"');
@@ -187,18 +234,6 @@ if ($formato === 'pdf') {
     IOFactory::registerWriter('Pdf', $className);
     
     $writer = IOFactory::createWriter($spreadsheet, 'Pdf');
-    $writer->save('php://output');
-
-} elseif ($formato === 'csv') {
-    header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment;filename="' . $filename . '.csv"');
-    header('Cache-Control: max-age=0');
-
-    $writer = new Csv($spreadsheet);
-    $writer->setDelimiter(';');
-    $writer->setEnclosure('"');
-    $writer->setLineEnding("\r\n");
-    $writer->setSheetIndex(0);
     $writer->save('php://output');
 
 } else {

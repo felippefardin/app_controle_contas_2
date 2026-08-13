@@ -87,8 +87,12 @@ display_flash_message();
                 
                 <div class="form-row">
                     <div class="form-group col-md-3">
-                        <label for="codigo">Código/SKU</label>
-                        <input type="text" class="form-control" name="codigo" value="<?= htmlspecialchars($produto['codigo'] ?? '') ?>">
+                        <label for="codigo">Código de barras/SKU (opcional)</label>
+                        <input type="text" class="form-control" name="codigo"
+                               value="<?= htmlspecialchars($produto['codigo'] ?? '') ?>"
+                               placeholder="Leia ou digite o código" autocomplete="off"
+                               onkeydown="if(event.key==='Enter'){event.preventDefault();this.form.elements['nome'].focus();}">
+                        <small class="form-text text-muted">Compatível com leitor USB/Bluetooth.</small>
                     </div>
 
                     <div class="form-group col-md-5"> <label for="nome">Nome do Produto</label>

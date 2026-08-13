@@ -113,6 +113,21 @@ if (isset($_GET['action'])) {
     exit;
 }
 
+// Categorias de despesa disponíveis para o lançamento financeiro da compra.
+$categoriasDespesa = [];
+$categoriaPadraoId = 0;
+$stmtCategorias = $conn->prepare("SELECT id, nome FROM categorias WHERE id_usuario = ? AND tipo = 'despesa' ORDER BY nome ASC");
+$stmtCategorias->bind_param('i', $usuarioId);
+$stmtCategorias->execute();
+$resultadoCategorias = $stmtCategorias->get_result();
+while ($categoria = $resultadoCategorias->fetch_assoc()) {
+    $categoriasDespesa[] = $categoria;
+    if ($categoriaPadraoId === 0 && preg_match('/compra|estoque/i', $categoria['nome'])) {
+        $categoriaPadraoId = (int)$categoria['id'];
+    }
+}
+$stmtCategorias->close();
+
 include('../includes/header.php');
 // Limpa msg antigas erradas se existirem
 if (isset($_SESSION['flash_message']) && !isset($_SESSION['flash_message']['tipo'])) {
@@ -233,6 +248,7 @@ display_flash_message();
     <h1><i class="fas fa-dolly"></i> Registrar Compra</h1>
 
     <form action="../actions/registrar_compra.php" method="POST" id="form-compra">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
         <div class="form-group">
             <label for="fornecedor_id">Fornecedor</label>
             <div class="input-group">
@@ -283,6 +299,57 @@ display_flash_message();
         <div class="text-right mt-3">
             <h3 class="total-compra">Total: R$ <span id="total-geral">0.00</span></h3>
             <input type="hidden" name="valor_total" id="valor_total_hidden" value="0">
+        </div>
+
+        <div class="card bg-dark text-white mt-4 mb-4" id="dados-financeiros-compra">
+            <div class="card-header">
+                <h2 class="mb-0" style="border:none; padding:0; font-size:1.25rem; margin:0;"><i class="fas fa-file-invoice-dollar"></i> Dados financeiros</h2>
+            </div>
+            <div class="card-body">
+                <input type="hidden" name="gerar_conta_pagar" value="0">
+                <div class="custom-control custom-switch mb-3">
+                    <input type="checkbox" class="custom-control-input" id="gerar_conta_pagar" name="gerar_conta_pagar" value="1" checked>
+                    <label class="custom-control-label" for="gerar_conta_pagar">Gerar automaticamente em Contas a Pagar</label>
+                </div>
+
+                <div id="campos-conta-pagar">
+                    <div class="form-row">
+                        <div class="form-group col-md-4">
+                            <label for="numero_documento">Número da nota/documento</label>
+                            <input type="text" class="form-control" id="numero_documento" name="numero_documento" maxlength="20" placeholder="Ex.: NF-4587">
+                            <small class="form-text text-muted">Se ficar vazio, será gerado um número automático.</small>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label for="id_categoria_compra">Categoria da despesa</label>
+                            <select class="form-control" id="id_categoria_compra" name="id_categoria">
+                                <option value="">Compras de estoque (automática)</option>
+                                <?php foreach ($categoriasDespesa as $categoria): ?>
+                                    <option value="<?= (int)$categoria['id'] ?>" <?= (int)$categoria['id'] === $categoriaPadraoId ? 'selected' : '' ?>><?= htmlspecialchars($categoria['nome'], ENT_QUOTES, 'UTF-8') ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label for="data_vencimento">Primeiro vencimento</label>
+                            <input type="date" class="form-control" id="data_vencimento" name="data_vencimento" value="<?= date('Y-m-d') ?>">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="tipo_pagamento">Condição de pagamento</label>
+                            <select class="form-control" id="tipo_pagamento" name="tipo_pagamento">
+                                <option value="unica">Parcela única</option>
+                                <option value="parcelado">Parcelado</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-6" id="grupo-numero-parcelas" style="display:none;">
+                            <label for="numero_parcelas">Quantidade de parcelas</label>
+                            <input type="number" class="form-control" id="numero_parcelas" name="numero_parcelas" value="2" min="2" max="36">
+                        </div>
+                    </div>
+                    <div class="alert alert-info mb-0 py-2"><i class="fas fa-info-circle"></i> O fornecedor e o valor serão aproveitados desta compra. Nas compras parceladas, uma conta será criada para cada vencimento.</div>
+                </div>
+            </div>
         </div>
 
         <div class="form-group mt-4">
@@ -533,6 +600,17 @@ $(document).ready(function() {
             e.preventDefault(); alert('Adicione pelo menos um produto.');
         }
     });
+
+    function atualizarCamposFinanceiros() {
+        var gerarConta = $('#gerar_conta_pagar').is(':checked');
+        $('#campos-conta-pagar').toggle(gerarConta);
+        $('#data_vencimento').prop('required', gerarConta);
+        var parcelado = gerarConta && $('#tipo_pagamento').val() === 'parcelado';
+        $('#grupo-numero-parcelas').toggle(parcelado);
+        $('#numero_parcelas').prop('required', parcelado);
+    }
+    $('#gerar_conta_pagar, #tipo_pagamento').on('change', atualizarCamposFinanceiros);
+    atualizarCamposFinanceiros();
 });
 </script>
 

@@ -1,4 +1,8 @@
 <?php
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit("Somente CLI.\n");
+}
 // cron/processar_cancelamentos.php
 // Deve ser executado diariamente via CRON JOB do servidor (ex: 00:01)
 

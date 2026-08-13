@@ -40,6 +40,12 @@ $categorias_despesa = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $where = ["cp.status='pendente'", "cp.deleted_at IS NULL", "cp.usuario_id = " . intval($usuarioId)];
 if (!empty($_GET['data_inicio'])) $where[] = "cp.data_vencimento >= '" . $conn->real_escape_string($_GET['data_inicio']) . "'";
 if (!empty($_GET['data_fim'])) $where[] = "cp.data_vencimento <= '" . $conn->real_escape_string($_GET['data_fim']) . "'";
+if (!empty(trim($_GET['termo'] ?? ''))) {
+    $termo = $conn->real_escape_string(trim($_GET['termo']));
+    $where[] = "(pf.nome LIKE '%$termo%' OR cp.fornecedor LIKE '%$termo%' OR cp.numero LIKE '%$termo%'
+        OR cp.descricao LIKE '%$termo%' OR c.nome LIKE '%$termo%'
+        OR CAST(cp.valor AS CHAR) LIKE '%$termo%')";
+}
 
 $sql = "SELECT cp.*, c.nome as nome_categoria, pf.nome as nome_pessoa_fornecedor
         FROM contas_pagar AS cp
@@ -59,6 +65,20 @@ $result = $conn->query($sql);
   <style>
     /* === GERAL === */
     * { box-sizing: border-box; }
+    body > main {
+        width: 100% !important;
+        max-width: none !important;
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+    body > main .main-container,
+    body > main form.search-form,
+    body > main .table-responsive,
+    body > main .table-responsive table {
+        width: 100%;
+        max-width: none !important;
+    }
+    body > main .table-responsive table { margin-left: 0; margin-right: 0; }
     body { background-color: #121212; color: #eee; font-family: Arial, sans-serif; margin: 0; min-height: 100vh; }
     
     /* === CONTAINER RESPONSIVO (FULL DESKTOP) === */
@@ -165,6 +185,7 @@ $result = $conn->query($sql);
 
     /* === RESPONSIVIDADE (MOBILE e TABLET) === */
     @media (max-width: 768px) {
+        body > main { padding-left: 8px; padding-right: 8px; }
         body { padding: 10px; }
         
         /* Formulário empilhado no mobile */
@@ -188,6 +209,7 @@ $result = $conn->query($sql);
     <h2>Contas a Pagar</h2>
 
     <form class="search-form" method="GET">
+      <input type="search" name="termo" placeholder="Fornecedor, número, descrição, categoria ou valor" value="<?= htmlspecialchars($_GET['termo'] ?? '') ?>">
       <input type="date" name="data_inicio" value="<?= htmlspecialchars($_GET['data_inicio'] ?? '') ?>" title="Data Início">
       <input type="date" name="data_fim" value="<?= htmlspecialchars($_GET['data_fim'] ?? '') ?>" title="Data Fim">
       
@@ -365,6 +387,7 @@ $result = $conn->query($sql);
         <span class="close-btn" onclick="document.getElementById('exportModal').style.display='none'">&times;</span>
         <h3>Exportar Relatório</h3>
         <form action="../actions/exportar_contas_pagar.php" method="GET" target="_blank" style="display:flex; flex-direction:column; gap:10px;">
+            <input type="hidden" name="termo" value="<?= htmlspecialchars($_GET['termo'] ?? '') ?>">
             <label style="text-align:left; color:#ccc; font-size:12px;">Tipo de Relatório:</label>
             <select name="status" required>
                 <option value="pendente">Contas a Pagar (Pendentes)</option>
@@ -373,18 +396,18 @@ $result = $conn->query($sql);
             <div style="display:flex; gap:10px;">
                 <div style="flex:1;">
                     <label style="display:block; text-align:left; color:#ccc; font-size:12px;">De:</label>
-                    <input type="date" name="data_inicio" value="<?= date('Y-m-01') ?>" required style="width:100%;">
+                    <input type="date" name="data_inicio" value="<?= htmlspecialchars($_GET['data_inicio'] ?? '') ?>" style="width:100%;">
                 </div>
                 <div style="flex:1;">
                     <label style="display:block; text-align:left; color:#ccc; font-size:12px;">Até:</label>
-                    <input type="date" name="data_fim" value="<?= date('Y-m-t') ?>" required style="width:100%;">
+                    <input type="date" name="data_fim" value="<?= htmlspecialchars($_GET['data_fim'] ?? '') ?>" style="width:100%;">
                 </div>
             </div>
             <label style="text-align:left; color:#ccc; font-size:12px;">Formato:</label>
             <select name="formato" required>
                 <option value="excel">Excel (.xlsx)</option>
                 <option value="pdf">PDF (.pdf)</option>
-                <option value="csv">CSV (.csv)</option>
+                <option value="xml">XML (.xml)</option>
             </select>
             <button type="submit" class="btn btn-export" style="margin-top:10px;">Baixar Arquivo</button>
         </form>

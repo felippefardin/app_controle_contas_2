@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../database.php';
 require_once __DIR__ . '/../includes/utils.php';
 require_once __DIR__ . '/../includes/cupom_service.php';
+require_once __DIR__ . '/../includes/indicacao_reward_service.php';
 require_once __DIR__ . '/../includes/mercadopago_security.php';
 
 require_tenant_admin();
@@ -43,6 +44,20 @@ if (!$tenant) {
     exit('Conta não identificada.');
 }
 
+$mesesGratisIndicacao = (int)($tenant['indicacao_beneficio_utilizado'] ?? 0) === 0
+    ? min(2, max(0, (int)($tenant['indicacao_meses_gratis'] ?? 0)))
+    : 0;
+$mesesGratisIndicador = mesesPendentesIndicador($conn, (int)$tenant['usuario_id']);
+$totalMesesGratis = $mesesGratisIndicacao + $mesesGratisIndicador;
+$inicioCobrancaDb = null;
+$inicioCobrancaMp = null;
+if ($totalMesesGratis > 0) {
+    $inicioCobranca = (new DateTimeImmutable('now', new DateTimeZone('UTC')))
+        ->modify('+' . $totalMesesGratis . ' months');
+    $inicioCobrancaDb = $inicioCobranca->format('Y-m-d H:i:s');
+    $inicioCobrancaMp = $inicioCobranca->format('Y-m-d\TH:i:s.000\Z');
+}
+
 $valorExtras = max(0, (int) ($tenant['usuarios_extras'] ?? 0)) * 4.00;
 $cupom = null;
 $cupomPassivo = false;
@@ -63,6 +78,7 @@ $calculo = $cupom
     : ['original' => $planos[$plano] + $valorExtras, 'final' => $planos[$plano] + $valorExtras, 'desconto' => 0];
 $valorCobranca = max(0.01, (float) $calculo['final']);
 $cupomId = $cupom ? (int) $cupom['id'] : null;
+$promocaoId = $cupom && !$cupomPassivo ? (int)($cupom['promocao_id'] ?? 0) : null;
 
 // Reutiliza um checkout recente, evitando duas assinaturas por clique duplo/atualização.
 $reuse = $conn->prepare("SELECT init_point FROM checkout_assinaturas
@@ -86,17 +102,42 @@ $idempotencyKey = bin2hex(random_bytes(32));
 $statusCheckout = 'criando';
 $valorOriginal = (float) $calculo['original'];
 $insert = $conn->prepare('INSERT INTO checkout_assinaturas
-    (checkout_token, tenant_id, plano, conta_receber_id, cupom_id, idempotency_key, valor_original, valor_final, status, solicitado_por)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-$insert->bind_param('sssiisddsi', $checkoutToken, $tenantId, $plano, $contaId, $cupomId, $idempotencyKey, $valorOriginal, $valorCobranca, $statusCheckout, $usuarioId);
+    (checkout_token, tenant_id, plano, conta_receber_id, cupom_id, idempotency_key,
+     valor_original, valor_final, meses_gratis_indicacao, meses_gratis_indicador,
+     inicio_cobranca, promocao_id, status, solicitado_por)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+$insert->bind_param(
+    'sssiisddiisisi',
+    $checkoutToken,
+    $tenantId,
+    $plano,
+    $contaId,
+    $cupomId,
+    $idempotencyKey,
+    $valorOriginal,
+    $valorCobranca,
+    $mesesGratisIndicacao,
+    $mesesGratisIndicador,
+    $inicioCobrancaDb,
+    $promocaoId,
+    $statusCheckout,
+    $usuarioId
+);
 $insert->execute();
 $checkoutId = (int) $conn->insert_id;
 $insert->close();
+if ($mesesGratisIndicador > 0) {
+    reservarRecompensasIndicador($conn, (int)$tenant['usuario_id'], $checkoutId);
+}
 
 $payload = [
     'payer_email' => $payerEmail,
     'back_url' => mp_back_url(),
-    'reason' => 'Assinatura ' . ucfirst($plano) . ($cupom ? ' - Cupom ' . $cupom['codigo'] : '') . ' - App Controle',
+    'reason' => 'Assinatura ' . ucfirst($plano)
+        . ($cupom ? ' - Cupom ' . $cupom['codigo'] : '')
+        . ($mesesGratisIndicacao > 0 ? ' - Indicação: 2 meses grátis' : '')
+        . ($mesesGratisIndicador > 0 ? " - Prêmio: {$mesesGratisIndicador} mês(es)" : '')
+        . ' - App Controle',
     'external_reference' => $checkoutToken,
     'auto_recurring' => [
         'frequency' => 1,
@@ -106,6 +147,12 @@ $payload = [
     ],
     'status' => 'pending',
 ];
+
+if ($inicioCobrancaMp !== null) {
+    // Na assinatura sem plano associado, start_date define quando ocorrerá
+    // a primeira cobrança recorrente.
+    $payload['auto_recurring']['start_date'] = $inicioCobrancaMp;
+}
 
 try {
     $result = mp_api_request('POST', '/preapproval', $payload, $idempotencyKey);

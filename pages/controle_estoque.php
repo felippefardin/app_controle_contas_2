@@ -94,7 +94,10 @@ display_flash_message();
                 <div class="form-row">
                     <div class="form-group col-md-3">
                         <label for="codigo">Código/SKU</label>
-                        <input type="text" class="form-control" name="codigo" placeholder="Cód. Opcional">
+                        <input type="text" class="form-control barcode-field" id="produto_codigo" name="codigo"
+                               placeholder="Leia ou digite o código (opcional)" autocomplete="off"
+                               onkeydown="if(event.key==='Enter'){event.preventDefault();this.form.elements['nome'].focus();}">
+                        <small class="form-text text-muted">Código de barras/SKU. Compatível com leitor USB/Bluetooth.</small>
                     </div>
 
                     <div class="form-group col-md-5"> <label for="nome">Nome do Produto</label>

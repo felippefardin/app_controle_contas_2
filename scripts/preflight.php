@@ -33,7 +33,7 @@ if ($target === 'test') {
 }
 
 version_compare(PHP_VERSION, '8.2.0', '>=') ? $ok('PHP', PHP_VERSION) : $error('PHP', 'É necessário PHP 8.2 ou superior.');
-foreach (['mysqli', 'curl', 'mbstring', 'openssl', 'json', 'fileinfo'] as $extension) {
+foreach (['mysqli', 'curl', 'mbstring', 'openssl', 'json', 'fileinfo', 'soap'] as $extension) {
     extension_loaded($extension) ? $ok('Extensão ' . $extension, 'Carregada.') : $error('Extensão ' . $extension, 'Não está instalada ou habilitada.');
 }
 is_readable(__DIR__ . '/../vendor/autoload.php') ? $ok('Dependências', 'vendor/autoload.php encontrado.') : $error('Dependências', 'Execute composer install.');
@@ -100,7 +100,7 @@ empty($_ENV['MAIL_HOST']) || empty($_ENV['MAIL_USERNAME'])
     : $ok('E-mail', 'SMTP configurado.');
 
 if ($appUrl !== '' && str_starts_with($appUrl, 'http')) {
-    foreach (['/.env', '/composer.json', '/schema.sql'] as $sensitivePath) {
+    foreach (['/.env', '/.git/HEAD', '/composer.json', '/schema.sql', '/webhook.log', '/tests/run.php', '/scripts/preflight.php'] as $sensitivePath) {
         $url = $appUrl . $sensitivePath;
         $ch = curl_init($url);
         curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_NOBODY => true, CURLOPT_TIMEOUT => 4, CURLOPT_CONNECTTIMEOUT => 2]);

@@ -34,6 +34,43 @@ include_once '../includes/header.php';
 .workflow{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;margin:16px 0}.workflow span{flex:1;min-width:130px;background:#222b31;border:1px solid #3a4851;border-radius:9px;padding:13px;text-align:center;color:#e7f7ff}.workflow i{display:block;color:var(--t-accent);font-size:20px;margin-bottom:6px}
 .routine-table{width:100%;border-collapse:collapse;background:#202327}.routine-table th,.routine-table td{border-bottom:1px solid #3b4045;padding:12px;text-align:left;vertical-align:top}.routine-table th{color:var(--t-accent)}
 .search-empty{display:none;text-align:center;padding:35px;background:var(--t-card);border-radius:12px;color:var(--t-muted)}.search-empty.visible{display:block}
+
+/* Paleta específica do tutorial no modo claro. */
+html[data-app-theme="light"] .tutorial-shell,
+body.light-mode .tutorial-shell { color:#172033; }
+html[data-app-theme="light"] :is(.guide-section,.guide-card,.tutorial-nav,.search-empty),
+body.light-mode :is(.guide-section,.guide-card,.tutorial-nav,.search-empty) {
+    background:#fff;
+    color:#172033;
+    border-color:#d5dfeb;
+}
+html[data-app-theme="light"] :is(.section-title h2,.guide-card h3,.routine-table td),
+body.light-mode :is(.section-title h2,.guide-card h3,.routine-table td) { color:#172033 !important; }
+html[data-app-theme="light"] :is(.section-title p,.guide-card p,.guide-card li,.search-empty),
+body.light-mode :is(.section-title p,.guide-card p,.guide-card li,.search-empty) { color:#344054 !important; }
+html[data-app-theme="light"] .guide-card :is(strong,b),
+body.light-mode .guide-card :is(strong,b) { color:#101828; }
+html[data-app-theme="light"] .tutorial-nav strong,
+body.light-mode .tutorial-nav strong { color:#087ea4; }
+html[data-app-theme="light"] .tutorial-nav a,
+body.light-mode .tutorial-nav a { color:#344054; }
+html[data-app-theme="light"] .tutorial-nav a:hover,
+html[data-app-theme="light"] .tutorial-nav a.active,
+body.light-mode .tutorial-nav a:hover,
+body.light-mode .tutorial-nav a.active { background:#eaf7fd; color:#05668d; }
+html[data-app-theme="light"] .workflow span,
+body.light-mode .workflow span { background:#f4f8fc; color:#25364a; border-color:#d5dfeb; }
+html[data-app-theme="light"] .routine-table,
+body.light-mode .routine-table { background:#fff; }
+html[data-app-theme="light"] .routine-table :is(th,td),
+body.light-mode .routine-table :is(th,td) { border-color:#d5dfeb; }
+html[data-app-theme="light"] .routine-table th,
+body.light-mode .routine-table th { color:#05668d; background:#f4f8fc; }
+/* Os avisos mantêm fundo escuro/colorido e, portanto, precisam de texto claro. */
+html[data-app-theme="light"] .note,
+html[data-app-theme="light"] .note :is(p,li,strong,b),
+body.light-mode .note,
+body.light-mode .note :is(p,li,strong,b) { color:#fff !important; }
 @media(max-width:980px){.tutorial-layout{grid-template-columns:1fr}.tutorial-nav{position:static;max-height:none}.tutorial-nav div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:680px){.tutorial-shell{padding:0 12px}.tutorial-hero,.guide-section{padding:20px}.guide-grid{grid-template-columns:1fr}.tutorial-nav div{grid-template-columns:1fr}.routine-table{display:block;overflow:auto}}
 </style>
@@ -41,11 +78,11 @@ include_once '../includes/header.php';
 <div class="tutorial-shell">
     <section class="tutorial-hero">
         <h1>Manual atualizado do sistema</h1>
-        <p>Olá, <?= htmlspecialchars($nomeUsuario, ENT_QUOTES, 'UTF-8') ?>. Este guia acompanha a organização atual do dashboard e explica as rotinas de caixa, PDV, estoque, financeiro, metas, equipe, fiscal e suporte.</p>
+        <p>Olá, <?= htmlspecialchars($nomeUsuario, ENT_QUOTES, 'UTF-8') ?>. Este guia acompanha a organização atual do dashboard e explica as rotinas de caixa, PDV, estoque, financeiro, IA local, metas, equipe, fiscal e suporte.</p>
         <span class="profile-chip"><i class="fas fa-user-shield"></i> Perfil atual: <?= htmlspecialchars(ucfirst($perfil), ENT_QUOTES, 'UTF-8') ?></span>
         <div class="tutorial-search">
             <i class="fas fa-search"></i>
-            <input id="tutorialSearch" type="search" placeholder="Pesquisar: abrir caixa, PDV, metas, PIX, permissões..." autocomplete="off">
+            <input id="tutorialSearch" type="search" placeholder="Pesquisar: IA local, abrir caixa, PDV, metas, PIX..." autocomplete="off">
             <small id="tutorialSearchStatus" class="tutorial-search-status" aria-live="polite"></small>
         </div>
     </section>
@@ -55,6 +92,7 @@ include_once '../includes/header.php';
             <strong><i class="fas fa-list"></i> Conteúdo</strong>
             <div>
                 <a href="#dashboard"><i class="fas fa-table-cells-large"></i> Dashboard e atalhos</a>
+                <a href="#ia-financeira"><i class="fas fa-wand-magic-sparkles"></i> IA financeira local</a>
                 <a href="#primeiros-passos"><i class="fas fa-rocket"></i> Primeiros passos</a>
                 <a href="#equipe"><i class="fas fa-users-gear"></i> Equipe e permissões</a>
                 <a href="#cadastros"><i class="fas fa-address-book"></i> Cadastros</a>
@@ -82,6 +120,45 @@ include_once '../includes/header.php';
                     <article class="guide-card"><h3>Financeiro</h3><p>Contém contas a pagar, contas pagas, contas a receber e contas recebidas. Use a baixa somente quando o pagamento ou recebimento realmente acontecer.</p></article>
                     <article class="guide-card"><h3>Cadastros e Gestão</h3><p>Cadastros reúne clientes, fornecedores, bancos, chaves PIX e categorias. Gestão reúne relatórios, lembretes, equipe, permissões e troca de usuário.</p></article>
                     <article class="guide-card"><h3>Configurações</h3><p>Use para acessar perfil, configuração fiscal, assinatura, proteção de dados e suporte.</p><a class="guide-link" href="home.php"><i class="fas fa-home"></i> Abrir dashboard</a></article>
+                </div>
+            </section>
+
+            <section id="ia-financeira" class="guide-section" data-keywords="ia inteligência artificial ollama gemma resumo automático workflow contas vencidas previsão privacidade cache offline">
+                <div class="section-title"><div class="icon"><i class="fas fa-wand-magic-sparkles"></i></div><div><h2>IA financeira local</h2><p>Um resumo inteligente e privado das prioridades financeiras da empresa.</p></div></div>
+                <div class="workflow"><span><i class="fas fa-database"></i>Consulta os totais</span><span><i class="fas fa-calculator"></i>Calcula o risco</span><span><i class="fas fa-brain"></i>IA local analisa</span><span><i class="fas fa-lightbulb"></i>Exibe a recomendação</span></div>
+                <div class="guide-grid">
+                    <article class="guide-card">
+                        <h3>Onde encontrar</h3>
+                        <p>Abra o dashboard. O card do resumo automático aparece depois das ações rápidas e antes dos indicadores de saldo, receitas e despesas.</p>
+                        <p>Quando o modelo gerar a recomendação, o canto do card mostrará <strong>“IA local”</strong> e o horário da atualização.</p>
+                        <a class="guide-link" href="home.php"><i class="fas fa-home"></i> Ver IA no dashboard</a>
+                    </article>
+                    <article class="guide-card">
+                        <h3>O que é analisado</h3>
+                        <ul><li>Contas a pagar vencidas.</li><li>Pagamentos dos próximos três dias.</li><li>Recebimentos atrasados.</li><li>Recebimentos dos próximos três dias.</li><li>Diferença prevista entre entradas e saídas.</li></ul>
+                        <div class="note">A qualidade do resumo depende dos valores, vencimentos e baixas estarem atualizados.</div>
+                    </article>
+                    <article class="guide-card">
+                        <h3>Privacidade e segurança</h3>
+                        <p>O modelo Gemma é executado pelo Ollama no próprio computador. Para gerar a recomendação, ele recebe somente quantidades e totais financeiros agregados.</p>
+                        <ul><li>Não recebe senhas nem credenciais.</li><li>Não envia os dados financeiros para uma API externa.</li><li>Não dá baixa, altera ou exclui lançamentos.</li><li>Não envia cobranças automaticamente.</li></ul>
+                    </article>
+                    <article class="guide-card">
+                        <h3>IA local ou Automação local</h3>
+                        <p><strong>IA local:</strong> o Ollama respondeu e o texto foi produzido pelo modelo instalado no computador.</p>
+                        <p><strong>Automação local:</strong> o sistema usou a recomendação segura baseada em regras porque a IA estava desligada, ocupada ou demorou além do limite.</p>
+                        <div class="note ok">O painel continua funcionando normalmente mesmo sem a IA.</div>
+                    </article>
+                    <article class="guide-card">
+                        <h3>Atualização e cache</h3>
+                        <p>A recomendação fica guardada por 15 minutos para evitar lentidão e processamento repetido. Depois desse período, uma nova visita ao dashboard pode gerar uma análise atualizada.</p>
+                        <p>Na primeira execução, aguarde alguns segundos enquanto o modelo é carregado na memória.</p>
+                    </article>
+                    <article class="guide-card">
+                        <h3>Se a IA não aparecer</h3>
+                        <ol><li>Confirme que o aplicativo Ollama está aberto na área de notificação do Windows.</li><li>Atualize o dashboard com <strong>Ctrl + F5</strong>.</li><li>Aguarde até 15 segundos.</li><li>Confira se o card informa “IA local” ou “Automação local”.</li></ol>
+                        <p>Se continuar em automação local, o resumo por regras permanece válido e seguro.</p>
+                    </article>
                 </div>
             </section>
 
@@ -163,13 +240,14 @@ include_once '../includes/header.php';
                 </div>
             </section>
 
-            <section id="financeiro" class="guide-section" data-keywords="financeiro contas pagar receber cobrança email pix baixa">
+            <section id="financeiro" class="guide-section" data-keywords="financeiro contas pagar receber cobrança email pix baixa ia resumo automático">
                 <div class="section-title"><div class="icon"><i class="fas fa-wallet"></i></div><div><h2>Financeiro</h2><p>Controle obrigações, recebimentos e cobranças.</p></div></div>
                 <div class="guide-grid">
                     <article class="guide-card"><h3>Contas a pagar</h3><p>Registre fornecedor, categoria, descrição, valor e vencimento. Dê baixa apenas depois do pagamento.</p><a class="guide-link" href="contas_pagar.php">Contas a pagar</a></article>
                     <article class="guide-card"><h3>Contas a receber</h3><p>Registre ou acompanhe o cliente e o vencimento. A baixa confirma o recebimento.</p><a class="guide-link" href="contas_receber.php">Contas a receber</a></article>
                     <article class="guide-card"><h3>Enviar cobrança</h3><p>Use um cliente com e-mail válido, selecione uma chave PIX cadastrada, escreva a mensagem e anexe um arquivo quando necessário.</p></article>
                     <article class="guide-card"><h3>Pendente e baixada</h3><p>Cadastrar uma conta não significa que ela foi paga ou recebida. Use baixa e estorno conforme o evento real.</p></article>
+                    <article class="guide-card"><h3>Resumo automático com IA</h3><p>O dashboard combina contas vencidas e próximas do vencimento para destacar riscos e sugerir uma prioridade. A IA é consultiva: confira os lançamentos antes de decidir.</p><a class="guide-link" href="#ia-financeira">Entender a IA local</a></article>
                 </div>
             </section>
 
@@ -219,7 +297,7 @@ include_once '../includes/header.php';
                         <tr><td>Início do dia</td><td>Abrir o caixa e informar o saldo inicial de dinheiro.</td><td>Começar o PDV com valor conhecido.</td></tr>
                         <tr><td>Durante o dia</td><td>Registrar vendas, compras, pagamentos, recebimentos, reforços e retiradas no momento em que acontecem.</td><td>Evitar esquecimentos e divergências.</td></tr>
                         <tr><td>Fim do dia</td><td>Conferir saldo inicial, movimentos, formas de pagamento e fechar o caixa.</td><td>Encerrar formalmente a operação.</td></tr>
-                        <tr><td>Semanal</td><td>Revisar contas vencidas, estoque mínimo, cadastros incompletos e permissões.</td><td>Reduzir atrasos e falhas.</td></tr>
+                        <tr><td>Semanal</td><td>Revisar o resumo da IA, contas vencidas, estoque mínimo, cadastros incompletos e permissões.</td><td>Reduzir atrasos e falhas.</td></tr>
                         <tr><td>Início de cada ciclo</td><td>Criar a nova meta e arquivar automaticamente a anterior.</td><td>Manter objetivos e histórico claros.</td></tr>
                         <tr><td>Mensal</td><td>Conferir relatórios, dados fiscais, assinatura e exportações necessárias.</td><td>Apoiar decisões e obrigações.</td></tr>
                     </tbody>

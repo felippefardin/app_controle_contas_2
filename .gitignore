@@ -29,6 +29,14 @@ Thumbs.db
 
 # Cópias locais de segurança não pertencem ao repositório nem à pasta pública
 /backup-codex-*/
+/.codex-backup-*/
+*.bak
+*.bak-*
+*.backup
+*.backup-*
+*.sql.err
+/backup_*.sql
+/repair_*.sql
 
 # Documentos privados e artefatos gerados em execução
 /notas_fiscais/*
@@ -43,6 +51,7 @@ Thumbs.db
 logs/*.log
 error_log
 pages/webhook_log.txt
+/webhook.log
 
 # --- Arquivos de Teste e Debug que não devem ir para produção ---
 debug_*.php

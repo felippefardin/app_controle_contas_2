@@ -5,6 +5,7 @@ declare(strict_types=1);
 define('APP_SKIP_SESSION', true);
 require_once __DIR__ . '/../database.php';
 require_once __DIR__ . '/../includes/mercadopago_security.php';
+require_once __DIR__ . '/../includes/indicacao_reward_service.php';
 
 header('Content-Type: application/json; charset=utf-8');
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -100,10 +101,43 @@ try {
 
             if ($statusMp === 'authorized') {
                 $systemStatus = 'ativo';
-                $tenantUpdate = $conn->prepare('UPDATE tenants SET plano_atual=?, status_assinatura=?, id_assinatura_mp=? WHERE tenant_id=?');
-                $tenantUpdate->bind_param('ssss', $checkout['plano'], $systemStatus, $resourceId, $checkout['tenant_id']);
+                $mesesGratisIndicacao = (int)($checkout['meses_gratis_indicacao'] ?? 0);
+                $inicioCobranca = $checkout['inicio_cobranca'] ?? null;
+
+                if ($mesesGratisIndicacao > 0 && $inicioCobranca) {
+                    $dataRenovacao = date('Y-m-d', strtotime((string)$inicioCobranca));
+                    $tenantUpdate = $conn->prepare('UPDATE tenants SET
+                        plano_atual=?, status_assinatura=?, id_assinatura_mp=?,
+                        indicacao_meses_gratis=?, indicacao_inicio_beneficio=COALESCE(indicacao_inicio_beneficio, NOW()),
+                        indicacao_fim_beneficio=?, indicacao_beneficio_utilizado=1, data_renovacao=?
+                        WHERE tenant_id=?');
+                    $tenantUpdate->bind_param(
+                        'sssisss',
+                        $checkout['plano'],
+                        $systemStatus,
+                        $resourceId,
+                        $mesesGratisIndicacao,
+                        $inicioCobranca,
+                        $dataRenovacao,
+                        $checkout['tenant_id']
+                    );
+                } else {
+                    $cupomAtivoId = $checkout['cupom_id'] ?? null;
+                    $promocaoAtivaId = $checkout['promocao_id'] ?? null;
+                    $tenantUpdate = $conn->prepare('UPDATE tenants SET plano_atual=?, status_assinatura=?, id_assinatura_mp=?, cupom_ativo_id=?, promocao_ativa_id=? WHERE tenant_id=?');
+                    $tenantUpdate->bind_param('sssiss', $checkout['plano'], $systemStatus, $resourceId, $cupomAtivoId, $promocaoAtivaId, $checkout['tenant_id']);
+                }
                 $tenantUpdate->execute();
                 $tenantUpdate->close();
+                aplicarRecompensasCheckout($conn, (int)$checkout['id'], $resourceId);
+                if ((int)($checkout['cupom_id'] ?? 0) > 0 || (int)($checkout['promocao_id'] ?? 0) > 0) {
+                    $cupomAtivoId = $checkout['cupom_id'] ?? null;
+                    $promocaoAtivaId = $checkout['promocao_id'] ?? null;
+                    $vinculo = $conn->prepare('UPDATE tenants SET cupom_ativo_id=?, promocao_ativa_id=? WHERE tenant_id=?');
+                    $vinculo->bind_param('iis', $cupomAtivoId, $promocaoAtivaId, $checkout['tenant_id']);
+                    $vinculo->execute();
+                    $vinculo->close();
+                }
             } else {
                 // Não derruba um plano ativo durante uma tentativa de troca ainda pendente.
                 $tenantUpdate = $conn->prepare("UPDATE tenants SET status_assinatura=? WHERE tenant_id=? AND id_assinatura_mp=?");

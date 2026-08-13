@@ -1,7 +1,7 @@
 # .htaccess na raiz do projeto
 
 # Bloquear acesso direto a arquivos sensíveis
-<FilesMatch "^\.env|composer\.(json|lock)|\.git|\.sql$">
+<FilesMatch "(^\.|\.env|composer\.(json|lock)|.*\.(?:sql|log|bak|backup|dist|ini|lock)(?:[-.].*)?$|.*(?:backup|bak)[-_].*)">
     Require all denied
 </FilesMatch>
 
@@ -11,7 +11,9 @@ Options -Indexes
 # Nunca entregue documentos privados, temporários ou cópias antigas por URL.
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteRule ^(?:backup-codex-[^/]+|comprovantes|notas_fiscais|storage|tmp)(?:/|$) - [F,L,NC]
+    RewriteRule ^(?:\.git|\.github|\.codex|\.agents|\.codex-backup-[^/]+|backup-codex-[^/]+|comprovantes|notas_fiscais|storage|tmp|tests|scripts|migrations|cron|docs)(?:/|$) - [F,L,NC]
+    RewriteRule ^(?:banco-dados|how(?:%20|\s).*)$ - [F,L,NC]
+    RewriteRule (?:^|/)(?:[^/]+\.(?:bak|backup)(?:[-.][^/]*)?|[^/]*(?:backup|bak)[-_][^/]*)$ - [F,L,NC]
 </IfModule>
 
 # Cabeçalhos mínimos de proteção para todas as respostas da aplicação.
@@ -20,6 +22,7 @@ Options -Indexes
     Header always set X-Frame-Options "SAMEORIGIN"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
     Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    Header always unset X-Powered-By
 </IfModule>
 
 # Proteção extra contra execução de PHP na pasta de uploads

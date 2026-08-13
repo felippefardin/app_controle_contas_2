@@ -128,6 +128,7 @@ CREATE TABLE IF NOT EXISTS contas_receber (
 CREATE TABLE IF NOT EXISTS produtos (
   id INT NOT NULL AUTO_INCREMENT,
   id_usuario INT NOT NULL,
+  codigo VARCHAR(50) DEFAULT NULL,
   nome VARCHAR(255) NOT NULL,
   descricao TEXT,
   preco_compra DECIMAL(10,2) DEFAULT NULL,

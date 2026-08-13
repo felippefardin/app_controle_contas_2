@@ -30,6 +30,31 @@ html[data-app-theme="dark"] .btn-close{filter:invert(1) grayscale(100%) brightne
 html[data-app-theme="dark"] a:not(.btn):not([class*="text-"]){color:#ffffff}
 html[data-app-theme="dark"] hr{border-color:var(--app-border);opacity:.8}
 
+/* Area Master: neutraliza cores fixas das telas antigas e preserva contraste. */
+html.app-admin-area[data-app-theme] body{min-height:100vh!important;background:var(--app-bg)!important;color:var(--app-text)!important}
+html.app-admin-area[data-app-theme] :is(.topbar,.master-top){background:var(--app-surface)!important;color:var(--app-text)!important;border-bottom:1px solid var(--app-border)!important;box-shadow:0 5px 20px rgba(0,0,0,.18)!important}
+html.app-admin-area[data-app-theme] :is(.topbar,.master-top) :is(span,strong,a:not(.btn):not(.logout)){color:var(--app-text)!important}
+html.app-admin-area[data-app-theme] :is(.container,.page,.content,.main-content,.dashboard-container){color:var(--app-text)!important}
+html.app-admin-area[data-app-theme] :is(.container,.card,.metric,.request,.request-head,.request-body,.admin-form,.modal-content,.history-msg,.contact-data>div,.panel,.box,.table-wrapper){background:var(--app-surface)!important;color:var(--app-text)!important;border-color:var(--app-border)!important}
+html.app-admin-area[data-app-theme] :is(.search-container,.filters,.filter-container,.toolbar,.actions-bar){background:transparent!important;color:var(--app-text)!important;border-color:var(--app-border)!important}
+html.app-admin-area[data-app-theme] :is(input:not([type=checkbox]):not([type=radio]),select,textarea,.search-input,.form-control){background:var(--app-input)!important;color:var(--app-text)!important;border:1px solid var(--app-border)!important;box-shadow:none!important}
+html.app-admin-area[data-app-theme] :is(input,textarea)::placeholder{color:var(--app-muted)!important;opacity:1!important}
+html.app-admin-area[data-app-theme] :is(input,select,textarea):focus{border-color:var(--app-accent)!important;outline:0!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--app-accent) 22%,transparent)!important}
+html.app-admin-area[data-app-theme] table{background:var(--app-surface)!important;color:var(--app-text)!important;border:1px solid var(--app-border)!important}
+html.app-admin-area[data-app-theme] table thead :is(th,td){background:var(--app-surface-2)!important;color:var(--app-accent)!important;border-color:var(--app-border)!important}
+html.app-admin-area[data-app-theme] table tbody :is(td,th){background:var(--app-surface)!important;color:var(--app-text)!important;border-color:var(--app-border)!important}
+html.app-admin-area[data-app-theme] table tbody tr:nth-child(even)>:is(td,th){background:color-mix(in srgb,var(--app-surface-2) 72%,var(--app-surface))!important}
+html.app-admin-area[data-app-theme] table tbody tr:hover>:is(td,th){background:color-mix(in srgb,var(--app-accent) 10%,var(--app-surface))!important}
+html.app-admin-area[data-app-theme] table tbody :is(td,th) :is(div,span,p,small,strong):not(.badge):not(.status-ball){color:inherit!important}
+html.app-admin-area[data-app-theme] :is(.empty,.empty-state,td[colspan]){color:var(--app-muted)!important}
+html.app-admin-area[data-app-theme] :is(.history-meta,.heading p,.metric span,.request-head small,.contact-data span,.text-muted,small){color:var(--app-muted)!important}
+html.app-admin-area[data-app-theme] :is(h1,h2,h3,h4,h5,h6,label,legend,strong){color:var(--app-text)!important}
+html.app-admin-area[data-app-theme] :is(h1,.topbar-title,.master-top>strong){color:var(--app-accent)!important}
+html.app-admin-area[data-app-theme] :is(.modal-content,.request,.metric,.card,.panel,table){box-shadow:0 12px 30px rgba(0,0,0,.16)!important}
+html.app-admin-area[data-app-theme="dark"]{--app-bg:#0b1017;--app-surface:#121923;--app-surface-2:#1a2431;--app-input:#202b39;--app-text:#edf4fc;--app-muted:#aebdcd;--app-border:#304052;--app-accent:#35c8ff;--app-shadow:0 14px 34px rgba(0,0,0,.38)}
+html.app-admin-area[data-app-theme] :is(.container,.page){background:var(--app-bg)!important;box-shadow:none!important}
+html.app-admin-area[data-app-theme="light"] table thead :is(th,td){background:#eaf3ff!important;color:#075dad!important}
+
 /* Padrão visual consistente para as páginas legadas no modo claro. */
 html[data-app-theme="light"] body.light-mode main :is(.filter-box,.filter-container,.filters,.toolbar,.form-box,.form-section,.search-box,.actions-bar){
     background:#f8fafc!important;
@@ -81,6 +106,57 @@ html[data-app-theme="light"] body.light-mode main :is(.modal-header,.modal-foote
     border-color:#d9e1eb!important
 }
 
-.global-theme-toggle{position:fixed;right:18px;bottom:82px;width:48px;height:48px;border-radius:50%;border:1px solid var(--app-border);background:var(--app-surface);color:var(--app-text);box-shadow:var(--app-shadow);display:grid;place-items:center;font-size:19px;cursor:pointer;z-index:10050;transition:transform .2s ease,border-color .2s ease}
-.global-theme-toggle:hover{transform:translateY(-2px);border-color:var(--app-accent)}.global-theme-toggle:focus-visible{outline:3px solid color-mix(in srgb,var(--app-accent) 45%,transparent);outline-offset:2px}
-@media(max-width:768px){.global-theme-toggle{width:44px;height:44px;right:12px;bottom:72px}}
+.global-theme-toggle{position:fixed;right:30px;bottom:90px;width:50px;height:50px;padding:0;border-radius:50%;border:1px solid #29374a;background:#152032;color:#dbe7f4;box-shadow:0 4px 10px rgba(0,0,0,.3);display:grid;place-items:center;font-size:18px;cursor:pointer;z-index:10050;transition:transform .2s ease,color .2s ease,border-color .2s ease,background-color .2s ease}
+.global-theme-toggle:hover{transform:translateY(-2px);color:#00bfff;border-color:#075dd8;background:#18283e}.global-theme-toggle:active{transform:translateY(0)}.global-theme-toggle:focus-visible{outline:3px solid color-mix(in srgb,#075dd8 45%,transparent);outline-offset:3px}.global-theme-toggle [data-theme-symbol]{display:grid;place-items:center;line-height:1}
+html[data-app-theme="light"] .global-theme-toggle{border-color:#d9e1eb;background:#fff;color:#526176;box-shadow:0 8px 22px rgba(20,41,70,.14)}html[data-app-theme="light"] .global-theme-toggle:hover{color:#075dd8;border-color:#9fc4f5;background:#f8fbff}
+@media(max-width:768px){.global-theme-toggle{right:20px;bottom:84px;width:46px;height:46px}}
+
+/* Mantém o cabeçalho compartilhado igual mesmo quando a página redefine .btn ou a. */
+.header-controls {
+    min-height: 70px !important;
+    padding: 14px 22px !important;
+    box-sizing: border-box !important;
+}
+
+.header-controls .header-group {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+.header-controls :is(.btn-home, .btn-exit) {
+    min-height: 38px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    padding: 10px 16px !important;
+    border: 0 !important;
+    border-radius: 6px !important;
+    color: #fff !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    text-decoration: none !important;
+    box-sizing: border-box !important;
+}
+
+.header-controls .btn-home {
+    background-color: #28a745 !important;
+    color: #fff !important;
+}
+
+.header-controls .btn-exit {
+    background-color: #dc3545 !important;
+    color: #fff !important;
+}
+
+.header-controls :is(.btn-home, .btn-exit) :is(i, span) {
+    color: #fff !important;
+}
+
+.header-controls :is(.btn-home, .btn-exit) i {
+    margin: 0 !important;
+    line-height: 1 !important;
+    vertical-align: middle !important;
+}

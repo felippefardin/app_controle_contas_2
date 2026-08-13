@@ -311,6 +311,10 @@ CREATE TABLE IF NOT EXISTS tenants (
   cupom_registro VARCHAR(50) DEFAULT NULL,
   msg_cupom_visto TINYINT(1) DEFAULT 0,
   msg_indicacao_visto TINYINT(1) DEFAULT 0,
+  indicacao_meses_gratis TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  indicacao_inicio_beneficio DATETIME DEFAULT NULL,
+  indicacao_fim_beneficio DATETIME DEFAULT NULL,
+  indicacao_beneficio_utilizado TINYINT(1) NOT NULL DEFAULT 0,
   tipo_cancelamento ENUM('desativar', 'excluir') DEFAULT NULL,
   data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 

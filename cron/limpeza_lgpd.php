@@ -1,4 +1,8 @@
 <?php
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit("Somente CLI.\n");
+}
 // cron/limpeza_lgpd.php
 // Script para remover documentos LGPD com mais de 5 anos de contas inativas/deletadas
 

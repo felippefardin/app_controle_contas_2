@@ -17,12 +17,14 @@ display_flash_message();
 
 $where = ["cr.status='baixada'", "cr.deleted_at IS NULL", "cr.usuario_id = " . intval($usuarioId)];
 
-if (!empty($_GET['cliente'])) {
-    $where[] = "pf.nome LIKE '%" . $conn->real_escape_string($_GET['cliente']) . "%'";
+if (!empty(trim($_GET['termo'] ?? ''))) {
+    $termo = $conn->real_escape_string(trim($_GET['termo']));
+    $where[] = "(pf.nome LIKE '%$termo%' OR cr.responsavel LIKE '%$termo%' OR cr.numero LIKE '%$termo%'
+        OR cr.descricao LIKE '%$termo%' OR c.nome LIKE '%$termo%'
+        OR u.nome LIKE '%$termo%' OR CAST(cr.valor AS CHAR) LIKE '%$termo%')";
 }
-if (!empty($_GET['data_inicio']) && !empty($_GET['data_fim'])) {
-    $where[] = "cr.data_vencimento BETWEEN '" . $conn->real_escape_string($_GET['data_inicio']) . "' AND '" . $conn->real_escape_string($_GET['data_fim']) . "'";
-}
+if (!empty($_GET['data_inicio'])) $where[] = "DATE(cr.data_baixa) >= '" . $conn->real_escape_string($_GET['data_inicio']) . "'";
+if (!empty($_GET['data_fim'])) $where[] = "DATE(cr.data_baixa) <= '" . $conn->real_escape_string($_GET['data_fim']) . "'";
 
 $sql = "SELECT cr.*, c.nome as nome_categoria, pf.nome as nome_pessoa, u.nome as nome_quem_baixou
         FROM contas_receber AS cr
@@ -45,6 +47,20 @@ $result = $conn->query($sql);
   <style>
     /* === RESET E GERAL === */
     * { box-sizing: border-box; }
+    body > main {
+        width: 100% !important;
+        max-width: none !important;
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+    body > main .main-container,
+    body > main form.search-form,
+    body > main .table-responsive,
+    body > main .table-responsive table {
+        width: 100%;
+        max-width: none !important;
+    }
+    body > main .table-responsive table { margin-left: 0; margin-right: 0; }
     body { 
         background-color: #121212; 
         color: #eee; 
@@ -161,9 +177,23 @@ $result = $conn->query($sql);
     .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); justify-content: center; align-items: center; padding: 10px; }
     .modal-content { background-color: #1f1f1f; padding: 25px; border-radius: 10px; width: 100%; max-width: 500px; text-align: center; position: relative; border: 1px solid #444; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
     .close-btn { position: absolute; top: 10px; right: 20px; font-size: 28px; cursor: pointer; color: #aaa; }
+    .export-modal-content { text-align: left; }
+    .export-modal-content h3 { margin: 15px 0 20px; }
+    .export-modal-content label { display:block; color:#ccc; font-size:12px; margin-bottom:5px; }
+    .export-modal-content input, .export-modal-content select {
+      width:100%; min-width:0; padding:10px; background:#333; border:1px solid #444;
+      color:#eee; border-radius:5px; font-size:14px;
+    }
+    .export-date-row { display:flex; gap:10px; }
+    .export-date-row > div { flex:1; }
+    .export-submit {
+      width:100%; margin-top:10px; background:#f39c12; color:#fff; border:0;
+      padding:11px; border-radius:5px; cursor:pointer; font-weight:bold;
+    }
 
     /* === RESPONSIVIDADE MOBILE ESPECÃFICA === */
     @media (max-width: 768px) {
+        body > main { padding-left: 8px; padding-right: 8px; }
         body { padding: 10px; }
         
         form.search-form { flex-direction: column; }
@@ -181,10 +211,14 @@ $result = $conn->query($sql);
     <h2>Contas Recebidas (Baixadas)</h2>
 
     <form class="search-form" method="GET">
-      <input type="text" name="cliente" placeholder="Cliente" value="<?= htmlspecialchars($_GET['cliente'] ?? '') ?>">
+      <input type="search" name="termo" placeholder="Cliente, número, descrição, categoria, valor ou recebido por" value="<?= htmlspecialchars($_GET['termo'] ?? '') ?>">
       <input type="date" name="data_inicio" value="<?= htmlspecialchars($_GET['data_inicio'] ?? '') ?>">
       <input type="date" name="data_fim" value="<?= htmlspecialchars($_GET['data_fim'] ?? '') ?>">
       <button type="submit"><i class="fa fa-search"></i> Buscar</button>
+      <a href="contas_receber_baixadas.php" style="background:#cc3333;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;">Limpar</a>
+      <button type="button" onclick="document.getElementById('exportModal').style.display='flex'" style="background:#f39c12">
+        <i class="fa fa-download"></i> Exportar
+      </button>
       
       <button type="button" id="btnBulkExcluir" onclick="submitBulkExcluir()">
          <i class="fa fa-trash"></i> Excluir Selecionados
@@ -250,7 +284,41 @@ $result = $conn->query($sql);
         <p style="text-align:center; padding: 20px; color: #aaa;">Nenhuma conta recebida encontrada.</p>
     <?php endif; ?>
 
-</div> <div id="deleteModal" class="modal">
+</div>
+
+<div id="exportModal" class="modal">
+    <div class="modal-content export-modal-content">
+      <span class="close-btn" onclick="document.getElementById('exportModal').style.display='none'">&times;</span>
+      <h3>Exportar Relatório</h3>
+      <form action="../actions/exportar_contas_receber.php" method="GET" target="_blank" style="display:flex;flex-direction:column;gap:10px;">
+        <input type="hidden" name="termo" value="<?= htmlspecialchars($_GET['termo'] ?? '') ?>">
+        <label>Tipo:</label>
+        <select name="status" required>
+          <option value="pendente">A Receber (Pendentes)</option>
+          <option value="baixada" selected>Recebidas (Baixadas)</option>
+        </select>
+        <div class="export-date-row">
+          <div>
+            <label>De:</label>
+            <input type="date" name="data_inicio" value="<?= htmlspecialchars($_GET['data_inicio'] ?? '') ?>">
+          </div>
+          <div>
+            <label>Até:</label>
+            <input type="date" name="data_fim" value="<?= htmlspecialchars($_GET['data_fim'] ?? '') ?>">
+          </div>
+        </div>
+        <label>Formato:</label>
+        <select name="formato" required>
+          <option value="excel">Excel (.xlsx)</option>
+          <option value="pdf">PDF (.pdf)</option>
+          <option value="xml">XML (.xml)</option>
+        </select>
+        <button type="submit" class="export-submit">Baixar Arquivo</button>
+      </form>
+    </div>
+</div>
+
+<div id="deleteModal" class="modal">
     <div class="modal-content">
       <span class="close-btn" onclick="document.getElementById('deleteModal').style.display='none'">&times;</span>
       <h3>Confirmar Exclusão</h3>

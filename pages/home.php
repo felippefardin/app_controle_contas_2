@@ -5,6 +5,7 @@
 require_once '../includes/session_init.php';
 require_once '../database.php';
 require_once '../includes/utils.php';
+require_once '../includes/workflow_financeiro.php';
 
 
 // [MANTIDO] 🔒 Lógica de Segurança e Sessão Original
@@ -133,6 +134,9 @@ $qPH->execute();
 $resPH = $qPH->get_result();
 while($row = $resPH->fetch_assoc()) { $listPagarHoje[] = $row; }
 $qPH->close();
+
+// Workflow automático, somente leitura: alertas e previsão dos próximos 3 dias.
+$workflowFinanceiro = aplicarIaLocalAoWorkflow(executarWorkflowFinanceiro($conn, $usuario_id, 3));
 
 // [MANTIDO] Lógica Master, Assinatura e Chat
 $connMaster = getMasterConnection();
@@ -378,6 +382,19 @@ if ($tenant_id && $connMaster) {
     .text-danger-custom { color: #FF5252 !important; }
     .empty-msg { padding: 30px; text-align: center; color: var(--text-secondary, #888); font-style: italic; }
     .alert-estoque { background: rgba(220, 53, 69, 0.1); border: 1px solid #dc3545; color: #d63384; padding: 15px; border-radius: 12px; margin-bottom: 20px; }
+    .workflow-card { background: var(--bg-card, #fff); color: var(--text-primary, #333); border: 1px solid var(--border-color, #eaeaea); border-left: 5px solid #20c997; border-radius: 14px; padding: 16px 18px; margin-bottom: 22px; box-shadow: 0 4px 10px rgba(0,0,0,.05); }
+    .workflow-card.critico { border-left-color: #dc3545; }
+    .workflow-card.atencao { border-left-color: #ffc107; }
+    .workflow-card.indisponivel { border-left-color: #6c757d; }
+    .workflow-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:10px; }
+    .workflow-title { margin:0; font-size:1.05rem; font-weight:750; }
+    .workflow-title i { color:var(--highlight-color, #0d6efd); margin-right:7px; }
+    .workflow-time { color:var(--text-secondary, #777); font-size:.75rem; white-space:nowrap; }
+    .workflow-message { margin:0 0 12px; color:var(--text-secondary, #555); }
+    .workflow-metrics { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px; }
+    .workflow-metric { background:rgba(128,128,128,.06); border-radius:9px; padding:8px 10px; display:flex; flex-direction:column; }
+    .workflow-metric small { color:var(--text-secondary, #777); }
+    .workflow-metric strong { font-size:.95rem; }
     .chat-alert { background: linear-gradient(45deg, #ff4444, #ff8888); color: white; padding: 12px; text-align: center; font-weight: bold; cursor: pointer; border-radius: 50px; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(255, 68, 68, 0.4); animation: pulse 2s infinite; text-decoration: none; display: block; }
 
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -392,6 +409,8 @@ if ($tenant_id && $connMaster) {
     @media (max-width: 768px) {
         .home-header { flex-direction: column; text-align: center; gap: 10px; }
         .dashboard-kpi { grid-template-columns: 1fr 1fr; gap: 10px; }
+        .workflow-head { flex-direction:column; gap:5px; }
+        .workflow-metrics { grid-template-columns:1fr 1fr; }
     }
 </style>
 
@@ -438,6 +457,23 @@ if ($tenant_id && $connMaster) {
         </div>
     </div>
     <?php endif; ?>
+
+    <section class="workflow-card <?= htmlspecialchars($workflowFinanceiro['nivel']) ?>" aria-label="Resumo financeiro automático">
+        <div class="workflow-head">
+            <h3 class="workflow-title"><i class="fas fa-wand-magic-sparkles"></i><?= htmlspecialchars($workflowFinanceiro['titulo']) ?></h3>
+            <span class="workflow-time">
+                <?= str_starts_with($workflowFinanceiro['origem_resumo'], 'ia_local') ? 'IA local' : 'Automação local' ?>
+                · Atualizado em <?= htmlspecialchars($workflowFinanceiro['gerado_em']) ?>
+            </span>
+        </div>
+        <p class="workflow-message"><?= htmlspecialchars($workflowFinanceiro['mensagem']) ?></p>
+        <div class="workflow-metrics">
+            <div class="workflow-metric"><small>Pagamentos vencidos</small><strong><?= (int)$workflowFinanceiro['pagar_vencidas_qtd'] ?> · R$ <?= number_format($workflowFinanceiro['pagar_vencidas_total'], 2, ',', '.') ?></strong></div>
+            <div class="workflow-metric"><small>Pagamentos em 3 dias</small><strong><?= (int)$workflowFinanceiro['pagar_proximas_qtd'] ?> · R$ <?= number_format($workflowFinanceiro['pagar_proximas_total'], 2, ',', '.') ?></strong></div>
+            <div class="workflow-metric"><small>Recebimentos atrasados</small><strong><?= (int)$workflowFinanceiro['receber_vencidas_qtd'] ?> · R$ <?= number_format($workflowFinanceiro['receber_vencidas_total'], 2, ',', '.') ?></strong></div>
+            <div class="workflow-metric"><small>Recebimentos em 3 dias</small><strong><?= (int)$workflowFinanceiro['receber_proximas_qtd'] ?> · R$ <?= number_format($workflowFinanceiro['receber_proximas_total'], 2, ',', '.') ?></strong></div>
+        </div>
+    </section>
 
     <div class="dashboard-kpi">
         <div class="kpi-card" style="border-left-color: #00E676;">

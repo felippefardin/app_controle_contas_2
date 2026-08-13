@@ -227,10 +227,10 @@ display_flash_message();
 
         .page-container {
             width: 100%;
-            max-width: 800px; /* Aumentado para melhor visualização em desktop */
-            margin: 40px auto;
+            max-width: 1180px;
+            margin: 14px auto;
             background: #1e1e1e;
-            padding: 40px;
+            padding: 18px 24px;
             border-radius: 12px;
             color: #fff;
             box-shadow: 0 4px 20px rgba(0,0,0,0.5);
@@ -241,9 +241,9 @@ display_flash_message();
         .page-container h2 {
             color: #00bfff;
             border-bottom: 1px solid #00bfff;
-            padding-bottom: 15px;
-            margin-bottom: 30px;
-            font-size: 1.6rem;
+            padding-bottom: 9px;
+            margin: 0 0 14px;
+            font-size: 1.35rem;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -253,12 +253,12 @@ display_flash_message();
         /* Foto de Perfil */
         .profile-photo-container {
             text-align: center;
-            margin-bottom: 25px;
+            margin-bottom: 8px;
             position: relative;
         }
         .profile-photo {
-            width: 140px;
-            height: 140px;
+            width: 82px;
+            height: 82px;
             border-radius: 50%;
             object-fit: cover;
             border: 3px solid #00bfff;
@@ -277,13 +277,13 @@ display_flash_message();
         }
 
         /* Inputs */
-        .form-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; font-weight: 600; color: #ccc; }
+        .form-group { margin-bottom: 0; }
+        label { display: block; margin-bottom: 4px; font-weight: 600; color: #ccc; }
         .input-wrapper { position: relative; }
 
         .form-control {
             width: 100%;
-            padding: 12px;
+            padding: 9px 11px;
             padding-right: 40px; /* Espaço para ícone */
             border-radius: 6px;
             border: 1px solid #444;
@@ -317,7 +317,7 @@ display_flash_message();
         .btn-area {
             display: flex;
             justify-content: space-between;
-            margin-top: 30px;
+            margin-top: 4px;
             gap: 15px;
             flex-wrap: wrap; /* Permite quebrar linha em telas menores */
         }
@@ -412,6 +412,76 @@ display_flash_message();
         .mb-3 { margin-bottom: 1rem; }
         .text-muted { color: #aaa; font-size: 0.85rem; display: block; margin-top: 5px; }
 
+        /* Layout compacto para desktop. */
+        .page-container > form:first-of-type {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px 16px;
+            align-items: start;
+        }
+        .page-container > form:first-of-type .form-group {
+            display: flex;
+            min-width: 0;
+            flex-direction: column;
+            align-self: start;
+        }
+        .page-container > form:first-of-type .form-control {
+            height: 39px;
+            min-height: 39px;
+        }
+        .page-container > form:first-of-type input[type="file"].form-control {
+            padding: 6px 10px !important;
+        }
+        .page-container > form:first-of-type .input-group,
+        .page-container > form:first-of-type .input-wrapper {
+            height: 39px;
+        }
+        .page-container > form:first-of-type .profile-photo-container,
+        .page-container > form:first-of-type .btn-area { grid-column: 1 / -1; }
+        .page-container > form:first-of-type .profile-photo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+        .page-container > form:first-of-type .profile-photo-container br { display: none; }
+        .page-container > form:first-of-type .profile-badge { margin-top: 0; }
+
+        /* Tema claro: remove as cores escuras fixas desta página. */
+        html[data-app-theme="light"] body,
+        body.light-mode { background-color: #f4f7fb; color: #172033; }
+        html[data-app-theme="light"] .page-container,
+        body.light-mode .page-container {
+            background: #fff;
+            color: #172033;
+            border-color: #d9e1eb;
+            box-shadow: 0 10px 28px rgba(20, 41, 70, .10);
+        }
+        html[data-app-theme="light"] .page-container label,
+        body.light-mode .page-container label { color: #344054; }
+        html[data-app-theme="light"] .page-container .profile-badge,
+        body.light-mode .page-container .profile-badge {
+            background: #eef6fb;
+            color: #087cba;
+            border-color: #c9e2f0;
+        }
+        html[data-app-theme="light"] .page-container .form-control,
+        body.light-mode .page-container .form-control {
+            background: #fff;
+            color: #172033;
+            border-color: #cfd8e3;
+        }
+        html[data-app-theme="light"] .page-container .form-control:focus,
+        body.light-mode .page-container .form-control:focus {
+            background: #fff;
+            border-color: #087cba;
+            box-shadow: 0 0 0 3px rgba(8, 124, 186, .16);
+        }
+        html[data-app-theme="light"] .page-container .text-muted,
+        body.light-mode .page-container .text-muted { color: #667085; }
+        html[data-app-theme="light"] .page-container .btn-outline-secondary,
+        body.light-mode .page-container .btn-outline-secondary { border-color: #cfd8e3; }
+
         /* ================= RESPONSIVIDADE ================= */
 
         /* Tablets (até 992px) */
@@ -421,6 +491,10 @@ display_flash_message();
                 margin: 30px auto;
                 padding: 30px;
             }
+
+            .page-container > form:first-of-type {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
         }
 
         /* Mobile (até 768px) */
@@ -429,6 +503,11 @@ display_flash_message();
                 width: 95%;
                 margin: 15px auto; /* Menos margem no topo */
                 padding: 20px; /* Padding interno menor */
+            }
+
+            .page-container > form:first-of-type {
+                grid-template-columns: 1fr;
+                gap: 14px;
             }
 
             .page-container h2 {
