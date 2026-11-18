@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['ac
     $valor = floatval(str_replace(',', '.', $_POST['valor']));
     $limite_usos = trim($_POST['limite_usos'] ?? '') === '' ? null : max(1, intval($_POST['limite_usos']));
     $uso_unico_tenant = isset($_POST['uso_unico_tenant']) ? 1 : 0;
-    $aplicar_extras = isset($_POST['aplicar_extras']) ? 1 : 0;
+    $aplicar_extras = 0;
     $tempo_indeterminado = isset($_POST['tempo_indeterminado']) ? 1 : 0;
     $data_inicio = !$tempo_indeterminado && !empty($_POST['data_inicio']) ? $_POST['data_inicio'] : null;
     $data_fim = !$tempo_indeterminado && !empty($_POST['data_fim']) ? $_POST['data_fim'] : null;
@@ -238,7 +238,6 @@ $descontos_ativos = $master_conn->query("SELECT t.id, t.nome_empresa, t.admin_em
                     <input type="number" name="limite_usos" min="1" placeholder="Sem limite">
                 </div>
                 <label style="flex:1; min-width:220px;"><input type="checkbox" name="uso_unico_tenant" value="1" checked style="width:auto;"> Uma utilização por cliente</label>
-                <label style="flex:1; min-width:220px;"><input type="checkbox" name="aplicar_extras" value="1" style="width:auto;"> Aplicar desconto também aos usuários extras</label>
                 <label style="flex:1; min-width:220px;"><input type="checkbox" name="tempo_indeterminado" value="1" style="width:auto;"> <i class="fas fa-infinity"></i> Ativo por tempo indeterminado</label>
             </div>
             <div class="form-group" style="margin-top: 15px;">
@@ -330,7 +329,7 @@ $descontos_ativos = $master_conn->query("SELECT t.id, t.nome_empresa, t.admin_em
                         </td>
                         <td>
                             <?= intval($c['usos_realizados']) ?> / <?= $c['limite_usos'] === null ? '&infin;' : intval($c['limite_usos']) ?>
-                            <div style="font-size:.75rem;color:#aaa"><?= $c['uso_unico_tenant'] ? '1 por cliente' : 'reutilizÃ¡vel' ?> · <?= $c['aplicar_extras'] ? 'inclui extras' : 'somente plano' ?></div>
+                            <div style="font-size:.75rem;color:#aaa"><?= $c['uso_unico_tenant'] ? '1 por cliente' : 'reutilizÃ¡vel' ?> · somente plano</div>
                         </td>
                         <td>
                             <form method="post" style="display:inline" onsubmit="return confirm('Excluir este cupom?')">

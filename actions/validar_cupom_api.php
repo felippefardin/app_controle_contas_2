@@ -35,5 +35,5 @@ echo json_encode([
     'tipo' => $cupom['tipo_desconto'],
     'valor' => (float)$cupom['valor'],
     'codigo' => $cupom['codigo'],
-    'aplicar_extras' => (bool)$cupom['aplicar_extras'],
+    'aplicar_extras' => false,
 ]);

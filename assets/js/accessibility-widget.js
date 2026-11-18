@@ -152,6 +152,43 @@
             <p class="a11y-status" id="a11yStatus" aria-live="polite"></p>`;
 
         document.body.append(panel, launcher);
+
+        const actionButtons = document.querySelector('.action-buttons');
+        const supportButton = document.querySelector('.btn-support-login');
+        const feedbackButton = document.querySelector('.feedback-public-trigger');
+        if (actionButtons && getComputedStyle(actionButtons).display !== 'none') {
+            launcher.classList.add('a11y-launcher-in-actions');
+            panel.classList.add('a11y-panel-left');
+            const cookieButton = actionButtons.querySelector('#cookiePreferencesTrigger');
+            cookieButton ? actionButtons.insertBefore(launcher, cookieButton) : actionButtons.appendChild(launcher);
+        } else if (feedbackButton) {
+            let publicTools = document.querySelector('.public-floating-tools');
+            if (!publicTools) {
+                publicTools = document.createElement('div');
+                publicTools.className = 'public-floating-tools';
+                publicTools.setAttribute('aria-label', 'Ferramentas rápidas');
+                document.body.appendChild(publicTools);
+            }
+            panel.classList.add('a11y-panel-left');
+            const cookieButton = document.querySelector('#cookiePreferencesTrigger');
+            [cookieButton, feedbackButton, launcher].forEach(control => {
+                if (control) publicTools.appendChild(control);
+            });
+        } else if (supportButton) {
+            let toolsColumn = document.querySelector('.floating-tools-column');
+            if (!toolsColumn) {
+                toolsColumn = document.createElement('div');
+                toolsColumn.className = 'floating-tools-column';
+                toolsColumn.setAttribute('aria-label', 'Ferramentas rápidas');
+                document.body.appendChild(toolsColumn);
+            }
+            panel.classList.add('a11y-panel-left');
+            const themeButton = document.querySelector('.global-theme-toggle');
+            const cookieButton = document.querySelector('#cookiePreferencesTrigger');
+            [launcher, themeButton, cookieButton, supportButton].forEach(control => {
+                if (control) toolsColumn.appendChild(control);
+            });
+        }
         apply();
         syncButtons();
 

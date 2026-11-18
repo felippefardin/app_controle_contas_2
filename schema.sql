@@ -316,13 +316,57 @@ CREATE TABLE IF NOT EXISTS tenants (
   indicacao_fim_beneficio DATETIME DEFAULT NULL,
   indicacao_beneficio_utilizado TINYINT(1) NOT NULL DEFAULT 0,
   tipo_cancelamento ENUM('desativar', 'excluir') DEFAULT NULL,
+  desativada_em DATETIME DEFAULT NULL,
+  exclusao_programada_em DATETIME DEFAULT NULL,
+  reativada_em DATETIME DEFAULT NULL,
+  status_antes_desativacao VARCHAR(50) DEFAULT NULL,
+  id_assinatura_mp_anterior VARCHAR(100) DEFAULT NULL,
   data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
   PRIMARY KEY (id),
   UNIQUE KEY admin_email (admin_email),
   UNIQUE KEY subdominio (subdominio),
-  KEY idx_tenant_id (tenant_id)
+  KEY idx_tenant_id (tenant_id),
+  KEY idx_tenants_desativacao (status_assinatura, exclusao_programada_em)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS termos_consentimento (
+  id INT NOT NULL AUTO_INCREMENT,
+  usuario_id INT NOT NULL,
+  tipo_documento VARCHAR(50) DEFAULT NULL,
+  caminho_arquivo VARCHAR(255) NOT NULL,
+  ip_usuario VARCHAR(45) DEFAULT NULL,
+  data_aceite DATETIME DEFAULT NULL,
+  status_arquivo VARCHAR(20) DEFAULT NULL,
+  versao_documento VARCHAR(20) DEFAULT NULL,
+  hash_documento CHAR(64) DEFAULT NULL,
+  preferencias_json TEXT DEFAULT NULL,
+  user_agent_hash CHAR(64) DEFAULT NULL,
+  PRIMARY KEY (id),
+  KEY idx_termos_usuario (usuario_id),
+  KEY idx_termos_data (data_aceite)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS aceites_exclusao_conta (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  protocolo VARCHAR(40) NOT NULL,
+  usuario_id_original INT DEFAULT NULL,
+  tenant_id_snapshot VARCHAR(32) DEFAULT NULL,
+  nome_snapshot VARCHAR(150) NOT NULL,
+  email_snapshot VARCHAR(190) NOT NULL,
+  documento_hash CHAR(64) DEFAULT NULL,
+  versao_termo VARCHAR(20) NOT NULL,
+  texto_aceito MEDIUMTEXT NOT NULL,
+  texto_hash CHAR(64) NOT NULL,
+  ip_usuario VARCHAR(45) DEFAULT NULL,
+  user_agent_hash CHAR(64) DEFAULT NULL,
+  data_aceite DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  excluir_apos DATETIME NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY ux_aceite_exclusao_protocolo (protocolo),
+  KEY idx_aceite_exclusao_email (email_snapshot),
+  KEY idx_aceite_exclusao_retencao (excluir_apos)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS faturas_assinatura (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -358,6 +402,21 @@ CREATE TABLE `empresa_config` (
   `ultimo_numero_nfce` int NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `cnpj` (`cnpj`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS cobrancas_manuais (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    tenant_id VARCHAR(32) NOT NULL,
+    checkout_id BIGINT UNSIGNED NULL,
+    mp_preapproval_id VARCHAR(120) NULL,
+    email_destino VARCHAR(190) NOT NULL,
+    valor DECIMAL(10,2) NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'enviada',
+    solicitado_por_email VARCHAR(190) NULL,
+    criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_cobranca_manual_tenant (tenant_id, criado_em),
+    KEY idx_cobranca_manual_status (status, criado_em)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 -- Suporte solicitado diretamente pela tela de login
 CREATE TABLE IF NOT EXISTS suporte_login (

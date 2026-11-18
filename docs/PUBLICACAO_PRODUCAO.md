@@ -37,6 +37,15 @@ Importe o banco por um canal administrativo privado e execute as migracoes.
 Configure os arquivos necessarios de `cron/` como tarefas CLI. A pasta `cron`
 e bloqueada para acesso pelo navegador.
 
+Execute diariamente a tarefa de preservacao e exclusao de contas:
+
+```bash
+php cron/processar_cancelamentos.php
+```
+
+Ela remove definitivamente somente contas que permaneceram desativadas por um
+ano completo. A reativacao feita pela tela de login cancela essa exclusao.
+
 ## 5. Validacao final
 
 Antes de gerar o pacote, execute localmente:

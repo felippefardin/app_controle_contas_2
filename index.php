@@ -20,9 +20,11 @@ $requestPath = strtok($_SERVER['REQUEST_URI'] ?? '/app_controle_contas_2/index.p
 $canonicalUrl = $scheme . '://' . $host . $requestPath;
 $basePath = rtrim(str_replace('\\', '/', dirname($requestPath)), '/');
 $shareImageUrl = $scheme . '://' . $host . $basePath . '/img/dashboard-ia-financeira.png';
+$temaAtual = $_SESSION['tema_preferencia'] ?? $_COOKIE['tema_preferencia'] ?? 'dark';
+if (!in_array($temaAtual, ['light', 'dark'], true)) $temaAtual = 'dark';
 ?>
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-app-theme="<?= htmlspecialchars($temaAtual, ENT_QUOTES, 'UTF-8') ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -50,9 +52,9 @@ $shareImageUrl = $scheme . '://' . $host . $basePath . '/img/dashboard-ia-financ
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
     <link href="assets/vendor/fontawesome/css/all.min.css" rel="stylesheet">
     <link href="assets/css/universal-theme.css" rel="stylesheet">
-    <link href="assets/css/accessibility-widget.css?v=20260805-icons" rel="stylesheet">
-    <script src="assets/js/global-theme.js?v=20260805-icons"></script>
-    <script src="assets/js/accessibility-widget.js?v=20260805-icons" defer></script>
+    <link href="assets/css/accessibility-widget.css?v=20260903-column-2" rel="stylesheet">
+    <script src="assets/js/global-theme.js?v=20260903-cookie-6"></script>
+    <script src="assets/js/accessibility-widget.js?v=20260903-column-2" defer></script>
     <script type="application/ld+json"><?= json_encode([
         '@context' => 'https://schema.org',
         '@type' => 'SoftwareApplication',

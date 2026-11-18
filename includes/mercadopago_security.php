@@ -60,7 +60,23 @@ function mp_api_request(string $method, string $path, ?array $payload = null, ?s
     $body = json_decode((string) $raw, true);
     if (!is_array($body)) $body = [];
     if ($httpCode < 200 || $httpCode >= 300) {
-        $message = (string) ($body['message'] ?? $body['error'] ?? 'Resposta recusada pelo Mercado Pago.');
+        $message = (string) ($body['message'] ?? $body['error'] ?? 'Resposta recusada pelo Mercado
+         Pago.');
+         if (mp_mode() === 'sandbox' && $path === '/preapproval') {
+    $codes = [];
+    foreach ((array) ($body['cause'] ?? []) as $cause) {
+        $code = is_array($cause) ? ($cause['code'] ?? '') : '';
+        if (is_scalar($code) && preg_match('/\A[a-z0-9_-]{1,48}\z/i', (string) $code)) {
+            $codes[] = (string) $code;
+        }
+    }
+
+    error_log(sprintf(
+        'Mercado Pago sandbox /preapproval: HTTP %d, códigos de causa: %s',
+        $httpCode,
+        $codes ? implode(', ', $codes) : 'nenhum informado'
+    ));
+}
         throw new RuntimeException($message, $httpCode);
     }
     return ['http_code' => $httpCode, 'body' => $body];

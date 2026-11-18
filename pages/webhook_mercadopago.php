@@ -106,11 +106,11 @@ try {
 
                 if ($mesesGratisIndicacao > 0 && $inicioCobranca) {
                     $dataRenovacao = date('Y-m-d', strtotime((string)$inicioCobranca));
-                    $tenantUpdate = $conn->prepare('UPDATE tenants SET
+                    $tenantUpdate = $conn->prepare("UPDATE tenants SET
                         plano_atual=?, status_assinatura=?, id_assinatura_mp=?,
                         indicacao_meses_gratis=?, indicacao_inicio_beneficio=COALESCE(indicacao_inicio_beneficio, NOW()),
                         indicacao_fim_beneficio=?, indicacao_beneficio_utilizado=1, data_renovacao=?
-                        WHERE tenant_id=?');
+                        WHERE tenant_id=? AND status_assinatura NOT IN ('desativado_temporario','exclusao_em_processamento')");
                     $tenantUpdate->bind_param(
                         'sssisss',
                         $checkout['plano'],
@@ -124,7 +124,7 @@ try {
                 } else {
                     $cupomAtivoId = $checkout['cupom_id'] ?? null;
                     $promocaoAtivaId = $checkout['promocao_id'] ?? null;
-                    $tenantUpdate = $conn->prepare('UPDATE tenants SET plano_atual=?, status_assinatura=?, id_assinatura_mp=?, cupom_ativo_id=?, promocao_ativa_id=? WHERE tenant_id=?');
+                    $tenantUpdate = $conn->prepare("UPDATE tenants SET plano_atual=?, status_assinatura=?, id_assinatura_mp=?, cupom_ativo_id=?, promocao_ativa_id=? WHERE tenant_id=? AND status_assinatura NOT IN ('desativado_temporario','exclusao_em_processamento')");
                     $tenantUpdate->bind_param('sssiss', $checkout['plano'], $systemStatus, $resourceId, $cupomAtivoId, $promocaoAtivaId, $checkout['tenant_id']);
                 }
                 $tenantUpdate->execute();

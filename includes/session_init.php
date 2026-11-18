@@ -2,6 +2,9 @@
 // includes/session_init.php
 // NÃO PODE HAVER NENHUMA LINHA OU ESPAÇO ANTES DE <?php
 
+// Todo horário exibido e registrado pela aplicação usa o horário oficial de Brasília.
+date_default_timezone_set('America/Sao_Paulo');
+
 // --- Inicia sessão global para todo o domínio ---
 if (session_status() === PHP_SESSION_NONE) {
 
@@ -18,6 +21,14 @@ if (session_status() === PHP_SESSION_NONE) {
     ]);
 
     session_start();
+}
+
+// Páginas que usam sessão podem conter dados privados. Impede que o navegador
+// reutilize uma cópia delas pelo botão Voltar depois que o usuário fizer logout.
+if (PHP_SAPI !== 'cli' && !headers_sent()) {
+    header('Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
 }
 
 $now = time();

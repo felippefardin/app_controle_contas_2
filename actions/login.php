@@ -64,7 +64,7 @@ try {
 
     if (($userMaster['status'] ?? 'ativo') !== 'ativo') {
         $connMaster->close();
-        redirect_with_error('Esta conta está inativa. Entre em contato com o administrador.', $email);
+        redirect_with_error('Esta conta está inativa. Se ela foi pausada temporariamente, use “Reativar Minha Conta” nesta tela.', $email);
     }
 
     unset($_SESSION['login_attempt']);
@@ -128,7 +128,7 @@ try {
             }
         }
 
-        $bloqueados = ['vencido', 'cancelado', 'trial_expired', 'pendente'];
+        $bloqueados = ['vencido', 'cancelado', 'trial_expired', 'pendente', 'desativado_temporario', 'exclusao_em_processamento'];
 
         // Se estiver bloqueado, redireciona para página de assinatura
         if ($expired || in_array($status, $bloqueados)) {

@@ -25,7 +25,7 @@ $pageBodyClass = trim($pageBodyClass ?? '');
 $classeBody = trim($classeBody . ' ' . $pageBodyClass);
 ?>
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-app-theme="<?= htmlspecialchars($temaAtual, ENT_QUOTES, 'UTF-8') ?>">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -59,9 +59,9 @@ $classeBody = trim($classeBody . ' ' . $pageBodyClass);
 <?php if ($pageStylesheet !== ''): ?>
 <link rel="stylesheet" href="<?= htmlspecialchars($pageStylesheet, ENT_QUOTES, 'UTF-8') ?>">
 <?php endif; ?>
-<script src="../assets/js/global-theme.js?v=20260805-icons"></script>
+<script src="../assets/js/global-theme.js?v=20260903-cookie-5"></script>
 <?php if ($enableAccessibilityWidget): ?>
-<script src="../assets/js/accessibility-widget.js?v=20260805-icons" defer></script>
+<script src="../assets/js/accessibility-widget.js?v=20260903-column-1" defer></script>
 <?php endif; ?>
 </head>
 
@@ -95,7 +95,7 @@ $classeBody = trim($classeBody . ' ' . $pageBodyClass);
                 </button>
             </form>
         <?php endif; ?>
-        <a href="../pages/home.php" class="btn btn-home">
+        <a href="<?= htmlspecialchars($homeUrl ?? '../pages/home.php', ENT_QUOTES, 'UTF-8') ?>" class="btn btn-home">
             <i class="fas fa-home"></i> Home
         </a>
 
@@ -158,11 +158,13 @@ function toggleTheme() {
         icon.className = 'fas ' + (isLight ? 'fa-moon' : 'fa-sun');
     }
 
-    // 1. SALVA NO COOKIE DO NAVEGADOR (Validade de 1 ano)
-    const d = new Date();
-    d.setTime(d.getTime() + (365 * 24 * 60 * 60 * 1000));
-    let expires = "expires="+ d.toUTCString();
-    document.cookie = "tema_preferencia=" + novoTema + ";" + expires + ";path=/";
+    // Só grava a preferência no navegador quando essa categoria foi autorizada.
+    if (window.AppCookieConsent?.allows('preferences')) {
+        const d = new Date();
+        d.setTime(d.getTime() + (365 * 24 * 60 * 60 * 1000));
+        const expires = "expires=" + d.toUTCString();
+        document.cookie = "tema_preferencia=" + novoTema + ";" + expires + ";path=/;SameSite=Lax";
+    }
 
     // 2. SALVA NO BACKEND (SESSÃO + BANCO)
     const formData = new FormData();

@@ -46,12 +46,17 @@ function buscarPromocaoInterna(mysqli $conn, int $tenantId): ?array {
 }
 
 function calcularDescontoCupom(float $plano, float $extras, array $cupom): array {
-    $baseDesconto = (int)$cupom['aplicar_extras'] === 1 ? $plano + $extras : $plano;
+    $plano = round(max(0, $plano), 2);
+    $extras = round(max(0, $extras), 2);
+    $valorCupom = max(0, (float) $cupom['valor']);
     $desconto = $cupom['tipo_desconto'] === 'porcentagem'
-        ? $baseDesconto * min(100, max(0, (float)$cupom['valor'])) / 100
-        : max(0, (float)$cupom['valor']);
-    $final = (int)$cupom['aplicar_extras'] === 1
-        ? ($plano + $extras - $desconto)
-        : ($plano - $desconto + $extras);
-    return ['original' => round($plano + $extras, 2), 'final' => round(max(0, $final), 2), 'desconto' => round($desconto, 2)];
+        ? $plano * min(100, $valorCupom) / 100
+        : $valorCupom;
+    $desconto = round(min($plano, $desconto), 2);
+
+    return [
+        'original' => round($plano + $extras, 2),
+        'final' => round($plano - $desconto + $extras, 2),
+        'desconto' => $desconto,
+    ];
 }

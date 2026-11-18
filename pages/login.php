@@ -7,12 +7,14 @@ if (isset($_SESSION['usuario_logado']) && $_SESSION['usuario_logado'] === true) 
     header('Location: home.php');
     exit;
 }
+$temaAtual = $_SESSION['tema_preferencia'] ?? $_COOKIE['tema_preferencia'] ?? 'dark';
+if (!in_array($temaAtual, ['light', 'dark'], true)) $temaAtual = 'dark';
 ?>
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-app-theme="<?= htmlspecialchars($temaAtual, ENT_QUOTES, 'UTF-8') ?>">
 <head>
 <link rel="stylesheet" href="../assets/css/universal-theme.css?v=20260731-theme-button-v3">
-<script src="../assets/js/global-theme.js?v=20260805-icons"></script>
+<script src="../assets/js/global-theme.js?v=20260903-cookie-5"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - App Controle</title>
@@ -233,6 +235,7 @@ display_flash_message();
             <div class="modal-body">
                 <p class="mb-3">Informe seu e-mail para receber o link de reativação.</p>
                 <form action="../actions/solicitar_reativacao.php" method="POST">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
                     <label>E-mail</label>
                     <input type="email" name="email_reativacao" class="form-control" required>
                     <button type="submit" class="btn btn-primary w-100 mt-3">Enviar Link de Reativação</button>

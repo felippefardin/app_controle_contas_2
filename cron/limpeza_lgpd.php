@@ -53,5 +53,17 @@ if ($result) {
 }
 
 echo "Limpeza concluída. $count documentos processados.\n";
+
+// Provas de aceite da exclusao sao independentes da conta apagada e ficam
+// retidas por cinco anos. Depois do prazo, a remocao e definitiva.
+$aceitesRemovidos = 0;
+$aceites = $conn->query('SELECT id FROM aceites_exclusao_conta WHERE excluir_apos<=NOW()');
+while ($aceites && ($aceite = $aceites->fetch_assoc())) {
+    $idAceite = (int)$aceite['id'];
+    $deleteAceite = $conn->prepare('DELETE FROM aceites_exclusao_conta WHERE id=? AND excluir_apos<=NOW()');
+    $deleteAceite->bind_param('i', $idAceite); $deleteAceite->execute();
+    $aceitesRemovidos += $deleteAceite->affected_rows; $deleteAceite->close();
+}
+echo "Provas de exclusao removidas apos 5 anos: $aceitesRemovidos.\n";
 $conn->close();
 ?>

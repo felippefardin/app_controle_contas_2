@@ -388,6 +388,18 @@ display_flash_message();
             .plans-grid { grid-template-columns: 1fr; }
             .card-custom { padding: 14px; }
         }
+        .container-assinatura { --assinatura-espaco-caixas: 20px; }
+        .container-assinatura > .grid-layout {
+            gap: var(--assinatura-espaco-caixas);
+            margin-block-end: var(--assinatura-espaco-caixas);
+        }
+        .container-assinatura > .grid-layout > .card-custom { margin-bottom: 0; }
+        .container-assinatura > .card-custom { margin-bottom: var(--assinatura-espaco-caixas); }
+        .container-assinatura .plans-grid { gap: var(--assinatura-espaco-caixas); }
+
+        @media (max-width: 768px) {
+            .container-assinatura { --assinatura-espaco-caixas: 16px; }
+        }
     </style>
 </head>
 <body>
@@ -522,11 +534,12 @@ display_flash_message();
                 </div>
             <?php endif; ?>
 
-            <?php if (empty($tipo_cancelamento) && $status_assinatura !== 'inativo'): ?>
+            <?php if (in_array($status_assinatura, ['trial', 'ativo', 'padrao'], true)): ?>
                 <div class="mt-4 text-center">
                     <button type="button" class="btn-custom btn-cancel" onclick="abrirModalCancelamento()">
-                        <i class="fa-solid fa-ban"></i> Cancelar Assinatura
+                        <i class="fa-solid fa-pause"></i> Desativar conta temporariamente
                     </button>
+                    <small style="display:block; margin-top:8px; color:#aaa;">Sem cobranças e com os dados preservados por até 1 ano.</small>
                 </div>
             <?php endif; ?>
 
@@ -622,7 +635,7 @@ display_flash_message();
         <div class="card-title"><i class="fa-solid fa-wallet"></i> Financeiro</div>
         <div class="btn-group">
             <a href="historico_pagamento.php" class="btn-custom btn-history"><i class="fa-solid fa-list-ul"></i> Histórico</a>
-            <a href="recibo_pagamentos.php" class="btn-custom btn-receipt"><i class="fa-solid fa-file-invoice-dollar"></i> Comprovantes</a>
+            <a href="historico_pagamento.php" class="btn-custom btn-receipt"><i class="fa-solid fa-file-invoice-dollar"></i> Comprovantes</a>
         </div>
     </div>
 
@@ -632,26 +645,21 @@ display_flash_message();
     <div class="modal-dialog">
         <div class="modal-content" style="background-color: #2c2c2c; color: #eee; border: 1px solid #444;">
             <div class="modal-header" style="border-bottom: 1px solid #444;">
-                <h5 class="modal-title" style="color: #ff003c;">Cancelar Assinatura</h5>
+                <h5 class="modal-title" style="color: #ffb020;"><i class="fa-solid fa-pause"></i> Desativar conta temporariamente</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p>Sentimos muito que você queira partir. Escolha como deseja proceder:</p>
+                <p>Confirme a pausa temporária da sua conta:</p>
                 <form id="formCancelarAssinatura" action="../actions/solicitar_cancelamento.php" method="POST">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
                     <div class="form-check mb-3 p-3" style="background: rgba(255,255,255,0.05); border-radius: 5px;">
                         <input class="form-check-input" type="radio" name="opcao_cancelamento" id="opcao1" value="desativar" required>
                         <label class="form-check-label" for="opcao1">
-                            <strong>Opção 1 - Desativar conta:</strong><br>
-                            <small style="color: #aaa;">Acesso mantido até o fim do ciclo. Depois a conta é suspensa.</small>
+                            <strong>Desativar temporariamente por até 1 ano:</strong><br>
+                            <small style="color: #aaa;">Acesso e cobranças são interrompidos imediatamente. Todos os usuários, cadastros e dados ficam preservados por 1 ano.</small>
                         </label>
                     </div>
-                    <div class="form-check p-3" style="background: rgba(220, 53, 69, 0.1); border: 1px solid rgba(220, 53, 69, 0.3); border-radius: 5px;">
-                        <input class="form-check-input" type="radio" name="opcao_cancelamento" id="opcao2" value="excluir" required>
-                        <label class="form-check-label text-danger" for="opcao2">
-                            <strong>Opção 2 - Excluir tudo:</strong><br>
-                            <small style="color: #ffb3b3;">Dados apagados permanentemente após o fim do ciclo.</small>
-                        </label>
-                    </div>
+                    <div class="mt-3 p-3" style="background: rgba(255,193,7,.1); border:1px solid rgba(255,193,7,.35); border-radius:5px;"><small>Se ninguém solicitar a reativação pelo e-mail cadastrado dentro de 1 ano, a conta será excluída permanentemente.</small></div>
                 </form>
             </div>
             <div class="modal-footer" style="border-top: 1px solid #444;">

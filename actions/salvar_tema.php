@@ -16,9 +16,19 @@ if (!in_array($tema, ['dark', 'light'])) $tema = 'dark';
 // 1. Salva na Sessão PHP
 $_SESSION['tema_preferencia'] = $tema;
 
-// 2. Salva no Cookie via PHP (Backup caso o JS falhe ou para sincronia)
-// Validade de 30 dias (86400 * 30)
-setcookie('tema_preferencia', $tema, time() + (86400 * 30), "/"); 
+// 2. O cookie de preferência só pode ser criado após autorização específica.
+$cookieConsent = json_decode((string) ($_COOKIE['app_cookie_consent'] ?? ''), true);
+if (is_array($cookieConsent)
+    && (int) ($cookieConsent['version'] ?? 0) === 1
+    && ($cookieConsent['preferences'] ?? false) === true) {
+    setcookie('tema_preferencia', $tema, [
+        'expires' => time() + (86400 * 365),
+        'path' => '/',
+        'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+        'httponly' => false,
+        'samesite' => 'Lax',
+    ]);
+}
 
 // 3. Salva no Banco de Dados
 $conn = getTenantConnection(); 

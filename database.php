@@ -12,6 +12,13 @@ mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 use Dotenv\Dotenv;
 
+function configureDatabaseTimezone(mysqli $conn): void
+{
+    // Mantém NOW(), CURRENT_TIMESTAMP e datas automáticas alinhados ao PHP.
+    $offset = (new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo')))->format('P');
+    $conn->query("SET time_zone = '" . $conn->real_escape_string($offset) . "'");
+}
+
 /*
 |--------------------------------------------------------------------------
 | Carrega o .env
@@ -70,6 +77,7 @@ function getMasterConnection(): mysqli
         );
 
         $conn->set_charset('utf8mb4');
+        configureDatabaseTimezone($conn);
 
         return $conn;
 
@@ -116,6 +124,7 @@ function getTenantConnection(): ?mysqli
         );
 
         $conn->set_charset('utf8mb4');
+        configureDatabaseTimezone($conn);
 
         return $conn;
 

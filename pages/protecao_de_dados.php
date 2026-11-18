@@ -12,6 +12,7 @@ $pageCanonical = $scheme . '://' . $host . $requestPath;
 $pageOgImage = $scheme . '://' . $host . $basePath . '/img/dashboard-ia-financeira.png';
 $pageStylesheet = '../assets/css/protecao-dados.css?v=20260804-5';
 $pageBodyClass = 'privacy-page';
+$homeUrl = '../index.php';
 $loggedEmail = (string) ($_SESSION['email'] ?? $_SESSION['usuario_email'] ?? '');
 
 include '../includes/header.php';
@@ -23,8 +24,8 @@ include '../includes/header.php';
         <h1 id="privacy-title">Política de Proteção de Dados</h1>
         <p class="privacy-lead">Entenda, em linguagem simples, como tratamos seus dados pessoais e como você pode exercer seus direitos previstos na Lei Geral de Proteção de Dados.</p>
         <div class="policy-meta" aria-label="Informações da política">
-            <span><i class="fas fa-calendar-check" aria-hidden="true"></i> Última atualização: 4 de agosto de 2026</span>
-            <span><i class="fas fa-file-lines" aria-hidden="true"></i> Versão 2.0</span>
+            <span><i class="fas fa-calendar-check" aria-hidden="true"></i> Última atualização: 3 de setembro de 2026</span>
+            <span><i class="fas fa-file-lines" aria-hidden="true"></i> Versão 2.1</span>
         </div>
         <button class="privacy-primary-action js-open-lgpd" type="button">
             <i class="fas fa-paper-plane" aria-hidden="true"></i> Solicitar acesso, correção ou exclusão
@@ -65,6 +66,7 @@ include '../includes/header.php';
         <a href="#dados">Dados coletados</a>
         <a href="#uso">Como usamos</a>
         <a href="#seguranca">Segurança</a>
+        <a href="#cookies">Cookies</a>
         <a href="#direitos">Seus direitos</a>
         <a href="#contato">Contato</a>
     </nav>
@@ -100,8 +102,23 @@ include '../includes/header.php';
             <p>Adotamos práticas de segurança para reduzir riscos de acesso não autorizado, alteração, perda ou destruição. As senhas são protegidas por mecanismo de hash seguro e não são armazenadas de forma reversível.</p>
         </section>
 
+        <section id="cookies" class="policy-section">
+            <h2><span>06</span> Política de cookies</h2>
+            <p>Cookies são pequenos arquivos armazenados no dispositivo para permitir funções do site. Seguimos a <strong>LGPD (Lei nº 13.709/2018)</strong> e as boas práticas do <strong>Guia Orientativo Cookies e Proteção de Dados Pessoais da ANPD</strong>.</p>
+            <p>Cookies estritamente necessários são usados para autenticação, segurança, proteção contra fraude e registro da sua escolha. Cookies opcionais somente são ativados após uma manifestação livre e específica. Recusar os opcionais não impede o acesso ao serviço.</p>
+            <ul>
+                <li><strong>PHPSESSID — necessário:</strong> mantém a sessão e protege o acesso. Duração: até o fechamento do navegador ou encerramento da sessão.</li>
+                <li><strong>app_cookie_consent — necessário:</strong> registra as categorias escolhidas para que o aviso não seja repetido. Duração: 180 dias.</li>
+                <li><strong>tema_preferencia — preferência:</strong> guarda o modo claro ou escuro quando autorizado. Duração: até 1 ano.</li>
+                <li><strong>Análise e marketing:</strong> atualmente o App Controle Pro não utiliza cookies dessas categorias. Se forem adotados futuramente, permanecerão bloqueados até autorização.</li>
+            </ul>
+            <p>As bases legais aplicáveis incluem a execução do serviço e a segurança para cookies necessários (art. 7º, V e IX, conforme o caso) e o consentimento para cookies opcionais (arts. 7º, I, e 8º). As informações são apresentadas de forma clara conforme os princípios de transparência e livre acesso (arts. 6º e 9º). O consentimento pode ser revogado gratuitamente a qualquer momento.</p>
+            <p><a href="https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm" target="_blank" rel="noopener noreferrer">Consultar a LGPD</a> · <a href="https://www.gov.br/anpd/pt-br/centrais-de-conteudo/materiais-educativos-e-publicacoes/guia_orientativo_cookies_e_protecao_de_dados_pessoais" target="_blank" rel="noopener noreferrer">Consultar o guia da ANPD</a></p>
+            <button class="privacy-primary-action" type="button" data-cookie-settings><i class="fas fa-cookie-bite" aria-hidden="true"></i> Rever preferências de cookies</button>
+        </section>
+
         <section id="direitos" class="policy-section">
-            <h2><span>06</span> Quais são os seus direitos?</h2>
+            <h2><span>07</span> Quais são os seus direitos?</h2>
             <p>Nos termos da LGPD e observadas as hipóteses legais aplicáveis, você pode solicitar:</p>
             <ul class="rights-grid">
                 <li><i class="fas fa-magnifying-glass" aria-hidden="true"></i><span><strong>Confirmação e acesso</strong> às informações tratadas.</span></li>
@@ -113,7 +130,7 @@ include '../includes/header.php';
 
         <section id="contato" class="policy-section contact-section">
             <div>
-                <h2><span>07</span> Fale conosco</h2>
+                <h2><span>08</span> Fale conosco</h2>
                 <p>Para exercer seus direitos ou esclarecer dúvidas sobre o tratamento dos seus dados, utilize nosso canal de privacidade.</p>
                 <a href="mailto:contatotech.tecnologia@gmail.com">contatotech.tecnologia@gmail.com</a>
             </div>

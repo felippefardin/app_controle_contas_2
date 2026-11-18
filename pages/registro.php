@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../includes/session_init.php';
 require_once __DIR__ . '/../includes/utils.php';
 require_once __DIR__ . '/../database.php'; // Flash messages
+require_once __DIR__ . '/../includes/lgpd_registration_terms.php';
 
 // --- RECUPERA DADOS ANTIGOS EM CASO DE ERRO ---
 $old = $_SESSION['form_data'] ?? [];
@@ -202,6 +203,17 @@ display_flash_message();
   .modal-header { border-bottom: 1px solid var(--border-color); }
   .modal-footer { border-top: 1px solid var(--border-color); }
   .modal-title { color: #00bfff; }
+  #modalLGPD .lgpd-highlight strong { color: #17324d; }
+  #modalLGPD .lgpd-section summary { color: #0d6efd; }
+  #modalLGPD .lgpd-confirmations strong { color: #263449; }
+  #modalLGPD .lgpd-meta { color: #596579; }
+  #modalLGPD #btnAceitarLGPD:disabled {
+      background-color: #476656;
+      border-color: #476656;
+      color: #d7e2dc;
+      opacity: 1;
+      cursor: not-allowed;
+  }
 
   /* FLASH CARD FLUTUANTE */
   #custom-flash-card {
@@ -246,6 +258,41 @@ display_flash_message();
       --input-bg: #111a27;
       --input-text: #eef4fb;
       --card-bg: #1c2b42;
+  }
+
+  html[data-app-theme="dark"] #modalLGPD .lgpd-highlight,
+  body.dark-mode #modalLGPD .lgpd-highlight {
+      background: #133149 !important;
+      border-color: #2b6d96 !important;
+      color: #e6f5ff !important;
+  }
+  html[data-app-theme="dark"] #modalLGPD .lgpd-highlight strong,
+  body.dark-mode #modalLGPD .lgpd-highlight strong {
+      color: #69d6ff !important;
+  }
+  html[data-app-theme="dark"] #modalLGPD .lgpd-section,
+  html[data-app-theme="dark"] #modalLGPD .lgpd-confirmations,
+  body.dark-mode #modalLGPD .lgpd-section,
+  body.dark-mode #modalLGPD .lgpd-confirmations {
+      background: #182334 !important;
+      border-color: #40516a !important;
+      color: #e8eef7 !important;
+  }
+  html[data-app-theme="dark"] #modalLGPD .lgpd-section summary,
+  body.dark-mode #modalLGPD .lgpd-section summary {
+      color: #58ccff !important;
+  }
+  html[data-app-theme="dark"] #modalLGPD .lgpd-confirmations :is(strong,span,label),
+  body.dark-mode #modalLGPD .lgpd-confirmations :is(strong,span,label) {
+      color: #e8eef7 !important;
+  }
+  html[data-app-theme="dark"] #modalLGPD :is(.lgpd-confirmations,.lgpd-meta) a,
+  body.dark-mode #modalLGPD :is(.lgpd-confirmations,.lgpd-meta) a {
+      color: #69d6ff !important;
+  }
+  html[data-app-theme="dark"] #modalLGPD .lgpd-meta,
+  body.dark-mode #modalLGPD .lgpd-meta {
+      color: #b7c5d8 !important;
   }
 
   @media (max-width: 768px) {
@@ -422,22 +469,33 @@ display_flash_message();
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="modalLGPDLabel">Termos de Uso e Política de Privacidade (LGPD)</h5>
+        <h5 class="modal-title" id="modalLGPDLabel"><i class="fas fa-file-shield"></i> Termos de Uso e Aviso de Privacidade - versão <?= htmlspecialchars(lgpd_registration_version()) ?></h5>
       </div>
       <div class="modal-body">
-        <h4>Seus Direitos e o Tratamento de Dados</h4>
-        <p>Em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), informamos que:</p>
-        <ul>
-            <li>Seus dados (nome, e-mail, telefone, CPF/CNPJ) são coletados apenas para o funcionamento deste sistema de controle financeiro.</li>
-            <li>Nós não compartilhamos seus dados com terceiros sem seu consentimento explícito.</li>
-            <li>Você tem o direito de solicitar, a qualquer momento via suporte, a exportação ou exclusão dos seus dados.</li>
-        </ul>
-        <hr>
-        <p>Ao clicar em "Aceitar e Finalizar", você concorda expressamente com o tratamento dos seus dados conforme descrito acima.</p>
+        <div class="lgpd-highlight" style="padding:14px 16px;border-radius:9px;background:#eaf6ff;border:1px solid #99d6ff;color:#17324d;margin-bottom:16px;">
+            <strong>Resumo importante:</strong> seus dados essenciais serão usados para criar e operar a conta, processar pagamentos, proteger o sistema e cumprir obrigações legais. Comunicações promocionais são opcionais. Leia cada seção antes de confirmar.
+        </div>
+        <div style="display:grid;gap:10px;">
+        <?php foreach (lgpd_registration_sections() as $sectionIndex => $section): ?>
+            <details class="lgpd-section" style="border:1px solid #d7dee8;border-radius:8px;padding:11px 13px;background:#fff;color:#263449;" <?= $sectionIndex === 0 ? 'open' : '' ?>>
+                <summary style="cursor:pointer;font-weight:800;color:#0d6efd;"><?= htmlspecialchars($section['title']) ?></summary>
+                <p style="margin:9px 0 0;line-height:1.55;"><?= htmlspecialchars($section['body']) ?></p>
+            </details>
+        <?php endforeach; ?>
+        </div>
+        <div class="lgpd-confirmations" style="margin-top:17px;padding:15px;border-radius:9px;background:#f7f9fc;border:1px solid #d7dee8;color:#263449;">
+            <strong>Confirmações necessárias</strong>
+            <label style="display:flex;gap:10px;align-items:flex-start;margin-top:12px;cursor:pointer;"><input id="confirmarTermos" type="checkbox" style="width:19px;height:19px;margin-top:2px;flex:none"><span>Li e concordo com os <strong>Termos de Uso</strong>, incluindo regras do serviço, planos, cobranças, responsabilidades, desativação e exclusão.</span></label>
+            <label style="display:flex;gap:10px;align-items:flex-start;margin-top:12px;cursor:pointer;"><input id="confirmarPrivacidade" type="checkbox" style="width:19px;height:19px;margin-top:2px;flex:none"><span>Li o <strong>Aviso de Privacidade</strong> e compreendi quais dados são tratados, para quais finalidades, com quem podem ser compartilhados, por quanto tempo são mantidos e como exercer meus direitos. <a href="protecao_de_dados.php" target="_blank" rel="noopener">Abrir política completa</a>.</span></label>
+            <label style="display:flex;gap:10px;align-items:flex-start;margin-top:12px;cursor:pointer;"><input id="confirmarTitularidade" type="checkbox" style="width:19px;height:19px;margin-top:2px;flex:none"><span>Confirmo que os dados informados são verdadeiros e que tenho autorização para cadastrar esta pessoa ou empresa.</span></label>
+            <hr>
+            <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;"><input id="aceitarComunicacoes" type="checkbox" style="width:19px;height:19px;margin-top:2px;flex:none"><span><strong>Opcional:</strong> quero receber novidades, melhorias e ofertas. Posso retirar essa autorização posteriormente.</span></label>
+        </div>
+        <p class="lgpd-meta" style="margin:15px 0 0;color:#596579;font-size:.9rem;"><i class="fas fa-lock"></i> O sistema registrará a versão do documento, data, hora, IP, preferências e identificador de integridade do comprovante.</p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Recusar</button>
-        <button type="button" class="btn btn-success" id="btnAceitarLGPD">Li, Aceito e Finalizar</button>
+        <button type="button" class="btn btn-success" id="btnAceitarLGPD" disabled>Confirmar aceites e criar conta</button>
       </div>
     </div>
   </div>
@@ -575,6 +633,15 @@ display_flash_message();
       const senhaError = document.getElementById('senhaError');
       const emailError = document.getElementById('emailError');
       const btnAceitarLGPD = document.getElementById('btnAceitarLGPD');
+      const confirmarTermos = document.getElementById('confirmarTermos');
+      const confirmarPrivacidade = document.getElementById('confirmarPrivacidade');
+      const confirmarTitularidade = document.getElementById('confirmarTitularidade');
+      const aceitarComunicacoes = document.getElementById('aceitarComunicacoes');
+
+      function atualizarBotaoAceite() {
+          btnAceitarLGPD.disabled = !(confirmarTermos.checked && confirmarPrivacidade.checked && confirmarTitularidade.checked);
+      }
+      [confirmarTermos, confirmarPrivacidade, confirmarTitularidade].forEach(el => el.addEventListener('change', atualizarBotaoAceite));
 
       form.addEventListener('submit', (e) => {
         let valid = true;
@@ -639,11 +706,23 @@ display_flash_message();
       });
 
       btnAceitarLGPD.addEventListener('click', function() {
-          let inputAceite = document.createElement("input");
-          inputAceite.type = "hidden";
-          inputAceite.name = "aceite_lgpd";
-          inputAceite.value = "1";
-          form.appendChild(inputAceite);
+          if (btnAceitarLGPD.disabled) return;
+          const aceites = {
+              aceite_lgpd: '1',
+              aceite_termos: confirmarTermos.checked ? '1' : '0',
+              aceite_privacidade: confirmarPrivacidade.checked ? '1' : '0',
+              aceite_comunicacoes: aceitarComunicacoes.checked ? '1' : '0'
+          };
+          Object.entries(aceites).forEach(([name, value]) => {
+              let input = form.querySelector(`input[name="${name}"]`);
+              if (!input) {
+                  input = document.createElement('input');
+                  input.type = 'hidden';
+                  input.name = name;
+                  form.appendChild(input);
+              }
+              input.value = value;
+          });
 
           const modalElement = document.getElementById('modalLGPD');
           const modalInstance = bootstrap.Modal.getInstance(modalElement);

@@ -47,7 +47,7 @@ function enviarEmail($email, $nome, $assunto, $corpoHtml, $corpoAlt) {
 
 // 2. Conecta ao banco MASTER para buscar todos os Tenants ativos
 $masterConn = getMasterConnection();
-$sqlTenants = "SELECT * FROM tenants WHERE status_assinatura NOT IN ('cancelado', 'inativo')";
+$sqlTenants = "SELECT * FROM tenants WHERE status_assinatura NOT IN ('cancelado', 'inativo', 'desativado_temporario', 'exclusao_em_processamento')";
 $resultTenants = $masterConn->query($sqlTenants);
 
 echo "<h2>Processando Lembretes Automáticos</h2>";

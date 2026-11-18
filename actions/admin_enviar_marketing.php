@@ -30,8 +30,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $mensagem = trim($_POST['mensagem']);
     $conn = getMasterConnection();
 
-    // 2. Buscar todos os e-mails únicos da tabela usuarios
-    $sql = "SELECT DISTINCT email, nome FROM usuarios WHERE email IS NOT NULL AND email != '' AND status = 'ativo'";
+    // 2. Marketing é opt-in: somente o aceite promocional mais recente autoriza o envio.
+    // Mensagens essenciais de segurança, cobrança e suporte usam fluxos próprios.
+    $sql = "SELECT DISTINCT u.email, u.nome
+            FROM usuarios u
+            INNER JOIN termos_consentimento tc
+                ON tc.id = (
+                    SELECT MAX(tc2.id)
+                    FROM termos_consentimento tc2
+                    WHERE tc2.usuario_id = u.id
+                )
+            WHERE u.email IS NOT NULL
+              AND u.email != ''
+              AND u.status = 'ativo'
+              AND JSON_UNQUOTE(JSON_EXTRACT(COALESCE(tc.preferencias_json, '{}'), '$.comunicacoes_promocionais')) IN ('true', '1')";
     $result = $conn->query($sql);
 
     if ($result->num_rows > 0) {
@@ -93,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
     } else {
-        header("Location: ../pages/admin/email_marketing.php?erro=1&msg=Nenhum usuário encontrado para envio.");
+        header("Location: ../pages/admin/email_marketing.php?erro=1&msg=Nenhum usuário autorizou o recebimento de comunicações promocionais.");
     }
     
     $conn->close();

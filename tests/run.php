@@ -16,6 +16,7 @@ require_once __DIR__ . '/../database.php';
 require_once __DIR__ . '/../includes/mercadopago_security.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/migration_runner.php';
+require_once __DIR__ . '/../includes/account_lifecycle.php';
 
 $environment = strtolower((string) ($_ENV['APP_ENV'] ?? 'local'));
 if (in_array($environment, ['production', 'producao'], true)) {
@@ -41,4 +42,3 @@ foreach ($GLOBALS['codex_tests'] ?? [] as $test) {
 $elapsed = number_format(microtime(true) - $started, 2, ',', '.');
 echo "\nResultado: {$passed} aprovado(s), {$failed} falha(s), {$elapsed}s.\n";
 exit($failed === 0 ? 0 : 1);
-
