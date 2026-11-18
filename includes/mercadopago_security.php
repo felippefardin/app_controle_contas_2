@@ -50,6 +50,13 @@ function mp_api_request(string $method, string $path, ?array $payload = null, ?s
     }
 
     $raw = curl_exec($ch);
+    if ($raw === false) {
+    error_log(sprintf(
+        'Mercado Pago transporte: cURL=%d detalhe=%s',
+        curl_errno($ch),
+        curl_error($ch)
+    ));
+}
     $curlError = curl_error($ch);
     $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
