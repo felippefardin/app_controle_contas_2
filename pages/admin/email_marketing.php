@@ -11,8 +11,24 @@ if (!isset($_SESSION['super_admin'])) {
 
 $master_conn = getMasterConnection();
 
-// Consulta corrigida (usando 'criado_em')
-$sql_lista = "SELECT nome, email, tipo_pessoa, criado_em FROM usuarios WHERE status = 'ativo' ORDER BY nome ASC";
+// Exibe todos os usuários ativos, mas identifica quem deu opt-in promocional.
+// A ausência de aceite ou um aceite antigo sem essa escolha equivale a "não autorizado".
+$sql_lista = "SELECT u.nome, u.email, u.tipo_pessoa, u.criado_em,
+                     CASE
+                         WHEN JSON_UNQUOTE(JSON_EXTRACT(COALESCE(tc.preferencias_json, '{}'), '$.comunicacoes_promocionais')) IN ('true', '1')
+                         THEN 1 ELSE 0
+                     END AS aceita_marketing
+              FROM usuarios u
+              LEFT JOIN termos_consentimento tc
+                  ON tc.id = (
+                      SELECT MAX(tc2.id)
+                      FROM termos_consentimento tc2
+                      WHERE tc2.usuario_id = u.id
+                  )
+              WHERE u.status = 'ativo'
+                AND u.email IS NOT NULL
+                AND u.email != ''
+              ORDER BY aceita_marketing DESC, u.nome ASC";
 $result_lista = $master_conn->query($sql_lista);
 
 // Se der erro na query, evita quebrar a página inteira
@@ -20,11 +36,17 @@ if (!$result_lista) {
     die("Erro na consulta: " . $master_conn->error);
 }
 
-$total_emails = $result_lista->num_rows;
+$usuarios_lista = $result_lista->fetch_all(MYSQLI_ASSOC);
+$total_usuarios = count($usuarios_lista);
+$total_emails = count(array_filter($usuarios_lista, static fn(array $user): bool => (int)$user['aceita_marketing'] === 1));
+$total_sem_aceite = $total_usuarios - $total_emails;
 ?>
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+<link rel="stylesheet" href="../../assets/css/universal-theme.css?v=20260813-admin">
+<script src="../../assets/js/global-theme.js?v=20260813-admin"></script>
+    <?php require __DIR__ . '/../../includes/csrf_client.php'; ?>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Email Marketing - Painel Master</title>
@@ -66,6 +88,16 @@ $total_emails = $result_lista->num_rows;
         .email-item:last-child { border-bottom: none; }
         .email-item:hover { background-color: #252525; }
         .email-role { font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; background: #333; color: #aaa; }
+        .consent-summary { width:100%; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+        .consent-summary > div { padding:14px 16px; border:1px solid #344154; border-radius:8px; background:#17202d; }
+        .consent-summary strong { display:block; margin-top:4px; font-size:1.35rem; }
+        .consent-yes { color:#40d987; }
+        .consent-no { color:#ff8a8a; }
+        .consent-badge { display:inline-block; margin-top:5px; padding:3px 8px; border-radius:999px; font-size:.72rem; font-weight:800; }
+        .consent-badge.yes { color:#baf7d4; background:rgba(31,157,85,.25); border:1px solid #299c5c; }
+        .consent-badge.no { color:#ffd0d0; background:rgba(204,61,61,.22); border:1px solid #a54444; }
+        .consent-notice { width:100%; padding:14px 16px; border-left:4px solid #00bfff; background:#152536; color:#dcecff; border-radius:6px; line-height:1.5; }
+        @media (max-width:700px) { .consent-summary { grid-template-columns:1fr; } }
 
         .msg-box { padding: 15px; border-radius: 6px; margin-bottom: 20px; text-align: center; width: 100%; box-sizing: border-box; }
         .msg-success { background: rgba(40,167,69,0.2); color: #2ecc71; border: 1px solid #2ecc71; }
@@ -113,9 +145,17 @@ $total_emails = $result_lista->num_rows;
             <div class="msg-box msg-error"><i class="fas fa-exclamation-triangle"></i> <?= htmlspecialchars($_GET['msg']) ?></div>
         <?php endif; ?>
 
+        <div class="consent-summary" aria-label="Resumo das autorizações promocionais">
+            <div><span>Autorizados para marketing</span><strong class="consent-yes"><?= $total_emails ?></strong></div>
+            <div><span>Sem autorização promocional</span><strong class="consent-no"><?= $total_sem_aceite ?></strong></div>
+        </div>
+        <div class="consent-notice">
+            <strong>Como funciona:</strong> esta campanha será enviada somente aos usuários que marcaram a opção de receber novidades, melhorias e ofertas. Avisos essenciais sobre segurança, cobrança, suporte e funcionamento da conta não são marketing e continuam em seus fluxos próprios.
+        </div>
+
         <div class="card">
             <h2><i class="fas fa-paper-plane"></i> Novo Disparo</h2>
-            <form action="../../actions/admin_enviar_marketing.php" method="POST" enctype="multipart/form-data" onsubmit="return confirm('Tem certeza que deseja enviar este email para TODOS os usuários cadastrados?');">
+            <form action="../../actions/admin_enviar_marketing.php" method="POST" enctype="multipart/form-data" onsubmit="return confirm('Confirmar o envio somente para os usuários que autorizaram comunicações promocionais?');">
                 
                 <label for="assunto">Assunto do Email:</label>
                 <input type="text" name="assunto" id="assunto" required placeholder="Ex: Novidades Incríveis no App..." style="margin-bottom: 15px;">
@@ -126,21 +166,22 @@ $total_emails = $result_lista->num_rows;
                 <label for="anexo" style="margin-top: 20px;"><i class="fas fa-paperclip"></i> Anexar Arquivo (PDF, Imagem, Zip - Máx 10MB):</label>
                 <input type="file" name="anexo" id="anexo">
 
-                <button type="submit" class="btn-send"><i class="fas fa-rocket"></i> Enviar para <?= $total_emails ?> Usuários</button>
+                <button type="submit" class="btn-send" <?= $total_emails === 0 ? 'disabled' : '' ?>><i class="fas fa-rocket"></i> Enviar para <?= $total_emails ?> usuário<?= $total_emails === 1 ? '' : 's' ?> autorizado<?= $total_emails === 1 ? '' : 's' ?></button>
             </form>
         </div>
 
         <div class="card">
-            <h2><i class="fas fa-users"></i> Lista de Destinatários (<?= $total_emails ?>)</h2>
-            <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 15px;">Estes são todos os usuários ativos cadastrados via registro e adição de usuários.</p>
+            <h2><i class="fas fa-users"></i> Preferências dos usuários (<?= $total_usuarios ?>)</h2>
+            <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 15px;">A indicação abaixo permite ao usuário master distinguir quem pode ou não receber campanhas promocionais.</p>
             
             <div class="email-list-container">
-                <?php if ($total_emails > 0): ?>
-                    <?php while($user = $result_lista->fetch_assoc()): ?>
+                <?php if ($total_usuarios > 0): ?>
+                    <?php foreach ($usuarios_lista as $user): ?>
                         <div class="email-item">
                             <div>
                                 <strong style="color: #fff;"><?= htmlspecialchars($user['nome']) ?></strong><br>
                                 <span style="color: #00bfff;"><?= htmlspecialchars($user['email']) ?></span>
+                                <br><span class="consent-badge <?= (int)$user['aceita_marketing'] === 1 ? 'yes' : 'no' ?>"><?= (int)$user['aceita_marketing'] === 1 ? 'Marketing autorizado' : 'Não enviar marketing' ?></span>
                             </div>
                             <div style="text-align: right;">
                                 <span class="email-role"><?= ucfirst($user['tipo_pessoa']) ?></span>
@@ -150,7 +191,7 @@ $total_emails = $result_lista->num_rows;
                                 </span>
                             </div>
                         </div>
-                    <?php endwhile; ?>
+                    <?php endforeach; ?>
                 <?php else: ?>
                     <div style="padding: 20px; text-align: center; color: #777;">Nenhum usuário encontrado.</div>
                 <?php endif; ?>

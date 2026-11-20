@@ -26,6 +26,9 @@ $result = $conn->query($query);
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<link rel="stylesheet" href="../../assets/css/universal-theme.css?v=20260813-admin">
+<script src="../../assets/js/global-theme.js?v=20260813-admin"></script>
+    <?php require __DIR__ . '/../../includes/csrf_client.php'; ?>
     <meta charset="UTF-8">
     <title>Suporte Ativo</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">

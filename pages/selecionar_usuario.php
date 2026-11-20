@@ -31,7 +31,7 @@ if (empty($email) && $id_usuario_atual) {
 }
 
 // ✅ 3. BUSCA TODOS OS USUÁRIOS DO CLIENTE
-$sql = "SELECT id, nome, nivel_acesso, foto FROM usuarios ORDER BY nome ASC";
+$sql = "SELECT id, nome, nivel_acesso, foto FROM usuarios WHERE deleted_at IS NULL ORDER BY nome ASC";
 $stmt = $conn->prepare($sql);
 $stmt->execute();
 $result_usuarios = $stmt->get_result();
@@ -47,6 +47,8 @@ if (isset($_GET['status']) && $_GET['status'] == 'email_enviado') {
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<link rel="stylesheet" href="../assets/css/universal-theme.css">
+<script src="../assets/js/global-theme.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Selecionar Usuário - App Controle de Contas</title>
@@ -274,13 +276,13 @@ if (isset($_GET['status']) && $_GET['status'] == 'email_enviado') {
             <button type="submit">Acessar Sistema</button>
         </form>
 
-       <a href="../actions/enviar_link_email_perfil.php?email=<?= urlencode($email) ?>&origem=selecionar_usuario" 
-          class="btn-padrao-link" 
+       <form action="../actions/enviar_link_email_perfil.php" method="post" style="display:inline" onsubmit="return confirm('Deseja enviar um link de redefinição de senha para o seu e-mail cadastrado?');">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+          <button type="submit" class="btn-padrao-link"
           style="background-color: #17a2b8; color: white; margin-left: 10px; display: inline-block; padding: 10px 15px; text-decoration: none; border-radius: 5px; margin-top: 15px;" 
-          
-          onclick="return confirm('Deseja enviar um link de redefinição de senha para o seu e-mail cadastrado (<?= htmlspecialchars($email ?? 'email.nao.encontrado@error.com') ?>)?');">
           Redefinir por E-mail
-       </a>
+          </button>
+       </form>
     </div>
 
     <script>

@@ -1,68 +1,47 @@
 <?php
-session_start();
-require_once '../includes/config/config.php';
-require_once '../includes/utils.php'; // Adicionado: Importar utils para usar set_flash_message
-require_once 'enviar_email.php'; 
+declare(strict_types=1);
 
-$email = $_POST['email_reativacao'] ?? '';
+require_once __DIR__ . '/../includes/session_init.php';
+require_once __DIR__ . '/../database.php';
+require_once __DIR__ . '/../includes/utils.php';
+require_once __DIR__ . '/enviar_email.php';
 
-if (empty($email)) {
-    // CORREÇÃO: Usar set_flash_message em vez de $_SESSION['erro']
-    set_flash_message('error', "Por favor, informe o e-mail.");
-    header('Location: ../pages/login.php');
-    exit;
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); exit('Método não permitido.'); }
+require_csrf();
+$email = mb_strtolower(trim((string)($_POST['email_reativacao'] ?? '')));
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    set_flash_message('success', 'Se a conta estiver dentro do prazo, enviaremos as instruções para o e-mail informado.');
+    header('Location: ../pages/login.php'); exit;
 }
 
-$conn = getMasterConnection(); 
+$attempt = $_SESSION['reactivation_request_at'] ?? 0;
+if (time() - (int)$attempt < 60) {
+    set_flash_message('warning', 'Aguarde um minuto antes de solicitar um novo link.');
+    header('Location: ../pages/login.php'); exit;
+}
+$_SESSION['reactivation_request_at'] = time();
 
-// Verifica se o usuário existe e se o status permite reativação
-$sql = "SELECT id, nome FROM usuarios WHERE email = ? AND status IN ('suspenso', 'cancelado', 'inativo')";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("s", $email);
-$stmt->execute();
-$result = $stmt->get_result();
-$user = $result->fetch_assoc();
-
-if ($user) {
-    // Gera token único
-    $token = bin2hex(random_bytes(32));
-    // Expira em 1 hora
-    $expira = date('Y-m-d H:i:s', strtotime('+1 hour'));
-    
-    // Atualiza token no banco
-    $updateSql = "UPDATE usuarios SET token_recovery = ?, token_expiry = ? WHERE id = ?";
-    $stmtUpd = $conn->prepare($updateSql);
-    $stmtUpd->bind_param("ssi", $token, $expira, $user['id']);
-    $stmtUpd->execute();
-    
-    // Define URL base
-    $baseUrl = $_ENV['APP_URL'] ?? 'http://localhost/app-controle-contas';
-    $link = $baseUrl . "/pages/reativar_processo.php?token=" . $token;
-    
-    $assunto = "Reativar Conta - App Controle Contas";
-    $mensagem = "Olá " . $user['nome'] . ",<br><br>";
-    $mensagem .= "Recebemos uma solicitação para reativar sua conta.<br>";
-    $mensagem .= "Clique no link abaixo para redefinir sua senha e escolher um novo plano:<br><br>";
-    $mensagem .= "<a href='$link'>Clique aqui para reativar</a><br><br>";
-    $mensagem .= "Este link expira em 1 hora.";
-    
-    if (enviarEmail($email, $user['nome'], $assunto, $mensagem)) {
-        // CORREÇÃO: Usar set_flash_message('success', ...)
-        set_flash_message('success', "E-mail de reativação enviado! Verifique sua caixa de entrada.");
-    } else {
-        // CORREÇÃO: Usar set_flash_message('error', ...)
-        set_flash_message('error', "Erro ao tentar enviar o e-mail. Tente novamente mais tarde.");
+$db = getMasterConnection();
+try {
+    $stmt = $db->prepare("SELECT u.id, u.nome, u.email, t.nome_empresa, t.exclusao_programada_em FROM usuarios u JOIN tenants t ON t.tenant_id=u.tenant_id AND LOWER(t.admin_email)=LOWER(u.email) WHERE LOWER(u.email)=? AND t.status_assinatura='desativado_temporario' AND t.exclusao_programada_em>NOW() LIMIT 1");
+    $stmt->bind_param('s', $email); $stmt->execute();
+    $user = $stmt->get_result()->fetch_assoc(); $stmt->close();
+    if ($user) {
+        $rawToken = bin2hex(random_bytes(32));
+        $tokenHash = hash('sha256', $rawToken);
+        $expires = date('Y-m-d H:i:s', time() + 3600);
+        $update = $db->prepare('UPDATE usuarios SET token_reset=?, token_expira_em=? WHERE id=?');
+        $userId = (int)$user['id'];
+        $update->bind_param('ssi', $tokenHash, $expires, $userId); $update->execute(); $update->close();
+        $baseUrl = rtrim((string)($_ENV['APP_URL'] ?? 'http://localhost/app_controle_contas_2'), '/');
+        $link = $baseUrl . '/pages/reativar_processo.php?token=' . rawurlencode($rawToken);
+        $deadline = date('d/m/Y', strtotime((string)$user['exclusao_programada_em']));
+        $name = (string)($user['nome'] ?: 'Cliente');
+        $message = 'Olá ' . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . ',<br><br>Use o botão abaixo para reativar sua conta e recuperar todos os usuários, cadastros e dados preservados.<br><br><a href="' . htmlspecialchars($link, ENT_QUOTES, 'UTF-8') . '" style="display:inline-block;padding:12px 18px;border-radius:8px;background:#0878e8;color:#fff;text-decoration:none;font-weight:bold">Reativar minha conta</a><br><br>O link vale por 1 hora. A exclusão definitiva está programada para ' . $deadline . ' caso a conta não seja reativada.';
+        enviarEmail($email, $name, 'Reativação da sua conta', $message);
     }
-    
-} else {
-    // CORREÇÃO: Usar set_flash_message('error', ...)
-    set_flash_message('error', "E-mail não encontrado ou a conta não está elegível para reativação.");
-}
+} catch (Throwable $e) { error_log('Falha ao solicitar reativação: ' . $e->getMessage()); }
+finally { $db->close(); }
 
-$stmt->close();
-if(isset($stmtUpd)) $stmtUpd->close();
-$conn->close();
-
-header('Location: ../pages/login.php');
-exit;
-?>
+set_flash_message('success', 'Se a conta estiver dentro do prazo, enviaremos as instruções para o e-mail informado.');
+header('Location: ../pages/login.php'); exit;

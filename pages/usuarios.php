@@ -1,6 +1,7 @@
 <?php
 require_once '../includes/session_init.php';
 require_once '../database.php';
+require_tenant_admin();
 require_once '../includes/utils.php'; // Importa utils
 
 /* ============================================================
@@ -50,7 +51,7 @@ if ($is_admin && $tenant_id) {
     $limiteBase = $limites[$planoAtual] ?? 3;
     $limite_total = $limiteBase + $extras;
 
-    $resCount = $connTenant->query("SELECT COUNT(*) AS total FROM usuarios WHERE status = 'ativo'");
+    $resCount = $connTenant->query("SELECT COUNT(*) AS total FROM usuarios WHERE status = 'ativo' AND deleted_at IS NULL");
     $total_ativos = intval($resCount->fetch_assoc()['total']);
     $pode_adicionar = ($total_ativos < $limite_total);
 }
@@ -59,9 +60,9 @@ if ($is_admin && $tenant_id) {
    5. CONSULTA DE USUÁRIOS
    ============================================================ */
 if ($is_admin) {
-    $stmt = $connTenant->prepare("SELECT id, nome, email, cpf, telefone, status, perfil, nivel_acesso FROM usuarios ORDER BY nome ASC");
+    $stmt = $connTenant->prepare("SELECT id, nome, email, cpf, telefone, status, perfil, nivel_acesso FROM usuarios WHERE deleted_at IS NULL ORDER BY nome ASC");
 } else {
-    $stmt = $connTenant->prepare("SELECT id, nome, email, cpf, telefone, status, perfil, nivel_acesso FROM usuarios WHERE id = ?");
+    $stmt = $connTenant->prepare("SELECT id, nome, email, cpf, telefone, status, perfil, nivel_acesso FROM usuarios WHERE id = ? AND deleted_at IS NULL");
     $stmt->bind_param("i", $id_usuario);
 }
 
@@ -182,6 +183,7 @@ body { margin: 0; padding: 0; background: #121212; font-family: Arial, sans-seri
         <h2><i class="fas fa-users"></i> Gerenciar Usuários</h2>
 
         <?php if ($is_admin): ?>
+            <a href="lixeira.php" class="btn-novo" style="background:#6c757d"><i class="fas fa-trash-restore"></i> Lixeira</a>
             <?php if ($pode_adicionar): ?>
                 <div style="display:flex;align-items:center;gap:10px;">
                     <span class="text-muted"><i class="fas fa-chart-pie"></i> Uso: <b><?= $total_ativos ?>/<?= $limite_total ?></b></span>
@@ -230,10 +232,10 @@ body { margin: 0; padding: 0; background: #121212; font-family: Arial, sans-seri
                             
                             <?php if ($is_admin && $u['id'] != $id_usuario): ?>
                                 <?php if ($u['status'] === 'ativo'): ?>
-                                    <a href="../actions/toggle_status.php?id=<?= $u['id'] ?>" class="action-btn btn-toggle-off" title="Inativar" onclick="return confirm('Inativar este usuário?');"><i class="fas fa-ban"></i></a>
+                                    <form action="../actions/toggle_status.php" method="post" style="display:inline" onsubmit="return confirm('Inativar este usuário?');"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="id" value="<?= (int)$u['id'] ?>"><button type="submit" class="action-btn btn-toggle-off" title="Inativar"><i class="fas fa-ban"></i></button></form>
                                 <?php else: ?>
                                     <?php if ($pode_adicionar): ?>
-                                        <a href="../actions/toggle_status.php?id=<?= $u['id'] ?>" class="action-btn btn-toggle-on" title="Reativar"><i class="fas fa-check"></i></a>
+                                        <form action="../actions/toggle_status.php" method="post" style="display:inline"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="id" value="<?= (int)$u['id'] ?>"><button type="submit" class="action-btn btn-toggle-on" title="Reativar"><i class="fas fa-check"></i></button></form>
                                     <?php else: ?>
                                         <button class="action-btn btn-toggle-off" disabled style="opacity:.5;"><i class="fas fa-check"></i></button>
                                     <?php endif; ?>

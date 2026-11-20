@@ -2,6 +2,7 @@
 require_once '../includes/session_init.php';
 include('../database.php');
 require_once '../includes/utils.php'; // Importa Flash Messages
+require_once '../includes/account_deletion_consent.php';
 
 $conn = getMasterConnection(); 
 if ($conn === null) {
@@ -48,6 +49,9 @@ if (!empty($token)) {
     .icon-big { font-size: 3.5rem; color: #dc3545; margin-bottom: 20px; display: block; }
     .aviso-backup { background-color: rgba(255, 193, 7, 0.1); color: #ffc107; padding: 15px; border-radius: 8px; margin-bottom: 30px; font-size: 0.95rem; border: 1px solid #ffc107; text-align: left; }
     .aviso-backup strong { display: block; margin-bottom: 5px; font-size: 1.1rem; }
+    .consent-box { text-align:left; background:#28181b; border:1px solid #7d303a; border-radius:8px; padding:16px; margin:20px 0; color:#f4d8dc; line-height:1.55; }
+    .consent-check { display:flex; align-items:flex-start; gap:11px; margin-top:14px; font-weight:700; color:#fff; cursor:pointer; }
+    .consent-check input { width:20px; height:20px; flex:0 0 auto; margin-top:2px; }
     .btn-area { display: flex; gap: 15px; justify-content: center; margin-top: 30px; }
     .btn-action { padding: 12px 24px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: all 0.3s ease; text-decoration: none; border: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
     .btn-danger-confirm { background-color: #dc3545; color: white; box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3); }
@@ -66,14 +70,23 @@ if (!empty($token)) {
         
         <div class="aviso-backup">
             <strong><i class="fas fa-save"></i> ATENÇÃO AO BACKUP</strong>
-            Antes de prosseguir, certifique-se de ter exportado seus dados (Relatórios, Contas, etc.). 
-            Esta ação apagará permanentemente suas contas a pagar, receber, clientes e histórico.
+            Antes de prosseguir, certifique-se de ter exportado tudo o que deseja preservar.
+            Esta ação apagará permanentemente todos os dados vinculados à conta.
         </div>
         
         <p>Você tem certeza absoluta? <strong>Esta ação não pode ser desfeita.</strong></p>
         
         <form action="../actions/executar_exclusao.php" method="POST">
             <input type="hidden" name="token" value="<?= htmlspecialchars($token) ?>">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+            <div class="consent-box">
+                <strong>Leia antes de confirmar:</strong>
+                <p style="margin:10px 0 0;color:inherit;"><?= htmlspecialchars(account_deletion_consent_text()) ?></p>
+                <label class="consent-check">
+                    <input type="checkbox" name="aceite_exclusao" value="1" required>
+                    <span>Li, compreendi e confirmo a exclusão permanente de todos os dados da conta.</span>
+                </label>
+            </div>
             
             <div class="btn-area">
                 <button type="button" class="btn-action btn-cancel" onclick="window.location.href='../pages/perfil.php'">

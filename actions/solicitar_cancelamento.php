@@ -1,94 +1,68 @@
 <?php
-session_start();
-require_once '../includes/config/config.php';
-require_once 'enviar_email.php'; 
-require_once '../includes/utils.php'; // Importa Flash Messages
+declare(strict_types=1);
 
-// 1. Verifica se o usuário está logado
-if (!isset($_SESSION['usuario_logado']) || !isset($_POST['opcao_cancelamento'])) {
-    header('Location: ../pages/login.php');
-    exit;
+require_once __DIR__ . '/../includes/session_init.php';
+require_once __DIR__ . '/../database.php';
+require_once __DIR__ . '/../includes/utils.php';
+require_once __DIR__ . '/../includes/account_lifecycle.php';
+require_once __DIR__ . '/../includes/mercadopago_security.php';
+require_once __DIR__ . '/enviar_email.php';
+
+require_tenant_admin();
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); exit('Método não permitido.'); }
+require_csrf();
+
+$tenantId = (string) ($_SESSION['tenant_id'] ?? '');
+if ($tenantId === '' || (string)($_POST['opcao_cancelamento'] ?? '') !== 'desativar') {
+    set_flash_message('danger', 'Selecione a desativação temporária para continuar.');
+    header('Location: ../pages/minha_assinatura.php'); exit;
 }
 
-$tenant_id = $_SESSION['tenant_id'] ?? null;
-$usuario_id = $_SESSION['usuario_id'] ?? $_SESSION['user_id'] ?? 0;
-$opcao = $_POST['opcao_cancelamento']; 
-
-$conn = getMasterConnection();
-
-// 2. Atualiza a intenção de cancelamento
+$db = getMasterConnection();
 try {
-    $sql = "UPDATE tenants SET tipo_cancelamento = ? WHERE tenant_id = ?";
-    $stmt = $conn->prepare($sql);
-    if ($stmt) {
-        $stmt->bind_param("ss", $opcao, $tenant_id);
-        $stmt->execute();
-        $stmt->close();
+    $stmt = $db->prepare('SELECT * FROM tenants WHERE tenant_id=? LIMIT 1');
+    $stmt->bind_param('s', $tenantId); $stmt->execute();
+    $tenant = $stmt->get_result()->fetch_assoc(); $stmt->close();
+    if (!$tenant) throw new RuntimeException('Conta não encontrada.');
+    if (account_is_temporarily_disabled($tenant)) {
+        set_flash_message('warning', 'A conta já está desativada temporariamente.');
+        header('Location: ../pages/minha_assinatura.php'); exit;
     }
-} catch (Exception $e) { }
 
-// 3. Busca dados para o e-mail
-$sqlInfo = "SELECT t.*, u.nome, u.email 
-            FROM tenants t 
-            JOIN usuarios u ON (u.email COLLATE utf8mb4_unicode_ci = t.admin_email COLLATE utf8mb4_unicode_ci)
-            WHERE t.tenant_id = ?";
-            
-$stmtInfo = $conn->prepare($sqlInfo);
+    $subscriptionId = trim((string)($tenant['id_assinatura_mp'] ?? ''));
+    if ($subscriptionId !== '') mp_api_request('PUT', '/preapproval/' . rawurlencode($subscriptionId), ['status' => 'cancelled']);
 
-if (!$stmtInfo) {
-    $sqlInfo = "SELECT t.*, u.nome, u.email 
-                FROM tenants t 
-                JOIN usuarios u ON (u.email COLLATE utf8mb4_unicode_ci = t.admin_email COLLATE utf8mb4_unicode_ci)
-                WHERE t.id = ?";
-    $stmtInfo = $conn->prepare($sqlInfo);
-}
+    $db->begin_transaction();
+    $previousStatus = (string)($tenant['status_assinatura'] ?? 'ativo');
+    $pauseStatus = account_pause_status();
+    $tenantPk = (int)$tenant['id'];
+    $update = $db->prepare("UPDATE tenants SET status_antes_desativacao=?, status_assinatura=?, tipo_cancelamento='desativar', desativada_em=NOW(), exclusao_programada_em=DATE_ADD(NOW(), INTERVAL 1 YEAR), reativada_em=NULL, id_assinatura_mp_anterior=id_assinatura_mp, id_assinatura_mp=NULL, data_renovacao=NULL WHERE id=?");
+    $update->bind_param('ssi', $previousStatus, $pauseStatus, $tenantPk); $update->execute(); $update->close();
 
-if ($stmtInfo) {
-    $stmtInfo->bind_param("s", $tenant_id);
-    $stmtInfo->execute();
-    $resultInfo = $stmtInfo->get_result();
-    $dados = $resultInfo->fetch_assoc();
-    $stmtInfo->close();
-} else {
-    $dados = []; 
-}
+    $suspended = 'suspenso';
+    $users = $db->prepare('UPDATE usuarios SET status=? WHERE tenant_id=? AND is_master=0');
+    $users->bind_param('ss', $suspended, $tenantId); $users->execute(); $users->close();
+    account_set_tenant_users_status($tenant, $suspended);
+    $db->commit();
 
-// 4. Lógica de Data
-if (isset($dados['data_renovacao']) && !empty($dados['data_renovacao'])) {
-    $data_fim = date('d/m/Y', strtotime($dados['data_renovacao']));
-} else {
-    $data_fim = date('d/m/Y', strtotime('+30 days'));
-}
+    $deadline = (new DateTimeImmutable('+1 year'))->format('d/m/Y');
+    $name = (string)($tenant['nome'] ?: $tenant['nome_empresa'] ?: 'Cliente');
+    $safeName = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+    $message = "Olá {$safeName},<br><br>Sua conta foi desativada temporariamente e não haverá novas cobranças.<br>Todos os cadastros e dados permanecerão preservados até <strong>{$deadline}</strong>.<br>Para voltar, acesse a tela de login e use <strong>Reativar Minha Conta</strong> com este e-mail.<br><br>Se a conta não for reativada até essa data, ela e seus dados serão excluídos permanentemente.";
+    enviarEmail((string)$tenant['admin_email'], $name, 'Conta desativada temporariamente', $message);
 
-$nome_usuario = $dados['nome'] ?? $_SESSION['nome'] ?? 'Cliente';
-$email_usuario = $dados['email'] ?? $_SESSION['email'] ?? '';
-$nome_empresa = $dados['nome_empresa'] ?? 'Sua Empresa';
-
-// 5. Envio do E-mail
-if (!empty($email_usuario)) {
-    if ($opcao == 'excluir') {
-        $assunto = "Confirmação: Cancelamento e Exclusão Agendada";
-        $mensagem = "Olá " . $nome_usuario . ",<br><br>";
-        $mensagem .= "O agendamento para exclusão da conta <strong>" . $nome_empresa . "</strong> foi realizado.<br>";
-        $mensagem .= "Seu acesso permanecerá disponível até: <strong>$data_fim</strong>.<br>";
-        $mensagem .= "Após esta data, todos os seus dados serão apagados permanentemente.<br>";
-        $mensagem .= "<br><small>Se mudar de ideia, entre em contato com o suporte antes do prazo.</small>";
-        
-        enviarEmail($email_usuario, $nome_usuario, $assunto, $mensagem);
-    } else {
-        $assunto = "Assinatura: Renovação Automática Cancelada";
-        $mensagem = "Olá " . $nome_usuario . ",<br><br>";
-        $mensagem .= "A renovação automática do plano para <strong>" . $nome_empresa . "</strong> foi cancelada.<br>";
-        $mensagem .= "Sua conta permanecerá ativa até <strong>$data_fim</strong>, após isso será suspensa.<br>";
-        $mensagem .= "Seus dados serão mantidos caso deseje reativar futuramente.<br>";
-        
-        enviarEmail($email_usuario, $nome_usuario, $assunto, $mensagem);
+    $_SESSION = [];
+    if (ini_get('session.use_cookies')) {
+        $p = session_get_cookie_params();
+        setcookie(session_name(), '', ['expires'=>time()-42000,'path'=>$p['path'],'domain'=>$p['domain'],'secure'=>$p['secure'],'httponly'=>$p['httponly'],'samesite'=>$p['samesite'] ?? 'Lax']);
     }
-}
-
-$conn->close();
-
-set_flash_message('warning', "Solicitação recebida. Seu acesso continua até o fim do ciclo.");
-header('Location: ../pages/minha_assinatura.php');
+    session_destroy(); session_start();
+    set_flash_message('success', 'Conta desativada por até 1 ano. Seus dados foram preservados e as cobranças interrompidas.');
+    header('Location: ../pages/login.php');
+} catch (Throwable $e) {
+    try { $db->rollback(); } catch (Throwable) {}
+    error_log('Falha ao desativar conta: ' . $e->getMessage());
+    set_flash_message('danger', 'Não foi possível desativar a conta ou interromper a cobrança. Nenhuma alteração foi concluída. Tente novamente ou procure o suporte.');
+    header('Location: ../pages/minha_assinatura.php');
+} finally { $db->close(); }
 exit;
-?>

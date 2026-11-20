@@ -1,8 +1,9 @@
-<?php 
+<?php
 // pages/registro.php
 require_once __DIR__ . '/../includes/session_init.php';
 require_once __DIR__ . '/../includes/utils.php';
 require_once __DIR__ . '/../database.php'; // Flash messages
+require_once __DIR__ . '/../includes/lgpd_registration_terms.php';
 
 // --- RECUPERA DADOS ANTIGOS EM CASO DE ERRO ---
 $old = $_SESSION['form_data'] ?? [];
@@ -18,6 +19,8 @@ display_flash_message();
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  <link rel="stylesheet" href="../assets/css/universal-theme.css?v=20260804-theme-button-login">
+  <script src="../assets/js/global-theme.js?v=20260805-icons"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cadastro - App Controle de Contas</title>
@@ -31,45 +34,64 @@ display_flash_message();
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
 
 <style>
-  body { background-color: #121212; color: #eee; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+  :root {
+      --bg-body: #f5f8fc;
+      --bg-form: #ffffff;
+      --text-main: #122033;
+      --text-muted: #617086;
+      --border-color: #dfe7f1;
+      --input-bg: #fff;
+      --input-text: #122033;
+      --card-bg: #fff;
+  }
+
+  body { 
+      background-color: var(--bg-body); 
+      color: var(--text-main); 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      margin: 0; 
+      padding: 0; 
+      transition: background 0.3s, color 0.3s;
+  }
   
   .form-container { 
       display: flex; 
       justify-content: center; 
       align-items: center; 
-      min-height: calc(100vh - 120px); 
-      padding: 20px; 
+      min-height: 100vh; 
+      padding: 12px 20px; 
       box-sizing: border-box; 
       width: 100%;
   }
   
   form { 
-      background-color: #1f1f1f; 
-      padding: 30px 40px; 
+      background-color: var(--bg-form); 
+      position: relative;
+      padding: 18px 28px; 
       border-radius: 12px; 
       max-width: 850px; 
       width: 100%; 
       box-sizing: border-box; 
-      border: 1px solid rgba(0, 191, 255, 0.2); 
-      box-shadow: 0 0 25px rgba(0, 191, 255, 0.08); 
+      border: 1px solid var(--border-color); 
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); 
   }
 
-  h2 { text-align: center; margin-bottom: 20px; color: #00bfff; border-bottom: 2px solid #00bfff; padding-bottom: 10px; }
-  label { display: block; margin-top: 15px; font-weight: bold; font-size: 0.95rem; color: #ccc; }
+  h2 { text-align: center; margin: -2px 0 10px; color: #00bfff; border-bottom: 2px solid #00bfff; padding-bottom: 7px; font-size: 1.65rem; }
+  label { display: block; margin-top: 8px; font-weight: bold; font-size: 0.9rem; color: var(--text-main); }
   
   select, input:not([type="radio"]):not([type="checkbox"]) { 
       width: 100%; 
-      padding: 12px; 
-      margin-top: 6px; 
+      padding: 9px 11px; 
+      margin-top: 4px; 
       border-radius: 6px; 
-      border: 1px solid #333; 
-      background-color: #222; 
-      color: #eee; 
+      border: 1px solid var(--border-color); 
+      background-color: var(--input-bg); 
+      color: var(--input-text); 
       font-size: 1rem; 
       box-sizing: border-box; 
   }
   
-  input:focus, select:focus { outline: 2px solid #00bfff; background-color: #333; color: #fff; }
+  input:focus, select:focus { outline: 2px solid #00bfff; background-color: var(--input-bg); color: var(--input-text); }
   
   .input-group { position: relative; width: 100%; }
   .input-group input { padding-right: 40px; }
@@ -78,27 +100,87 @@ display_flash_message();
   .rules, .error-message { font-size: 0.85rem; margin-top: 5px; }
   .error-message { color: #ff4d4d; }
   
-  .btn-submit { width: 100%; margin-top: 25px; padding: 12px 16px; border: none; border-radius: 8px; background-color: #28a745; color: #fff; font-weight: bold; font-size: 1.1rem; cursor: pointer; transition: 0.3s; }
+  .btn-submit { width: 100%; margin-top: 12px; padding: 10px 16px; border: none; border-radius: 8px; background-color: #28a745; color: #fff; font-weight: bold; font-size: 1rem; cursor: pointer; transition: 0.3s; }
   .btn-submit:hover { background-color: #218838; }
   
-  .login-link { text-align: center; margin-top: 15px; }
+  .login-link { text-align: center; margin-top: 8px; color: var(--text-main); font-size:.9rem; }
   .login-link a { color: #00bfff; text-decoration: none; }
 
-  /* CSS DOS PLANOS */
-  .planos-container { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
-  .plano-card { flex: 1; background: #2a2a2a; border: 1px solid #444; border-radius: 8px; padding: 15px; cursor: pointer; transition: all 0.3s; position: relative; min-width: 200px; }
-  .plano-card:hover { border-color: #00bfff; background: #333; }
-  .plano-card input[type="radio"] { display: none; }
-  .plano-card.selected { border-color: #00bfff; background: #2c3e50; box-shadow: 0 0 10px rgba(0, 191, 255, 0.2); }
-  .plano-titulo { color: #00bfff; font-weight: bold; font-size: 1.1rem; display: block; margin-bottom: 5px; }
-  .plano-preco { font-size: 1.2rem; color: #fff; font-weight: bold; display: block; margin-bottom: 5px; }
-  .plano-desc { font-size: 0.85rem; color: #bbb; line-height: 1.4; }
-  .trial-badge { background: #ffc107; color: #000; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; position: absolute; top: 10px; right: 10px; }
+  .back-index {
+      display: grid;
+      place-items: center;
+      position: fixed;
+      right: 30px;
+      bottom: 212px;
+      width: 50px;
+      height: 50px;
+      align-items: center;
+      margin-bottom: 0;
+      padding: 0;
+      border: 1px solid var(--border-color);
+      border-radius: 50%;
+      background: var(--card-bg);
+      color: var(--text-main);
+      font-size: 1rem;
+      font-weight: 700;
+      text-decoration: none;
+      box-shadow: 0 4px 10px rgba(0,0,0,.3);
+      z-index: 10062;
+      transition: transform .2s ease, border-color .2s ease, color .2s ease, background-color .2s ease;
+  }
+  .back-index:hover {
+      transform: translateX(-2px);
+      border-color: #00bfff;
+      color: #00a6df;
+      background-color: var(--input-bg);
+  }
+  .back-index:focus-visible {
+      outline: 3px solid rgba(0, 191, 255, .28);
+      outline-offset: 2px;
+  }
+  .back-index-label {
+      position: absolute;
+      right: 60px;
+      padding: 6px 10px;
+      border-radius: 7px;
+      background: var(--card-bg);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      box-shadow: 0 5px 15px rgba(0,0,0,.18);
+      font-size: .78rem;
+      white-space: nowrap;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateX(5px);
+      transition: opacity .2s ease, visibility .2s ease, transform .2s ease;
+      pointer-events: none;
+  }
+  .back-index:hover .back-index-label,
+  .back-index:focus-visible .back-index-label { opacity:1; visibility:visible; transform:translateX(0); }
+
+  /* CSS DOS PLANOS COM DESTAQUE FORTE NA SELEÇÃO */
+  .planos-container { display: flex; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+  .plano-card { flex: 1; background: var(--card-bg); border: 2px solid var(--border-color); border-radius: 10px; padding: 11px 13px; cursor: pointer; transition: all 0.25s ease; position: relative; min-width: 200px; }
+  .plano-card:hover { border-color: #00bfff; }
+  .plano-card input[type="radio"] { position: absolute; opacity: 0; cursor: pointer; }
+  
+  /* SELEÇÃO FORTE E EVIDENTE */
+  .plano-card.selected { 
+      border: 3px solid #00bfff !important; 
+      background: rgba(0, 191, 255, 0.12) !important; 
+      box-shadow: 0 0 15px rgba(0, 191, 255, 0.4); 
+      transform: translateY(-2px);
+  }
+  
+  .plano-titulo { color: #00bfff; font-weight: bold; font-size: 1rem; display: block; margin-bottom: 2px; }
+  .plano-preco { font-size: 1.08rem; color: var(--text-main); font-weight: bold; display: block; margin-bottom: 2px; }
+  .plano-desc { font-size: 0.78rem; color: var(--text-muted); line-height: 1.25; }
+  .trial-badge { background: #ffc107; color: #000; font-size: 0.64rem; padding: 2px 5px; border-radius: 4px; font-weight: bold; position: absolute; top: 8px; right: 8px; }
 
   /* CSS BENEFICIOS */
-  .benefits-section { margin-top: 25px; border-top: 1px solid #333; padding-top: 20px; }
+  .benefits-section { margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 10px; }
   .benefit-toggle { cursor: pointer; color: #ff9f43; font-weight: bold; display: flex; align-items: center; gap: 8px; }
-  .benefit-content { display: none; background: #252525; padding: 15px; border-radius: 8px; margin-top: 10px; border: 1px solid #444; }
+  .benefit-content { display: none; background: var(--bg-body); padding: 15px; border-radius: 8px; margin-top: 10px; border: 1px solid var(--border-color); }
   .benefit-content.open { display: block; }
   
   .btn-check { background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin-top: 6px; font-size: 0.9rem; height: 46px; }
@@ -116,18 +198,29 @@ display_flash_message();
   .btn-primary { background-color: #007bff; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; height: 46px; margin-top: 6px; }
   .btn-success { background-color: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
 
-  /* MODAL DARK THEME */
-  .modal-content { background-color: #1f1f1f; color: #eee; border: 1px solid #444; }
-  .modal-header { border-bottom: 1px solid #333; }
-  .modal-footer { border-top: 1px solid #333; }
+  /* MODAL THEME */
+  .modal-content { background-color: var(--bg-form); color: var(--text-main); border: 1px solid var(--border-color); }
+  .modal-header { border-bottom: 1px solid var(--border-color); }
+  .modal-footer { border-top: 1px solid var(--border-color); }
   .modal-title { color: #00bfff; }
+  #modalLGPD .lgpd-highlight strong { color: #17324d; }
+  #modalLGPD .lgpd-section summary { color: #0d6efd; }
+  #modalLGPD .lgpd-confirmations strong { color: #263449; }
+  #modalLGPD .lgpd-meta { color: #596579; }
+  #modalLGPD #btnAceitarLGPD:disabled {
+      background-color: #476656;
+      border-color: #476656;
+      color: #d7e2dc;
+      opacity: 1;
+      cursor: not-allowed;
+  }
 
-  /* FLASH CARD FLUTUANTE (VERMELHO) */
+  /* FLASH CARD FLUTUANTE */
   #custom-flash-card {
       position: fixed;
       top: 20px;
       right: 20px;
-      background-color: #dc3545; /* Vermelho Bootstrap */
+      background-color: #dc3545;
       color: white;
       padding: 15px 25px;
       border-radius: 8px;
@@ -148,13 +241,66 @@ display_flash_message();
       pointer-events: auto;
   }
 
-  /* UTILS PARA RESPONSIVIDADE */
   .flex-group { display: flex; gap: 10px; align-items: flex-end; }
+  .registration-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+  .registration-grid.three { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .registration-field { min-width:0; }
+  .registration-field .rules,.registration-field .error-message { min-height:0; line-height:1.2; }
+  form > div[style*="margin-top: 20px"] { margin-top:10px!important; }
   
+  /* SUPORTE AO DARK-MODE VIA CLASSE */
+  body.dark-mode {
+      --bg-body: #0c111b;
+      --bg-form: #152032;
+      --text-main: #eef4fb;
+      --text-muted: #aab8ca;
+      --border-color: #29374a;
+      --input-bg: #111a27;
+      --input-text: #eef4fb;
+      --card-bg: #1c2b42;
+  }
+
+  html[data-app-theme="dark"] #modalLGPD .lgpd-highlight,
+  body.dark-mode #modalLGPD .lgpd-highlight {
+      background: #133149 !important;
+      border-color: #2b6d96 !important;
+      color: #e6f5ff !important;
+  }
+  html[data-app-theme="dark"] #modalLGPD .lgpd-highlight strong,
+  body.dark-mode #modalLGPD .lgpd-highlight strong {
+      color: #69d6ff !important;
+  }
+  html[data-app-theme="dark"] #modalLGPD .lgpd-section,
+  html[data-app-theme="dark"] #modalLGPD .lgpd-confirmations,
+  body.dark-mode #modalLGPD .lgpd-section,
+  body.dark-mode #modalLGPD .lgpd-confirmations {
+      background: #182334 !important;
+      border-color: #40516a !important;
+      color: #e8eef7 !important;
+  }
+  html[data-app-theme="dark"] #modalLGPD .lgpd-section summary,
+  body.dark-mode #modalLGPD .lgpd-section summary {
+      color: #58ccff !important;
+  }
+  html[data-app-theme="dark"] #modalLGPD .lgpd-confirmations :is(strong,span,label),
+  body.dark-mode #modalLGPD .lgpd-confirmations :is(strong,span,label) {
+      color: #e8eef7 !important;
+  }
+  html[data-app-theme="dark"] #modalLGPD :is(.lgpd-confirmations,.lgpd-meta) a,
+  body.dark-mode #modalLGPD :is(.lgpd-confirmations,.lgpd-meta) a {
+      color: #69d6ff !important;
+  }
+  html[data-app-theme="dark"] #modalLGPD .lgpd-meta,
+  body.dark-mode #modalLGPD .lgpd-meta {
+      color: #b7c5d8 !important;
+  }
+
   @media (max-width: 768px) {
       .form-container { padding: 10px; align-items: flex-start; }
       form { padding: 20px 15px; }
+      .back-index { right:20px; bottom:196px; width:46px; height:46px; }
       .flex-group { flex-direction: column; align-items: stretch; gap: 0; }
+      .registration-grid,.registration-grid.three { grid-template-columns:1fr; gap:0; }
       .flex-group > div, .flex-group > input, .flex-group > button { width: 100%; margin-top: 5px; }
       .plano-card { min-width: 100%; margin-bottom: 5px; }
       .btn-check, .btn-primary { margin-top: 10px; width: 100%; }
@@ -172,43 +318,49 @@ display_flash_message();
 
 <div class="form-container">
   <form id="cadastroForm" action="registro_processa.php" method="post" novalidate>
+    <a class="back-index" href="../index.php" aria-label="Voltar para a página inicial"><i class="fas fa-arrow-left" aria-hidden="true"></i><span class="back-index-label">Voltar para a página inicial</span></a>
     <h2>Crie sua Conta</h2>
 
     <label>Escolha seu Plano (Teste Grátis):</label>
     <div class="planos-container">
-      <label class="plano-card <?php echo (!isset($old['plano']) || $old['plano'] == 'basico') ? 'selected' : ''; ?>" id="card-basico">
-        <input type="radio" name="plano" value="basico" <?php echo (!isset($old['plano']) || $old['plano'] == 'basico') ? 'checked' : ''; ?> onchange="selectPlan(this)">
+      <div class="plano-card <?php echo (!isset($old['plano']) || $old['plano'] == 'basico') ? 'selected' : ''; ?>" id="card-basico" onclick="selectCardPlan('basico')">
+        <input type="radio" name="plano" id="radio_basico" value="basico" <?php echo (!isset($old['plano']) || $old['plano'] == 'basico') ? 'checked' : ''; ?>>
         <span class="trial-badge">15 Dias Grátis</span>
         <span class="plano-titulo">Básico</span>
         <span class="plano-preco">R$ 19,00/mês</span>
         <div class="plano-desc">3 Usuários • Gestão Simples</div>
-      </label>
+      </div>
 
-      <label class="plano-card <?php echo (isset($old['plano']) && $old['plano'] == 'plus') ? 'selected' : ''; ?>" id="card-plus">
-        <input type="radio" name="plano" value="plus" <?php echo (isset($old['plano']) && $old['plano'] == 'plus') ? 'checked' : ''; ?> onchange="selectPlan(this)">
+      <div class="plano-card <?php echo (isset($old['plano']) && $old['plano'] == 'plus') ? 'selected' : ''; ?>" id="card-plus" onclick="selectCardPlan('plus')">
+        <input type="radio" name="plano" id="radio_plus" value="plus" <?php echo (isset($old['plano']) && $old['plano'] == 'plus') ? 'checked' : ''; ?>>
         <span class="trial-badge">15 Dias Grátis</span>
         <span class="plano-titulo">Plus</span>
         <span class="plano-preco">R$ 39,00/mês</span>
         <div class="plano-desc">6 Usuários • Intermediário</div>
-      </label>
+      </div>
 
-      <label class="plano-card <?php echo (isset($old['plano']) && $old['plano'] == 'essencial') ? 'selected' : ''; ?>" id="card-essencial">
-        <input type="radio" name="plano" value="essencial" <?php echo (isset($old['plano']) && $old['plano'] == 'essencial') ? 'checked' : ''; ?> onchange="selectPlan(this)">
+      <div class="plano-card <?php echo (isset($old['plano']) && $old['plano'] == 'essencial') ? 'selected' : ''; ?>" id="card-essencial" onclick="selectCardPlan('essencial')">
+        <input type="radio" name="plano" id="radio_essencial" value="essencial" <?php echo (isset($old['plano']) && $old['plano'] == 'essencial') ? 'checked' : ''; ?>>
         <span class="trial-badge">30 Dias Grátis</span>
         <span class="plano-titulo">Essencial</span>
         <span class="plano-preco">R$ 59,00/mês</span>
         <div class="plano-desc">16 Usuários • Completo</div>
-      </label>
+      </div>
     </div>
 
-    <label for="tipo_pessoa">Tipo de Pessoa:</label>
-    <select id="tipo_pessoa" name="tipo_pessoa" required onchange="saveLocal('tipo_pessoa', this.value)">
-      <option value="fisica" <?php echo (isset($old['tipo_pessoa']) && $old['tipo_pessoa'] == 'fisica') ? 'selected' : ''; ?>>Pessoa Física</option>
-      <option value="juridica" <?php echo (isset($old['tipo_pessoa']) && $old['tipo_pessoa'] == 'juridica') ? 'selected' : ''; ?>>Pessoa Jurídica</option>
-    </select>
-
-    <label id="labelNome" for="nome">Nome Completo:</label>
-    <input type="text" id="nome" name="nome" value="<?php echo htmlspecialchars($old['nome'] ?? ''); ?>" required oninput="saveLocal('nome', this.value)">
+    <div class="registration-grid">
+      <div class="registration-field">
+        <label for="tipo_pessoa">Tipo de Pessoa:</label>
+        <select id="tipo_pessoa" name="tipo_pessoa" required onchange="saveLocal('tipo_pessoa', this.value)">
+          <option value="fisica" <?php echo (isset($old['tipo_pessoa']) && $old['tipo_pessoa'] == 'fisica') ? 'selected' : ''; ?>>Pessoa Física</option>
+          <option value="juridica" <?php echo (isset($old['tipo_pessoa']) && $old['tipo_pessoa'] == 'juridica') ? 'selected' : ''; ?>>Pessoa Jurídica</option>
+        </select>
+      </div>
+      <div class="registration-field">
+        <label id="labelNome" for="nome">Nome Completo:</label>
+        <input type="text" id="nome" name="nome" value="<?php echo htmlspecialchars($old['nome'] ?? ''); ?>" required oninput="saveLocal('nome', this.value)">
+      </div>
+    </div>
 
     <div class="flex-group">
         <div style="flex: 1;" id="div-doc-type">
@@ -224,28 +376,39 @@ display_flash_message();
         </div>
     </div>
 
-    <label for="telefone">Telefone:</label>
-    <input type="text" id="telefone" name="telefone" value="<?php echo htmlspecialchars($old['telefone'] ?? ''); ?>" required oninput="saveLocal('telefone', this.value)">
-
-    <label for="email">Email:</label>
-    <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($old['email'] ?? ''); ?>" required oninput="saveLocal('email', this.value)">
-
-    <label for="email2">Repetir Email:</label>
-    <input type="email" id="email2" name="email2" value="<?php echo htmlspecialchars($old['email'] ?? ''); ?>" required>
-    <div id="emailError" class="error-message"></div>
-
-    <label for="senha">Senha:</label>
-    <div class="input-group">
-      <input type="password" id="senha" name="senha" required
-             pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{6,}$"
-             title="Mínimo 6 caracteres, incluindo letra maiúscula, minúscula, número e caractere especial">
-      <i class="fas fa-eye toggle-password" id="toggleSenha"></i>
+    <div class="registration-grid">
+      <div class="registration-field">
+        <label for="telefone">Telefone:</label>
+        <input type="text" id="telefone" name="telefone" value="<?php echo htmlspecialchars($old['telefone'] ?? ''); ?>" required oninput="saveLocal('telefone', this.value)">
+      </div>
+      <div class="registration-field">
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($old['email'] ?? ''); ?>" required oninput="saveLocal('email', this.value)">
+      </div>
     </div>
-    <div class="rules">Mínimo 6 caracteres, maiúscula, minúscula, número e especial</div>
 
-    <label for="senha2">Repetir Senha:</label>
-    <input type="password" id="senha2" name="senha2" required>
-    <div id="senhaError" class="error-message"></div>
+    <div class="registration-grid three">
+      <div class="registration-field">
+        <label for="email2">Repetir Email:</label>
+        <input type="email" id="email2" name="email2" value="<?php echo htmlspecialchars($old['email'] ?? ''); ?>" required>
+        <div id="emailError" class="error-message"></div>
+      </div>
+      <div class="registration-field">
+        <label for="senha">Senha:</label>
+        <div class="input-group">
+          <input type="password" id="senha" name="senha" required
+                 pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{6,}$"
+                 title="Mínimo 6 caracteres, incluindo letra maiúscula, minúscula, número e caractere especial">
+          <i class="fas fa-eye toggle-password" id="toggleSenha"></i>
+        </div>
+        <div class="rules">6+ caracteres, maiúscula, minúscula, número e especial</div>
+      </div>
+      <div class="registration-field">
+        <label for="senha2">Repetir Senha:</label>
+        <input type="password" id="senha2" name="senha2" required>
+        <div id="senhaError" class="error-message"></div>
+      </div>
+    </div>
 
     <div class="benefits-section">
         <div class="benefit-toggle" onclick="toggleBenefits()">
@@ -269,7 +432,7 @@ display_flash_message();
                 </div>
                 <span id="msgCupom" style="display:block; margin-top:5px;"></span>
             </div>
-            <hr style="border-color: #444; margin: 15px 0;">
+            <hr style="border-color: var(--border-color); margin: 15px 0;">
             <div id="formIndicacao">
                 <label for="inputCodigoIndicacao" style="color: #00bfff;">Código de Indicação:</label>
                 <div class="input-group mt-2">
@@ -294,7 +457,7 @@ display_flash_message();
     </div>
 
     <div style="margin-top: 20px; display:flex; justify-content:center;">
-        <div class="cf-turnstile" data-sitekey="0x4AAAAAACDq-KxXYje-dbsU" data-theme="dark"></div>
+        <div class="cf-turnstile" data-sitekey="0x4AAAAAACDq-KxXYje-dbsU" data-theme="auto"></div>
     </div>
 
     <button class="btn-submit" type="submit">Finalizar Cadastro e Testar Grátis</button>
@@ -306,22 +469,33 @@ display_flash_message();
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="modalLGPDLabel">Termos de Uso e Política de Privacidade (LGPD)</h5>
+        <h5 class="modal-title" id="modalLGPDLabel"><i class="fas fa-file-shield"></i> Termos de Uso e Aviso de Privacidade - versão <?= htmlspecialchars(lgpd_registration_version()) ?></h5>
       </div>
       <div class="modal-body">
-        <h4>Seus Direitos e o Tratamento de Dados</h4>
-        <p>Em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), informamos que:</p>
-        <ul>
-            <li>Seus dados (nome, e-mail, telefone, CPF/CNPJ) são coletados apenas para o funcionamento deste sistema de controle financeiro.</li>
-            <li>Nós não compartilhamos seus dados com terceiros sem seu consentimento explícito.</li>
-            <li>Você tem o direito de solicitar, a qualquer momento via suporte, a exportação ou exclusão dos seus dados.</li>
-        </ul>
-        <hr>
-        <p>Ao clicar em "Aceitar e Finalizar", você concorda expressamente com o tratamento dos seus dados conforme descrito acima.</p>
+        <div class="lgpd-highlight" style="padding:14px 16px;border-radius:9px;background:#eaf6ff;border:1px solid #99d6ff;color:#17324d;margin-bottom:16px;">
+            <strong>Resumo importante:</strong> seus dados essenciais serão usados para criar e operar a conta, processar pagamentos, proteger o sistema e cumprir obrigações legais. Comunicações promocionais são opcionais. Leia cada seção antes de confirmar.
+        </div>
+        <div style="display:grid;gap:10px;">
+        <?php foreach (lgpd_registration_sections() as $sectionIndex => $section): ?>
+            <details class="lgpd-section" style="border:1px solid #d7dee8;border-radius:8px;padding:11px 13px;background:#fff;color:#263449;" <?= $sectionIndex === 0 ? 'open' : '' ?>>
+                <summary style="cursor:pointer;font-weight:800;color:#0d6efd;"><?= htmlspecialchars($section['title']) ?></summary>
+                <p style="margin:9px 0 0;line-height:1.55;"><?= htmlspecialchars($section['body']) ?></p>
+            </details>
+        <?php endforeach; ?>
+        </div>
+        <div class="lgpd-confirmations" style="margin-top:17px;padding:15px;border-radius:9px;background:#f7f9fc;border:1px solid #d7dee8;color:#263449;">
+            <strong>Confirmações necessárias</strong>
+            <label style="display:flex;gap:10px;align-items:flex-start;margin-top:12px;cursor:pointer;"><input id="confirmarTermos" type="checkbox" style="width:19px;height:19px;margin-top:2px;flex:none"><span>Li e concordo com os <strong>Termos de Uso</strong>, incluindo regras do serviço, planos, cobranças, responsabilidades, desativação e exclusão.</span></label>
+            <label style="display:flex;gap:10px;align-items:flex-start;margin-top:12px;cursor:pointer;"><input id="confirmarPrivacidade" type="checkbox" style="width:19px;height:19px;margin-top:2px;flex:none"><span>Li o <strong>Aviso de Privacidade</strong> e compreendi quais dados são tratados, para quais finalidades, com quem podem ser compartilhados, por quanto tempo são mantidos e como exercer meus direitos. <a href="protecao_de_dados.php" target="_blank" rel="noopener">Abrir política completa</a>.</span></label>
+            <label style="display:flex;gap:10px;align-items:flex-start;margin-top:12px;cursor:pointer;"><input id="confirmarTitularidade" type="checkbox" style="width:19px;height:19px;margin-top:2px;flex:none"><span>Confirmo que os dados informados são verdadeiros e que tenho autorização para cadastrar esta pessoa ou empresa.</span></label>
+            <hr>
+            <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;"><input id="aceitarComunicacoes" type="checkbox" style="width:19px;height:19px;margin-top:2px;flex:none"><span><strong>Opcional:</strong> quero receber novidades, melhorias e ofertas. Posso retirar essa autorização posteriormente.</span></label>
+        </div>
+        <p class="lgpd-meta" style="margin:15px 0 0;color:#596579;font-size:.9rem;"><i class="fas fa-lock"></i> O sistema registrará a versão do documento, data, hora, IP, preferências e identificador de integridade do comprovante.</p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Recusar</button>
-        <button type="button" class="btn btn-success" id="btnAceitarLGPD">Li, Aceito e Finalizar</button>
+        <button type="button" class="btn btn-success" id="btnAceitarLGPD" disabled>Confirmar aceites e criar conta</button>
       </div>
     </div>
   </div>
@@ -330,7 +504,6 @@ display_flash_message();
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-  // Funções Utilitárias e LocalStorage
   function saveLocal(key, value) { localStorage.setItem('reg_' + key, value); }
   function loadLocal() {
       const fields = ['tipo_pessoa', 'nome', 'tipo_doc', 'documento', 'telefone', 'email', 'cupom', 'inputCodigoIndicacao'];
@@ -346,23 +519,24 @@ display_flash_message();
       });
   }
 
-  // --- NOVA FUNÇÃO PARA EXIBIR FLASH CARD FLUTUANTE ---
   function showFloatingError(msg) {
       const card = document.getElementById('custom-flash-card');
       const msgSpan = document.getElementById('flash-card-msg');
-      
       msgSpan.innerText = msg;
       card.classList.add('show');
-      
-      // Some automaticamente após 5 segundos
-      setTimeout(() => {
-          card.classList.remove('show');
-      }, 5000);
+      setTimeout(() => { card.classList.remove('show'); }, 5000);
   }
 
-  function selectPlan(radio) {
+  function selectCardPlan(plano) {
     document.querySelectorAll('.plano-card').forEach(c => c.classList.remove('selected'));
-    radio.closest('.plano-card').classList.add('selected');
+    const selectedCard = document.getElementById('card-' + plano);
+    if(selectedCard) {
+        selectedCard.classList.add('selected');
+        const radio = selectedCard.querySelector('input[type="radio"]');
+        if(radio) {
+            radio.checked = true;
+        }
+    }
   }
 
   function toggleBenefits() {
@@ -386,6 +560,7 @@ display_flash_message();
       msg.innerHTML = '<span style="color:#aaa">Verificando...</span>';
       const formData = new FormData();
       formData.append('codigo', codigo);
+      formData.append('contexto', 'registro');
       fetch('../actions/validar_cupom_api.php', { method: 'POST', body: formData })
       .then(res => res.json())
       .then(data => {
@@ -458,6 +633,15 @@ display_flash_message();
       const senhaError = document.getElementById('senhaError');
       const emailError = document.getElementById('emailError');
       const btnAceitarLGPD = document.getElementById('btnAceitarLGPD');
+      const confirmarTermos = document.getElementById('confirmarTermos');
+      const confirmarPrivacidade = document.getElementById('confirmarPrivacidade');
+      const confirmarTitularidade = document.getElementById('confirmarTitularidade');
+      const aceitarComunicacoes = document.getElementById('aceitarComunicacoes');
+
+      function atualizarBotaoAceite() {
+          btnAceitarLGPD.disabled = !(confirmarTermos.checked && confirmarPrivacidade.checked && confirmarTitularidade.checked);
+      }
+      [confirmarTermos, confirmarPrivacidade, confirmarTitularidade].forEach(el => el.addEventListener('change', atualizarBotaoAceite));
 
       form.addEventListener('submit', (e) => {
         let valid = true;
@@ -475,23 +659,19 @@ display_flash_message();
             return; 
         }
 
-        // Verifica se já houve o aceite. Se não, verifica duplicidade ANTES de mostrar o modal.
         if (!form.querySelector('input[name="aceite_lgpd"]')) {
-            e.preventDefault(); // Impede envio imediato
+            e.preventDefault();
 
-            // 1. Preparar dados para checagem AJAX
             const formData = new FormData();
             formData.append('ajax_check', '1');
             formData.append('email', document.getElementById('email').value);
             formData.append('documento', document.getElementById('documento').value);
 
-            // 2. Feedback visual no botão
             const submitBtn = form.querySelector('.btn-submit');
             const originalText = submitBtn.innerText;
             submitBtn.innerText = 'Verificando...';
             submitBtn.disabled = true;
 
-            // 3. Chamar registro_processa.php em modo JSON
             fetch('registro_processa.php', {
                 method: 'POST',
                 body: formData
@@ -501,7 +681,6 @@ display_flash_message();
                 submitBtn.innerText = originalText;
                 submitBtn.disabled = false;
 
-                // 4. Se houver duplicidade, mostrar erro no FLASH CARD e PARAR.
                 if (data.email_exists) {
                     showFloatingError("Este E-mail já está cadastrado no sistema.");
                     document.getElementById('email').classList.add('input-invalid');
@@ -513,7 +692,6 @@ display_flash_message();
                     return;
                 }
 
-                // 5. Se for ÚNICO, aí sim abre o Modal LGPD
                 const modalElement = document.getElementById('modalLGPD');
                 const modalLGPD = new bootstrap.Modal(modalElement);
                 modalLGPD.show();
@@ -528,11 +706,23 @@ display_flash_message();
       });
 
       btnAceitarLGPD.addEventListener('click', function() {
-          let inputAceite = document.createElement("input");
-          inputAceite.type = "hidden";
-          inputAceite.name = "aceite_lgpd";
-          inputAceite.value = "1";
-          form.appendChild(inputAceite);
+          if (btnAceitarLGPD.disabled) return;
+          const aceites = {
+              aceite_lgpd: '1',
+              aceite_termos: confirmarTermos.checked ? '1' : '0',
+              aceite_privacidade: confirmarPrivacidade.checked ? '1' : '0',
+              aceite_comunicacoes: aceitarComunicacoes.checked ? '1' : '0'
+          };
+          Object.entries(aceites).forEach(([name, value]) => {
+              let input = form.querySelector(`input[name="${name}"]`);
+              if (!input) {
+                  input = document.createElement('input');
+                  input.type = 'hidden';
+                  input.name = name;
+                  form.appendChild(input);
+              }
+              input.value = value;
+          });
 
           const modalElement = document.getElementById('modalLGPD');
           const modalInstance = bootstrap.Modal.getInstance(modalElement);

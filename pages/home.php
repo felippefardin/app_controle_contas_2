@@ -5,6 +5,7 @@
 require_once '../includes/session_init.php';
 require_once '../database.php';
 require_once '../includes/utils.php';
+require_once '../includes/workflow_financeiro.php';
 
 
 // [MANTIDO] 🔒 Lógica de Segurança e Sessão Original
@@ -85,9 +86,9 @@ $hoje = date('Y-m-d');
 // 1. Totais Rápidos (KPIs)
 $sqlResumo = "
     SELECT 
-        (SELECT COALESCE(SUM(valor), 0) FROM contas_receber WHERE usuario_id = ? AND status = 'pendente' AND DATE_FORMAT(data_vencimento, '%Y-%m') = ?) as receber_mes,
-        (SELECT COALESCE(SUM(valor), 0) FROM contas_pagar WHERE usuario_id = ? AND status = 'pendente' AND DATE_FORMAT(data_vencimento, '%Y-%m') = ?) as pagar_mes,
-        (SELECT COALESCE(SUM(valor), 0) FROM contas_pagar WHERE usuario_id = ? AND status = 'pendente' AND data_vencimento = ?) as pagar_hoje
+        (SELECT COALESCE(SUM(valor), 0) FROM contas_receber WHERE usuario_id = ? AND deleted_at IS NULL AND status = 'pendente' AND DATE_FORMAT(data_vencimento, '%Y-%m') = ?) as receber_mes,
+        (SELECT COALESCE(SUM(valor), 0) FROM contas_pagar WHERE usuario_id = ? AND deleted_at IS NULL AND status = 'pendente' AND DATE_FORMAT(data_vencimento, '%Y-%m') = ?) as pagar_mes,
+        (SELECT COALESCE(SUM(valor), 0) FROM contas_pagar WHERE usuario_id = ? AND deleted_at IS NULL AND status = 'pendente' AND data_vencimento = ?) as pagar_hoje
 ";
 $stmtDash = $conn->prepare($sqlResumo);
 $stmtDash->bind_param("isisis", $usuario_id, $mesAtual, $usuario_id, $mesAtual, $usuario_id, $hoje);
@@ -98,10 +99,10 @@ $stmtDash->close();
 // 2. Saldo em Caixa
 $sqlSaldo = "
     SELECT 
-    (COALESCE((SELECT SUM(valor) FROM contas_receber WHERE usuario_id = ? AND status = 'baixada'),0) + 
+    (COALESCE((SELECT SUM(valor) FROM contas_receber WHERE usuario_id = ? AND deleted_at IS NULL AND status = 'baixada'),0) +
      COALESCE((SELECT SUM(valor) FROM caixa_diario WHERE usuario_id = ?),0)) 
     - 
-    COALESCE((SELECT SUM(valor) FROM contas_pagar WHERE usuario_id = ? AND status = 'baixada'),0) 
+    COALESCE((SELECT SUM(valor) FROM contas_pagar WHERE usuario_id = ? AND deleted_at IS NULL AND status = 'baixada'),0)
     as saldo_real
 ";
 $stmtSaldo = $conn->prepare($sqlSaldo);
@@ -119,7 +120,7 @@ if ($checkNew && $checkNew->num_rows == 0) {
 
 // 4. Listas de Contas para HOJE
 $listReceberHoje = [];
-$qRH = $conn->prepare("SELECT descricao, valor FROM contas_receber WHERE usuario_id = ? AND status = 'pendente' AND data_vencimento = ? ORDER BY valor DESC");
+$qRH = $conn->prepare("SELECT descricao, valor FROM contas_receber WHERE usuario_id = ? AND deleted_at IS NULL AND status = 'pendente' AND data_vencimento = ? ORDER BY valor DESC");
 $qRH->bind_param("is", $usuario_id, $hoje);
 $qRH->execute();
 $resRH = $qRH->get_result();
@@ -127,12 +128,15 @@ while($row = $resRH->fetch_assoc()) { $listReceberHoje[] = $row; }
 $qRH->close();
 
 $listPagarHoje = [];
-$qPH = $conn->prepare("SELECT descricao, valor FROM contas_pagar WHERE usuario_id = ? AND status = 'pendente' AND data_vencimento = ? ORDER BY valor DESC");
+$qPH = $conn->prepare("SELECT descricao, valor FROM contas_pagar WHERE usuario_id = ? AND deleted_at IS NULL AND status = 'pendente' AND data_vencimento = ? ORDER BY valor DESC");
 $qPH->bind_param("is", $usuario_id, $hoje);
 $qPH->execute();
 $resPH = $qPH->get_result();
 while($row = $resPH->fetch_assoc()) { $listPagarHoje[] = $row; }
 $qPH->close();
+
+// Workflow automático, somente leitura: alertas e previsão dos próximos 3 dias.
+$workflowFinanceiro = aplicarIaLocalAoWorkflow(executarWorkflowFinanceiro($conn, $usuario_id, 3));
 
 // [MANTIDO] Lógica Master, Assinatura e Chat
 $connMaster = getMasterConnection();
@@ -164,7 +168,7 @@ if ($connMaster) {
 // [MANTIDO] Lembretes
 $popupLembrete = false;
 try {
-    if (temPermissao('lembretes.php', $permissoes_usuario, $perfil)) {
+    if (temPermissao('lembrete.php', $permissoes_usuario, $perfil)) {
         $checkTable = $conn->query("SHOW TABLES LIKE 'lembretes'");
         if($checkTable && $checkTable->num_rows > 0) {
             $sqlLembrete = "SELECT COUNT(*) as total FROM lembretes WHERE usuario_id = ? AND data_lembrete = CURDATE()";
@@ -267,6 +271,11 @@ if ($tenant_id && $connMaster) {
     .btn-quick.receita { background: linear-gradient(135deg, #00b09b, #96c93d); color: white; }
     .btn-quick.despesa { background: linear-gradient(135deg, #ff5f6d, #ffc371); color: white; }
     .btn-quick.venda   { background: linear-gradient(135deg, #36d1dc, #5b86e5); color: white; }
+    html[data-app-theme="dark"] .btn-quick,
+    html[data-app-theme="dark"] .btn-quick i,
+    html[data-app-theme="dark"] .btn-quick span {
+        color: #111 !important;
+    }
 
     /* KPIs */
     .dashboard-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 30px; }
@@ -347,14 +356,14 @@ if ($tenant_id && $connMaster) {
     /* Estilo do Menu Grid dentro das abas */
     .menu-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
         gap: 15px;
         margin-bottom: 20px;
     }
     .menu-item {
         background: var(--bg-card, #fff); padding: 15px 10px; border-radius: 12px; text-align: center; text-decoration: none;
         color: var(--text-secondary, #555); transition: all 0.3s ease; display: flex; flex-direction: column; align-items: center;
-        gap: 10px; border: 1px solid transparent; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        gap: 10px; border: 1px solid transparent; box-shadow: 0 2px 5px rgba(0,0,0,0.05); min-height: 105px;
     }
     .menu-item i { font-size: 1.6rem; color: var(--highlight-color, #0d6efd); transition: transform 0.3s; }
     .menu-item span { font-size: 0.85rem; font-weight: 500; line-height: 1.2; }
@@ -363,12 +372,29 @@ if ($tenant_id && $connMaster) {
         color: var(--text-primary, #333); box-shadow: 0 5px 15px rgba(0,0,0,0.1);
     }
     .menu-item:hover i { transform: scale(1.1); }
+    .menu-item-primary {
+        border-color: var(--highlight-color, #0d6efd);
+        background: color-mix(in srgb, var(--highlight-color, #0d6efd) 12%, var(--bg-card, #fff));
+    }
 
     /* Utilitários e Modais */
     .text-success-custom { color: #00E676 !important; }
     .text-danger-custom { color: #FF5252 !important; }
     .empty-msg { padding: 30px; text-align: center; color: var(--text-secondary, #888); font-style: italic; }
     .alert-estoque { background: rgba(220, 53, 69, 0.1); border: 1px solid #dc3545; color: #d63384; padding: 15px; border-radius: 12px; margin-bottom: 20px; }
+    .workflow-card { background: var(--bg-card, #fff); color: var(--text-primary, #333); border: 1px solid var(--border-color, #eaeaea); border-left: 5px solid #20c997; border-radius: 14px; padding: 16px 18px; margin-bottom: 22px; box-shadow: 0 4px 10px rgba(0,0,0,.05); }
+    .workflow-card.critico { border-left-color: #dc3545; }
+    .workflow-card.atencao { border-left-color: #ffc107; }
+    .workflow-card.indisponivel { border-left-color: #6c757d; }
+    .workflow-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:10px; }
+    .workflow-title { margin:0; font-size:1.05rem; font-weight:750; }
+    .workflow-title i { color:var(--highlight-color, #0d6efd); margin-right:7px; }
+    .workflow-time { color:var(--text-secondary, #777); font-size:.75rem; white-space:nowrap; }
+    .workflow-message { margin:0 0 12px; color:var(--text-secondary, #555); }
+    .workflow-metrics { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px; }
+    .workflow-metric { background:rgba(128,128,128,.06); border-radius:9px; padding:8px 10px; display:flex; flex-direction:column; }
+    .workflow-metric small { color:var(--text-secondary, #777); }
+    .workflow-metric strong { font-size:.95rem; }
     .chat-alert { background: linear-gradient(45deg, #ff4444, #ff8888); color: white; padding: 12px; text-align: center; font-weight: bold; cursor: pointer; border-radius: 50px; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(255, 68, 68, 0.4); animation: pulse 2s infinite; text-decoration: none; display: block; }
 
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -383,6 +409,8 @@ if ($tenant_id && $connMaster) {
     @media (max-width: 768px) {
         .home-header { flex-direction: column; text-align: center; gap: 10px; }
         .dashboard-kpi { grid-template-columns: 1fr 1fr; gap: 10px; }
+        .workflow-head { flex-direction:column; gap:5px; }
+        .workflow-metrics { grid-template-columns:1fr 1fr; }
     }
 </style>
 
@@ -429,6 +457,23 @@ if ($tenant_id && $connMaster) {
         </div>
     </div>
     <?php endif; ?>
+
+    <section class="workflow-card <?= htmlspecialchars($workflowFinanceiro['nivel']) ?>" aria-label="Resumo financeiro automático">
+        <div class="workflow-head">
+            <h3 class="workflow-title"><i class="fas fa-wand-magic-sparkles"></i><?= htmlspecialchars($workflowFinanceiro['titulo']) ?></h3>
+            <span class="workflow-time">
+                <?= str_starts_with($workflowFinanceiro['origem_resumo'], 'ia_local') ? 'IA local' : 'Automação local' ?>
+                · Atualizado em <?= htmlspecialchars($workflowFinanceiro['gerado_em']) ?>
+            </span>
+        </div>
+        <p class="workflow-message"><?= htmlspecialchars($workflowFinanceiro['mensagem']) ?></p>
+        <div class="workflow-metrics">
+            <div class="workflow-metric"><small>Pagamentos vencidos</small><strong><?= (int)$workflowFinanceiro['pagar_vencidas_qtd'] ?> · R$ <?= number_format($workflowFinanceiro['pagar_vencidas_total'], 2, ',', '.') ?></strong></div>
+            <div class="workflow-metric"><small>Pagamentos em 3 dias</small><strong><?= (int)$workflowFinanceiro['pagar_proximas_qtd'] ?> · R$ <?= number_format($workflowFinanceiro['pagar_proximas_total'], 2, ',', '.') ?></strong></div>
+            <div class="workflow-metric"><small>Recebimentos atrasados</small><strong><?= (int)$workflowFinanceiro['receber_vencidas_qtd'] ?> · R$ <?= number_format($workflowFinanceiro['receber_vencidas_total'], 2, ',', '.') ?></strong></div>
+            <div class="workflow-metric"><small>Recebimentos em 3 dias</small><strong><?= (int)$workflowFinanceiro['receber_proximas_qtd'] ?> · R$ <?= number_format($workflowFinanceiro['receber_proximas_total'], 2, ',', '.') ?></strong></div>
+        </div>
+    </section>
 
     <div class="dashboard-kpi">
         <div class="kpi-card" style="border-left-color: #00E676;">
@@ -533,34 +578,34 @@ if ($tenant_id && $connMaster) {
 
     <?php 
     // VERIFICAÇÕES DE PERMISSÃO PARA OS GRUPOS
-    $financeiro_items = ['contas_pagar.php', 'contas_pagar_baixadas.php', 'contas_receber.php', 'contas_receber_baixadas.php', 'lancamento_caixa.php', 'vendas_periodo.php'];
+    $operacao_items = ['vendas.php', 'lancamento_caixa.php', 'compras.php', 'controle_estoque.php', 'vendas_periodo.php'];
+    $show_operacao = false;
+    foreach($operacao_items as $item) { if(temPermissao($item, $permissoes_usuario, $perfil)) $show_operacao = true; }
+
+    $financeiro_items = ['contas_pagar.php', 'contas_pagar_baixadas.php', 'contas_receber.php', 'contas_receber_baixadas.php'];
     $show_financeiro = false;
     foreach($financeiro_items as $item) { if(temPermissao($item, $permissoes_usuario, $perfil)) $show_financeiro = true; }
 
-    $estoque_items = ['controle_estoque.php', 'vendas.php', 'compras.php'];
-    $show_estoque = false;
-    foreach($estoque_items as $item) { if(temPermissao($item, $permissoes_usuario, $perfil)) $show_estoque = true; }
-
-    $cadastro_items = ['cadastrar_pessoa_fornecedor.php', 'perfil.php', 'banco_cadastro.php', 'categorias.php'];
+    $cadastro_items = ['cadastrar_pessoa_fornecedor.php', 'banco_cadastro.php', 'categorias.php'];
     $show_cadastro = false;
     foreach($cadastro_items as $item) { if(temPermissao($item, $permissoes_usuario, $perfil)) $show_cadastro = true; }
 
-    $sistema_items = ['lembretes.php', 'relatorios.php', 'trocar_usuario.php', 'usuarios.php', 'configuracao_fiscal.php'];
-    $show_sistema = false;
-    foreach($sistema_items as $item) { if(temPermissao($item, $permissoes_usuario, $perfil)) $show_sistema = true; }
+    $gestao_items = ['lembrete.php', 'relatorios.php'];
+    $show_gestao = in_array($perfil, ['admin', 'proprietario', 'master'], true);
+    foreach($gestao_items as $item) { if(temPermissao($item, $permissoes_usuario, $perfil)) $show_gestao = true; }
+    $show_configuracoes = true;
     ?>
 
     <div class="tabs-container">
         <div class="tabs-nav">
-            <?php if($show_financeiro): ?>
-                <button class="tab-btn active" onclick="openTab(event, 'tab-financeiro')">
-                    <i class="fas fa-coins"></i> Financeiro
+            <?php if($show_operacao): ?>
+                <button class="tab-btn active" onclick="openTab(event, 'tab-operacao')">
+                    <i class="fas fa-cash-register"></i> Operação
                 </button>
             <?php endif; ?>
-            
-            <?php if($show_estoque): ?>
-                <button class="tab-btn" onclick="openTab(event, 'tab-comercial')">
-                    <i class="fas fa-box-open"></i> Comercial
+            <?php if($show_financeiro): ?>
+                <button class="tab-btn" onclick="openTab(event, 'tab-financeiro')">
+                    <i class="fas fa-coins"></i> Financeiro
                 </button>
             <?php endif; ?>
             
@@ -570,52 +615,55 @@ if ($tenant_id && $connMaster) {
                 </button>
             <?php endif; ?>
             
-            <?php if($show_sistema): ?>
-                <button class="tab-btn" onclick="openTab(event, 'tab-sistema')">
-                    <i class="fas fa-cogs"></i> Sistema
+            <?php if($show_gestao): ?>
+                <button class="tab-btn" onclick="openTab(event, 'tab-gestao')">
+                    <i class="fas fa-chart-pie"></i> Gestão
+                </button>
+            <?php endif; ?>
+            <?php if($show_configuracoes): ?>
+                <button class="tab-btn" onclick="openTab(event, 'tab-configuracoes')">
+                    <i class="fas fa-cog"></i> Configurações
                 </button>
             <?php endif; ?>
         </div>
 
         <?php if($show_financeiro): ?>
-        <div id="tab-financeiro" class="tab-content active">
+        <div id="tab-financeiro" class="tab-content" style="display:none;">
             <div class="menu-grid">
                 <?php if (temPermissao('contas_pagar.php', $permissoes_usuario, $perfil)): ?>
-                    <a class="menu-item" href="contas_pagar.php"><i class="fas fa-file-invoice-dollar"></i><span>A Pagar</span></a>
+                    <a class="menu-item" href="contas_pagar.php"><i class="fas fa-file-invoice-dollar"></i><span>Contas a pagar</span></a>
                 <?php endif; ?>
                 <?php if (temPermissao('contas_pagar_baixadas.php', $permissoes_usuario, $perfil)): ?>
-                    <a class="menu-item" href="contas_pagar_baixadas.php"><i class="fas fa-check-double"></i><span>Pagas</span></a>
+                    <a class="menu-item" href="contas_pagar_baixadas.php"><i class="fas fa-circle-check"></i><span>Contas pagas</span></a>
                 <?php endif; ?>
                 <?php if (temPermissao('contas_receber.php', $permissoes_usuario, $perfil)): ?>
-                    <a class="menu-item" href="contas_receber.php"><i class="fas fa-hand-holding-dollar"></i><span>A Receber</span></a>
+                    <a class="menu-item" href="contas_receber.php"><i class="fas fa-hand-holding-dollar"></i><span>Contas a receber</span></a>
                 <?php endif; ?>
                 <?php if (temPermissao('contas_receber_baixadas.php', $permissoes_usuario, $perfil)): ?>
-                    <a class="menu-item" href="contas_receber_baixadas.php"><i class="fas fa-clipboard-check"></i><span>Recebidas</span></a>
-                <?php endif; ?>
-                <?php if (temPermissao('lancamento_caixa.php', $permissoes_usuario, $perfil)): ?>
-                    <a class="menu-item" href="lancamento_caixa.php"><i class="fas fa-exchange-alt"></i><span>Caixa</span></a>
-                <?php endif; ?>
-                
-                <?php if (temPermissao('vendas_periodo.php', $permissoes_usuario, $perfil) && $planoAtual !== 'basico'): ?>
-                    <a class="menu-item" href="vendas_periodo.php"><i class="fas fa-chart-line"></i><span>Rel. Vendas</span></a>
+                    <a class="menu-item" href="contas_receber_baixadas.php"><i class="fas fa-clipboard-check"></i><span>Contas recebidas</span></a>
                 <?php endif; ?>
             </div>
         </div>
         <?php endif; ?>
 
-        <?php if($show_estoque): ?>
-        <div id="tab-comercial" class="tab-content" style="display:none;">
+        <?php if($show_operacao): ?>
+        <div id="tab-operacao" class="tab-content active">
             <div class="menu-grid">
-                <?php if (temPermissao('controle_estoque.php', $permissoes_usuario, $perfil)): ?>
-                    <a class="menu-item" href="controle_estoque.php"><i class="fas fa-boxes-stacked"></i><span>Estoque</span></a>
-                <?php endif; ?>
-                
                 <?php if (temPermissao('vendas.php', $permissoes_usuario, $perfil) && $planoAtual !== 'basico'): ?>
-                    <a class="menu-item" href="vendas.php"><i class="fas fa-cash-register"></i><span>PDV</span></a>
+                    <a class="menu-item menu-item-primary" href="vendas.php"><i class="fas fa-cash-register"></i><span>PDV e abertura do caixa</span></a>
                 <?php endif; ?>
-                
+                <?php if (temPermissao('lancamento_caixa.php', $permissoes_usuario, $perfil)): ?>
+                    <a class="menu-item" href="lancamento_caixa.php"><i class="fas fa-money-bill-transfer"></i><span>Movimentações do caixa</span></a>
+                    <a class="menu-item" href="fechamento_caixa.php"><i class="fas fa-lock"></i><span>Fechamento do caixa</span></a>
+                <?php endif; ?>
+                <?php if (temPermissao('vendas_periodo.php', $permissoes_usuario, $perfil) && $planoAtual !== 'basico'): ?>
+                    <a class="menu-item" href="vendas_periodo.php"><i class="fas fa-chart-line"></i><span>Vendas do período</span></a>
+                <?php endif; ?>
                 <?php if (temPermissao('compras.php', $permissoes_usuario, $perfil)): ?>
-                    <a class="menu-item" href="compras.php"><i class="fas fa-shopping-bag"></i><span>Compras</span></a>
+                    <a class="menu-item" href="compras.php"><i class="fas fa-cart-shopping"></i><span>Compras</span></a>
+                <?php endif; ?>
+                <?php if (temPermissao('controle_estoque.php', $permissoes_usuario, $perfil)): ?>
+                    <a class="menu-item" href="controle_estoque.php"><i class="fas fa-boxes-stacked"></i><span>Produtos e estoque</span></a>
                 <?php endif; ?>
             </div>
         </div>
@@ -625,39 +673,45 @@ if ($tenant_id && $connMaster) {
         <div id="tab-cadastros" class="tab-content" style="display:none;">
             <div class="menu-grid">
                 <?php if (temPermissao('cadastrar_pessoa_fornecedor.php', $permissoes_usuario, $perfil)): ?>
-                    <a class="menu-item" href="../pages/cadastrar_pessoa_fornecedor.php"><i class="fas fa-address-book"></i><span>Pessoas</span></a>
-                <?php endif; ?>
-                <?php if (temPermissao('perfil.php', $permissoes_usuario, $perfil)): ?>
-                    <a class="menu-item" href="perfil.php"><i class="fas fa-user-circle"></i><span>Perfil</span></a>
+                    <a class="menu-item" href="cadastrar_pessoa_fornecedor.php"><i class="fas fa-address-book"></i><span>Clientes e fornecedores</span></a>
                 <?php endif; ?>
                 <?php if (temPermissao('banco_cadastro.php', $permissoes_usuario, $perfil)): ?>
-                    <a class="menu-item" href="../pages/banco_cadastro.php"><i class="fas fa-university"></i><span>Bancos</span></a>
+                    <a class="menu-item" href="banco_cadastro.php"><i class="fas fa-building-columns"></i><span>Bancos e chaves Pix</span></a>
                 <?php endif; ?>
                 <?php if (temPermissao('categorias.php', $permissoes_usuario, $perfil)): ?>
-                    <a class="menu-item" href="../pages/categorias.php"><i class="fas fa-tags"></i><span>Categorias</span></a>
+                    <a class="menu-item" href="categorias.php"><i class="fas fa-tags"></i><span>Categorias financeiras</span></a>
                 <?php endif; ?>
             </div>
         </div>
         <?php endif; ?>
 
-        <?php if($show_sistema): ?>
-        <div id="tab-sistema" class="tab-content" style="display:none;">
+        <?php if($show_gestao): ?>
+        <div id="tab-gestao" class="tab-content" style="display:none;">
             <div class="menu-grid">
-                <?php if (temPermissao('lembretes.php', $permissoes_usuario, $perfil)): ?>
-                    <a class="menu-item" href="lembrete.php"><i class="fas fa-sticky-note"></i><span>Lembretes</span></a>
+                <?php if (temPermissao('lembrete.php', $permissoes_usuario, $perfil)): ?>
+                    <a class="menu-item" href="lembrete.php"><i class="fas fa-bell"></i><span>Lembretes</span></a>
                 <?php endif; ?>
                 <?php if (temPermissao('relatorios.php', $permissoes_usuario, $perfil)): ?>
                     <a class="menu-item" href="relatorios.php"><i class="fas fa-chart-pie"></i><span>Relatórios</span></a>
                 <?php endif; ?>
-                <?php if (temPermissao('trocar_usuario.php', $permissoes_usuario, $perfil)): ?>
-                    <a class="menu-item" href="selecionar_usuario.php"><i class="fas fa-users-cog"></i><span>Trocar User</span></a>
+                <?php if (in_array($perfil, ['admin', 'proprietario', 'master'], true)): ?>
+                    <a class="menu-item" href="usuarios.php"><i class="fas fa-users"></i><span>Equipe e permissões</span></a>
+                    <a class="menu-item" href="selecionar_usuario.php"><i class="fas fa-users-gear"></i><span>Trocar usuário</span></a>
                 <?php endif; ?>
-                <?php if (temPermissao('usuarios.php', $permissoes_usuario, $perfil)): ?>
-                    <a class="menu-item" href="usuarios.php"><i class="fas fa-users"></i><span>Gerir Equipe</span></a>
-                <?php endif; ?>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <?php if($show_configuracoes): ?>
+        <div id="tab-configuracoes" class="tab-content" style="display:none;">
+            <div class="menu-grid">
+                <a class="menu-item" href="perfil.php"><i class="fas fa-user-circle"></i><span>Meu perfil</span></a>
                 <?php if (temPermissao('configuracao_fiscal.php', $permissoes_usuario, $perfil)): ?>
-                    <a class="menu-item" href="configuracao_fiscal.php"><i class="fas fa-file-invoice"></i><span>Fiscal</span></a>
+                    <a class="menu-item" href="configuracao_fiscal.php"><i class="fas fa-file-invoice"></i><span>Configuração fiscal</span></a>
                 <?php endif; ?>
+                <a class="menu-item" href="minha_assinatura.php"><i class="fas fa-credit-card"></i><span>Assinatura e plano</span></a>
+                <a class="menu-item" href="protecao_de_dados.php"><i class="fas fa-shield-halved"></i><span>Proteção de dados</span></a>
+                <a class="menu-item" href="solicitar_meu_suporte.php"><i class="fas fa-headset"></i><span>Suporte</span></a>
             </div>
         </div>
         <?php endif; ?>

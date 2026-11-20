@@ -3,14 +3,11 @@ require_once '../includes/session_init.php';
 include('../database.php');
 
 // 1. Verifica se é Super Admin
-if (!isset($_SESSION['super_admin'])) {
-    session_write_close();
-    header('Location: ../pages/login.php?erro=sessao_expirada');
-    exit;
-}
+require_super_admin();
+require_csrf();
 
-if (isset($_GET['tenant_id'])) {
-    $tenant_id = (int)$_GET['tenant_id'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['tenant_id'])) {
+    $tenant_id = (int)$_POST['tenant_id'];
 
     // 2. Backup da sessão Admin
     $backup_super_admin = $_SESSION['super_admin'];
@@ -73,6 +70,9 @@ if (isset($_GET['tenant_id'])) {
             $_SESSION['nome']           = $proprietario['nome'];
             $_SESSION['email']          = $proprietario['email'];
             $_SESSION['nivel_acesso']   = 'proprietario';
+            $_SESSION['permissoes']     = [];
+            session_regenerate_id(true);
+            $_SESSION['session_regenerated_at'] = time();
             
             $tenant_conn->close();
             

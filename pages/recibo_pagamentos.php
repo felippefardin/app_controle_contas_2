@@ -1,62 +1,59 @@
 <?php
-require_once '../includes/session_init.php';
-require_once '../database.php';
+require_once __DIR__ . '/../includes/session_init.php';
+require_once __DIR__ . '/../database.php';
 
-// Verifica login
-if (!isset($_SESSION['usuario_logado'])) {
-    die("Acesso negado.");
+$tenantId = (string) ($_SESSION['tenant_id'] ?? '');
+if (empty($_SESSION['usuario_logado']) || $tenantId === ''
+    || !in_array($_SESSION['nivel_acesso'] ?? '', ['admin', 'master', 'proprietario'], true)) {
+    http_response_code(403);
+    exit('Acesso negado.');
 }
 
-$id_fatura = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
-if (!$id_fatura) {
-    die("Fatura inválida.");
+$id_fatura = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+if ($id_fatura === null) {
+    header('Location: historico_pagamento.php');
+    exit;
+}
+if ($id_fatura === false) {
+    http_response_code(400);
+    exit('Fatura inválida.');
 }
 
-// Simulação de dados se não tiver banco (para você ver funcionando)
-$fatura = [
-    'id' => $id_fatura,
-    'data_pagamento' => date('Y-m-d'),
-    'valor' => 49.90,
-    'nome_cliente' => $_SESSION['nome'] ?? 'Cliente',
-    'cpf_cnpj' => '000.000.000-00',
-    'descricao' => 'Assinatura Mensal - Plano Premium',
-    'forma_pagamento' => 'PIX'
-];
-
-// Tenta buscar dados reais se a tabela existir
-$conn = getMasterConnection();
 try {
-    $checkTable = $conn->query("SHOW TABLES LIKE 'faturas_assinatura'");
-    if ($checkTable && $checkTable->num_rows > 0) {
-        // JOIN para pegar dados do cliente se necessário, aqui simplificado
-        $stmt = $conn->prepare("
-            SELECT f.*, u.nome as nome_cliente, u.cpf as cpf_cnpj 
-            FROM faturas_assinatura f 
-            LEFT JOIN usuarios u ON u.tenant_id = f.tenant_id AND u.nivel_acesso = 'proprietario'
-            WHERE f.id = ? AND f.tenant_id = ? LIMIT 1
-        ");
-        $stmt->bind_param("is", $id_fatura, $_SESSION['tenant_id']);
-        $stmt->execute();
-        $res = $stmt->get_result();
-        if ($res->num_rows > 0) {
-            $fatura = $res->fetch_assoc();
-            // Ajustes de dados faltantes na query
-            $fatura['nome_cliente'] = $fatura['nome_cliente'] ?? $_SESSION['nome'];
-            $fatura['descricao'] = "Assinatura Mensal - Plano App Controle";
-        } else {
-             // Se tentar acessar recibo de outro tenant ou inexistente
-             // die("Recibo não encontrado.");
-             // Mantém simulado para teste
-        }
-    }
-} catch (Exception $e) {
-    // Erro silencioso, usa dados simulados
-}
+    $conn = getMasterConnection();
+    $stmt = $conn->prepare(
+        "SELECT id, data_pagamento, valor, forma_pagamento FROM faturas_assinatura
+         WHERE id = ? AND tenant_id = ? AND status = 'pago' AND data_pagamento IS NOT NULL LIMIT 1"
+    );
+    $stmt->bind_param('is', $id_fatura, $tenantId);
+    $stmt->execute();
+    $fatura = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
 
+    if (!$fatura || strtotime($fatura['data_pagamento']) === false) {
+        http_response_code(404);
+        exit('Recibo de pagamento não encontrado.');
+    }
+
+    $owner = $conn->prepare("SELECT nome, cpf FROM usuarios WHERE tenant_id = ? AND nivel_acesso = 'proprietario' ORDER BY id LIMIT 1");
+    $owner->bind_param('s', $tenantId);
+    $owner->execute();
+    $cliente = $owner->get_result()->fetch_assoc();
+    $owner->close();
+    $fatura['nome_cliente'] = $cliente['nome'] ?? 'Cliente';
+    $fatura['cpf_cnpj'] = $cliente['cpf'] ?? '';
+    $fatura['descricao'] = 'Pagamento de assinatura - App Controle de Contas';
+} catch (Throwable $error) {
+    error_log('Falha ao consultar recibo: ' . $error->getMessage());
+    http_response_code(500);
+    exit('Não foi possível consultar o recibo.');
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<link rel="stylesheet" href="../assets/css/universal-theme.css">
+<script src="../assets/js/global-theme.js"></script>
     <meta charset="UTF-8">
     <title>Recibo #<?= $id_fatura ?></title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -121,7 +118,6 @@ try {
         <div class="info-box" style="text-align: right;">
             <h3>Beneficiário</h3>
             <p>App Controle de Contas</p>
-            <p style="font-size: 14px; color: #555; font-weight: normal;">CNPJ: 00.000.000/0001-99</p>
         </div>
     </div>
 

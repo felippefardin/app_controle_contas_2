@@ -2,6 +2,7 @@
 require_once '../includes/session_init.php';
 require_once '../database.php';
 require_once '../includes/utils.php';
+require_once '../includes/caixa_service.php';
 
 // 1. VERIFICA LOGIN
 if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true) {
@@ -15,7 +16,7 @@ if ($conn === null) {
 }
 
 $usuarioId = get_data_owner_id();
-$perfil = $_SESSION['nivel_acesso'];
+$perfil = $_SESSION['nivel_acesso'] ?? 'padrao';
 
 // INCLUI O HEADER PADRÃO (Já abre a tag <main>)
 require_once '../includes/header.php';
@@ -29,7 +30,7 @@ $userFilterCategorias = "id_usuario = " . intval($usuarioId);
 
 // --- FUNÇÃO GET TOTAIS ---
 function getTotais($conn, $tabela, $status, $userFilter, $mes = null, $colunaData = 'data_vencimento') {
-    $sql = "SELECT COUNT(id) AS total_contas, SUM(valor) AS valor_total FROM $tabela WHERE status = ? AND $userFilter";
+    $sql = "SELECT COUNT(id) AS total_contas, SUM(valor) AS valor_total FROM $tabela WHERE status = ? AND deleted_at IS NULL AND $userFilter";
     if ($mes) {
         $sql .= " AND DATE_FORMAT($colunaData, '%Y-%m') = '$mes'";
     }
@@ -42,17 +43,52 @@ function getTotais($conn, $tabela, $status, $userFilter, $mes = null, $colunaDat
 }
 
 $mesAtual = date('Y-m');
+$hoje = date('Y-m-d');
+$fim60Dias = date('Y-m-d', strtotime('+60 days'));
+
+function getMovimentoCaixa($conn, $usuarioId, $inicio = null, $fim = null) {
+    $sql = "SELECT
+        COALESCE(SUM(CASE WHEN tipo='manual_entrada' THEN valor ELSE 0 END),0) AS entradas,
+        COALESCE(SUM(CASE WHEN tipo='manual_saida' THEN valor ELSE 0 END),0) AS saidas
+        FROM caixa_diario WHERE usuario_id=?";
+    $types = 'i';
+    $params = [$usuarioId];
+    if ($inicio !== null) {
+        $sql .= ' AND data >= ?';
+        $types .= 's';
+        $params[] = $inicio;
+    }
+    if ($fim !== null) {
+        $sql .= ' AND data <= ?';
+        $types .= 's';
+        $params[] = $fim;
+    }
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return ['entradas'=>(float)$row['entradas'], 'saidas'=>(float)$row['saidas']];
+}
+
+function getPendentesPeriodo($conn, $tabela, $usuarioId, $inicio, $fim) {
+    $stmt = $conn->prepare("SELECT COUNT(id) AS total_contas, COALESCE(SUM(valor),0) AS valor_total
+        FROM $tabela WHERE usuario_id=? AND status='pendente' AND deleted_at IS NULL
+        AND data_vencimento BETWEEN ? AND ?");
+    $stmt->bind_param('iss', $usuarioId, $inicio, $fim);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return $row;
+}
 
 // --- 1. DADOS ACUMULADOS ---
 $historicoPagar = getTotais($conn, 'contas_pagar', 'baixada', $userFilter); 
 $historicoReceber = getTotais($conn, 'contas_receber', 'baixada', $userFilter);
 
-$stmtCaixa = $conn->prepare("SELECT SUM(valor) AS total FROM caixa_diario WHERE $userFilter");
-$stmtCaixa->execute();
-$totalCaixa = $stmtCaixa->get_result()->fetch_assoc()['total'] ?? 0;
-$stmtCaixa->close();
-
-$saldoRealizado = (($historicoReceber['valor_total'] ?? 0) + $totalCaixa) - ($historicoPagar['valor_total'] ?? 0);
+$movimentoCaixaHistorico = getMovimentoCaixa($conn, $usuarioId);
+$saldoFinanceiro = (($historicoReceber['valor_total'] ?? 0) + $movimentoCaixaHistorico['entradas'])
+                  - (($historicoPagar['valor_total'] ?? 0) + $movimentoCaixaHistorico['saidas']);
 
 // --- 2. DADOS DO MÊS ATUAL ---
 $pendentePagarMes = getTotais($conn, 'contas_pagar', 'pendente', $userFilter, $mesAtual, 'data_vencimento');
@@ -60,16 +96,21 @@ $pendenteReceberMes = getTotais($conn, 'contas_receber', 'pendente', $userFilter
 $baixadoPagarMes = getTotais($conn, 'contas_pagar', 'baixada', $userFilter, $mesAtual, 'data_baixa');
 $baixadoReceberMes = getTotais($conn, 'contas_receber', 'baixada', $userFilter, $mesAtual, 'data_baixa');
 
-$stmtCaixaMes = $conn->prepare("SELECT SUM(valor) AS total FROM caixa_diario WHERE $userFilter AND DATE_FORMAT(data, '%Y-%m') = ?");
-$stmtCaixaMes->bind_param("s", $mesAtual);
-$stmtCaixaMes->execute();
-$caixaMes = $stmtCaixaMes->get_result()->fetch_assoc()['total'] ?? 0;
-$stmtCaixaMes->close();
+$inicioMes = date('Y-m-01');
+$fimMes = date('Y-m-t');
+$movimentoCaixaMes = getMovimentoCaixa($conn, $usuarioId, $inicioMes, $fimMes);
+$caixaMes = $movimentoCaixaMes['entradas'] - $movimentoCaixaMes['saidas'];
+$resumoCaixaHoje = caixa_resumo($conn, $usuarioId, $hoje);
+$saldoCaixaHoje = (float)$resumoCaixaHoje['saldo_dinheiro_esperado'];
 
 // --- 3. PROJEÇÃO INTELIGENTE (Utilizando a função centralizada no utils.php) ---
 $medias = calcularMediaMensalHistorica($conn, $usuarioId);
-$saldoPrevisto = ($saldoRealizado + ($pendenteReceberMes['valor_total'] ?? 0)) - ($pendentePagarMes['valor_total'] ?? 0);
-$projesao60Dias = $saldoPrevisto + ($medias['entradas'] - $medias['saidas']);
+$realizadoMes = (($baixadoReceberMes['valor_total'] ?? 0) + $movimentoCaixaMes['entradas'])
+              - (($baixadoPagarMes['valor_total'] ?? 0) + $movimentoCaixaMes['saidas']);
+$saldoPrevisto = $realizadoMes + ($pendenteReceberMes['valor_total'] ?? 0) - ($pendentePagarMes['valor_total'] ?? 0);
+$pendenteReceber60 = getPendentesPeriodo($conn, 'contas_receber', $usuarioId, $hoje, $fim60Dias);
+$pendentePagar60 = getPendentesPeriodo($conn, 'contas_pagar', $usuarioId, $hoje, $fim60Dias);
+$projesao60Dias = $saldoFinanceiro + ($pendenteReceber60['valor_total'] ?? 0) - ($pendentePagar60['valor_total'] ?? 0);
 
 // --- 4. GRÃFICO 12 MESES ---
 $labels = $entradasPendentes = $saidasPendentes = $entradasBaixadas = $saidasBaixadas = [];
@@ -77,26 +118,30 @@ for ($i = 11; $i >= 0; $i--) {
     $mes = date('Y-m', strtotime("-$i month"));
     $labels[] = date('M/Y', strtotime($mes . '-01'));
 
-    $stmt = $conn->prepare("SELECT SUM(valor) AS total FROM contas_receber WHERE $userFilter AND status='pendente' AND DATE_FORMAT(data_vencimento,'%Y-%m')=?");
+    $stmt = $conn->prepare("SELECT SUM(valor) AS total FROM contas_receber WHERE $userFilter AND deleted_at IS NULL AND status='pendente' AND DATE_FORMAT(data_vencimento,'%Y-%m')=?");
     $stmt->bind_param("s", $mes); $stmt->execute();
     $entradasPendentes[] = floatval($stmt->get_result()->fetch_assoc()['total'] ?? 0); $stmt->close();
 
-    $stmt = $conn->prepare("SELECT SUM(valor) AS total FROM contas_receber WHERE $userFilter AND status='baixada' AND DATE_FORMAT(data_baixa,'%Y-%m')=?");
+    $stmt = $conn->prepare("SELECT SUM(valor) AS total FROM contas_receber WHERE $userFilter AND deleted_at IS NULL AND status='baixada' AND DATE_FORMAT(data_baixa,'%Y-%m')=?");
     $stmt->bind_param("s", $mes); $stmt->execute();
     $tr = floatval($stmt->get_result()->fetch_assoc()['total'] ?? 0); $stmt->close();
 
-    $stmt = $conn->prepare("SELECT SUM(valor) AS total FROM caixa_diario WHERE $userFilter AND DATE_FORMAT(data,'%Y-%m')=?");
+    $stmt = $conn->prepare("SELECT
+        COALESCE(SUM(CASE WHEN tipo='manual_entrada' THEN valor ELSE 0 END),0) AS entradas,
+        COALESCE(SUM(CASE WHEN tipo='manual_saida' THEN valor ELSE 0 END),0) AS saidas
+        FROM caixa_diario WHERE $userFilter AND DATE_FORMAT(data,'%Y-%m')=?");
     $stmt->bind_param("s", $mes); $stmt->execute();
-    $tc = floatval($stmt->get_result()->fetch_assoc()['total'] ?? 0); $stmt->close();
-    $entradasBaixadas[] = $tr + $tc;
+    $movCaixa = $stmt->get_result()->fetch_assoc(); $stmt->close();
+    $entradasBaixadas[] = $tr + floatval($movCaixa['entradas'] ?? 0);
 
-    $stmt = $conn->prepare("SELECT SUM(valor) AS total FROM contas_pagar WHERE $userFilter AND status='pendente' AND DATE_FORMAT(data_vencimento,'%Y-%m')=?");
+    $stmt = $conn->prepare("SELECT SUM(valor) AS total FROM contas_pagar WHERE $userFilter AND deleted_at IS NULL AND status='pendente' AND DATE_FORMAT(data_vencimento,'%Y-%m')=?");
     $stmt->bind_param("s", $mes); $stmt->execute();
     $saidasPendentes[] = floatval($stmt->get_result()->fetch_assoc()['total'] ?? 0); $stmt->close();
 
-    $stmt = $conn->prepare("SELECT SUM(valor) AS total FROM contas_pagar WHERE $userFilter AND status='baixada' AND DATE_FORMAT(data_baixa,'%Y-%m')=?");
+    $stmt = $conn->prepare("SELECT SUM(valor) AS total FROM contas_pagar WHERE $userFilter AND deleted_at IS NULL AND status='baixada' AND DATE_FORMAT(data_baixa,'%Y-%m')=?");
     $stmt->bind_param("s", $mes); $stmt->execute();
-    $saidasBaixadas[] = floatval($stmt->get_result()->fetch_assoc()['total'] ?? 0); $stmt->close();
+    $saidasConta = floatval($stmt->get_result()->fetch_assoc()['total'] ?? 0); $stmt->close();
+    $saidasBaixadas[] = $saidasConta + floatval($movCaixa['saidas'] ?? 0);
 }
 
 // Categorias
@@ -108,11 +153,11 @@ $stmt->close();
 $totaisPorCategoria = [];
 foreach ($categorias as $c) {
     $id = $c['id']; $nome = $c['nome'];
-    $stmt = $conn->prepare("SELECT SUM(valor) as total FROM contas_receber WHERE $userFilter AND id_categoria=? AND status='baixada'");
+    $stmt = $conn->prepare("SELECT SUM(valor) as total FROM contas_receber WHERE $userFilter AND deleted_at IS NULL AND id_categoria=? AND status='baixada'");
     $stmt->bind_param("i", $id); $stmt->execute();
     $receber = $stmt->get_result()->fetch_assoc()['total'] ?? 0; $stmt->close();
 
-    $stmt = $conn->prepare("SELECT SUM(valor) as total FROM contas_pagar WHERE $userFilter AND id_categoria=? AND status='baixada'");
+    $stmt = $conn->prepare("SELECT SUM(valor) as total FROM contas_pagar WHERE $userFilter AND deleted_at IS NULL AND id_categoria=? AND status='baixada'");
     $stmt->bind_param("i", $id); $stmt->execute();
     $pagar = $stmt->get_result()->fetch_assoc()['total'] ?? 0; $stmt->close();
 
@@ -158,13 +203,13 @@ foreach ($categorias as $c) {
                 <i class="fa-solid fa-scale-balanced"></i>
                 <h5>Saldo Projetado (Mês Atual)</h5>
                 <p>R$ <?= number_format($saldoPrevisto, 2, ',', '.') ?></p>
-                <span>Caixa Hoje + Receitas - Despesas</span>
+                <span>Movimentos realizados e pendencias deste mes</span>
             </div>
             <div class="summary-card <?= $projesao60Dias >= 0 ? 'card-positive' : 'card-negative' ?>">
                 <i class="fa-solid fa-wand-magic-sparkles"></i>
                 <h5>Tendência (Próximos 60 dias)</h5>
                 <p>R$ <?= number_format($projesao60Dias, 2, ',', '.') ?></p>
-                <span><?= $projesao60Dias < 0 ? "âš ï¸ Risco de caixa baixo detectado" : "✅ Histórico indica fluxo positivo" ?></span>
+                <span><?= $projesao60Dias < 0 ? "Risco de saldo negativo nos proximos 60 dias" : "Saldo previsto com vencimentos dos proximos 60 dias" ?></span>
             </div>
         </div>
 
@@ -193,14 +238,14 @@ foreach ($categorias as $c) {
             </div>
             <div class="summary-card">
                 <i class="fa-solid fa-cash-register"></i>
-                <h5>Caixa Diário (Mês)</h5>
+                <h5>Movimento Manual do Caixa (Mês)</h5>
                 <p>R$ <?= number_format($caixaMes, 2, ',', '.') ?></p>
             </div>
-            <div class="summary-card <?= $saldoRealizado >= 0 ? 'card-positive' : 'card-negative' ?>">
+            <div class="summary-card <?= $saldoCaixaHoje >= 0 ? 'card-positive' : 'card-negative' ?>">
                 <i class="fa-solid fa-chart-line"></i>
                 <h5>Saldo em Caixa (Atual)</h5>
-                <p>R$ <?= number_format($saldoRealizado, 2, ',', '.') ?></p>
-                <span>Total Acumulado</span>
+                <p>R$ <?= number_format($saldoCaixaHoje, 2, ',', '.') ?></p>
+                <span>Abertura + vendas em dinheiro + movimentos manuais</span>
             </div>
         </div>
 

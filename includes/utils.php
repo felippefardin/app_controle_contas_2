@@ -44,25 +44,40 @@ function set_flash_message($tipo, $mensagem) {
 
 function calcularMediaMensalHistorica($conn, $usuarioId) {
     // Média de entradas (Receber Baixado + Caixa Diário)
-    $sqlEntradas = "SELECT SUM(valor) / 6 as media FROM (
-                        SELECT valor FROM contas_receber WHERE usuario_id = $usuarioId AND status = 'baixada' 
-                        AND data_baixa >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
-                        UNION ALL
-                        SELECT valor FROM caixa_diario WHERE usuario_id = $usuarioId 
-                        AND data >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
-                    ) as total";
+    $sqlEntradas = "SELECT (
+        COALESCE((SELECT SUM(valor) FROM contas_receber
+            WHERE usuario_id=? AND status='baixada' AND deleted_at IS NULL
+            AND data_baixa >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),0)
+        + COALESCE((SELECT SUM(valor) FROM caixa_diario
+            WHERE usuario_id=? AND tipo='manual_entrada'
+            AND data >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),0)
+        ) / 6 AS media";
     
     // Média de saídas (Pagar Baixado)
-    $sqlSaidas = "SELECT SUM(valor) / 6 as media FROM contas_pagar 
-                  WHERE usuario_id = $usuarioId AND status = 'baixada' 
-                  AND data_baixa >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)";
+    $sqlSaidas = "SELECT (
+        COALESCE((SELECT SUM(valor) FROM contas_pagar
+            WHERE usuario_id=? AND status='baixada' AND deleted_at IS NULL
+            AND data_baixa >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),0)
+        + COALESCE((SELECT SUM(valor) FROM caixa_diario
+            WHERE usuario_id=? AND tipo='manual_saida'
+            AND data >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)),0)
+        ) / 6 AS media";
 
-    $resE = $conn->query($sqlEntradas)->fetch_assoc();
-    $resS = $conn->query($sqlSaidas)->fetch_assoc();
+    $stmt = $conn->prepare($sqlEntradas);
+    $stmt->bind_param('ii', $usuarioId, $usuarioId);
+    $stmt->execute();
+    $resE = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    $stmt = $conn->prepare($sqlSaidas);
+    $stmt->bind_param('ii', $usuarioId, $usuarioId);
+    $stmt->execute();
+    $resS = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
 
     return [
-        'entradas' => $resE['media'] ?? 0,
-        'saidas' => $resS['media'] ?? 0
+        'entradas' => (float) ($resE['media'] ?? 0),
+        'saidas' => (float) ($resS['media'] ?? 0)
     ];
 }
 

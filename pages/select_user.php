@@ -14,7 +14,7 @@ if ($conn->connect_error) {
 }
 
 // Consulta o usuário principal e os usuários secundários
-$stmt = $conn->prepare("SELECT id, nome, email, foto FROM usuarios WHERE id = ? OR owner_id = ? ORDER BY nome ASC");
+$stmt = $conn->prepare("SELECT id, nome, email, foto FROM usuarios WHERE deleted_at IS NULL AND (id = ? OR owner_id = ?) ORDER BY nome ASC");
 $stmt->bind_param("ii", $ownerId, $ownerId);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -33,6 +33,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['select_user_id'])) {
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<link rel="stylesheet" href="../assets/css/universal-theme.css">
+<script src="../assets/js/global-theme.js"></script>
     <meta charset="UTF-8">
     <title>Selecionar Usuário</title>
     <style>

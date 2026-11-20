@@ -2,7 +2,10 @@
 // actions/executar_exclusao.php
 
 // Carrega as configurações e a conexão
-require_once '../database.php'; 
+require_once '../includes/session_init.php';
+require_once '../database.php';
+require_once '../includes/utils.php';
+require_once '../includes/account_deletion_consent.php';
 
 // Configura o PHP para reportar erros do MySQLi como exceções
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
@@ -18,6 +21,17 @@ $id_usuario = null;
 $tenant_id_string = null; 
 $db_name = null;
 $db_user = null;
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    exit('Metodo nao permitido.');
+}
+require_csrf();
+if ((string)($_POST['aceite_exclusao'] ?? '') !== '1') {
+    set_flash_message('danger', 'Confirme que leu e compreendeu a exclusao permanente dos dados.');
+    header('Location: ../pages/login.php');
+    exit;
+}
 
 if (empty($token)) {
     header("Location: ../pages/login.php?erro=token_invalido");
@@ -37,16 +51,34 @@ try {
     $stmt->close();
 
     // 3️⃣ Busca o ID do tenant (String) na tabela de usuários
-    $stmt_tenant = $conn->prepare("SELECT tenant_id FROM usuarios WHERE id = ?");
+    $stmt_tenant = $conn->prepare("SELECT tenant_id, nome, email, documento FROM usuarios WHERE id = ?");
     $stmt_tenant->bind_param("i", $id_usuario);
     $stmt_tenant->execute();
-    $stmt_tenant->bind_result($tenant_id_string);
+    $stmt_tenant->bind_result($tenant_id_string, $nome_snapshot, $email_snapshot, $documento_snapshot);
     
     if (!$stmt_tenant->fetch() || $tenant_id_string === null) {
         $stmt_tenant->close();
         throw new Exception("Não foi possível encontrar o tenant_id para este usuário.");
     }
     $stmt_tenant->close();
+
+    // Guarda uma prova independente da conta antes de apagar os dados. Nao ha
+    // chave estrangeira para o usuario, pois o registro deve sobreviver a exclusao.
+    $protocolo = 'EXC-' . date('YmdHis') . '-' . strtoupper(bin2hex(random_bytes(4)));
+    $versaoTermo = account_deletion_consent_version();
+    $textoAceito = account_deletion_consent_text();
+    $textoHash = account_deletion_consent_hash();
+    $documentoHash = trim((string)$documento_snapshot) !== '' ? hash('sha256', preg_replace('/\D+/', '', (string)$documento_snapshot)) : null;
+    $ipUsuario = substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45) ?: null;
+    $userAgentHash = !empty($_SERVER['HTTP_USER_AGENT']) ? hash('sha256', (string)$_SERVER['HTTP_USER_AGENT']) : null;
+    $excluirApos = date('Y-m-d H:i:s', strtotime('+5 years'));
+    $aceite = $conn->prepare('INSERT INTO aceites_exclusao_conta
+        (protocolo, usuario_id_original, tenant_id_snapshot, nome_snapshot, email_snapshot, documento_hash,
+         versao_termo, texto_aceito, texto_hash, ip_usuario, user_agent_hash, data_aceite, excluir_apos)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)');
+    $aceite->bind_param('sissssssssss', $protocolo, $id_usuario, $tenant_id_string, $nome_snapshot, $email_snapshot, $documentoHash, $versaoTermo, $textoAceito, $textoHash, $ipUsuario, $userAgentHash, $excluirApos);
+    $aceite->execute();
+    $aceite->close();
 
     // 4️⃣ Busca as credenciais do banco de dados do tenant
     $stmt_creds = $conn->prepare("SELECT db_database, db_user FROM tenants WHERE tenant_id = ?");

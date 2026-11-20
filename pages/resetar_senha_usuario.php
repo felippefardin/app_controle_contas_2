@@ -90,6 +90,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $usuario && $conn) {
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<link rel="stylesheet" href="../assets/css/universal-theme.css">
+<script src="../assets/js/global-theme.js"></script>
     <meta charset="UTF-8">
     <title>Redefinir Senha</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">

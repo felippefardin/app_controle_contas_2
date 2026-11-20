@@ -1,6 +1,7 @@
 <?php
 require_once '../../includes/session_init.php';
 include('../../database.php');
+require_once '../../includes/utils.php';
 
 // Proteção: Apenas super admin
 if (!isset($_SESSION['super_admin'])) {
@@ -10,6 +11,51 @@ if (!isset($_SESSION['super_admin'])) {
 
 $admin = $_SESSION['super_admin'];
 $master_conn = getMasterConnection();
+
+function masterSafeCount(mysqli $conn, string $sql): int
+{
+    try {
+        $result = $conn->query($sql);
+        $row = $result ? $result->fetch_assoc() : null;
+        return (int) ($row['total'] ?? 0);
+    } catch (Throwable $e) {
+        error_log('Falha ao calcular indicador do painel Master: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+function masterNavBadge(int $count): string
+{
+    if ($count < 1) {
+        return '';
+    }
+
+    $label = $count > 99 ? '99+' : (string) $count;
+    return '<span class="master-nav-badge" aria-label="' . $count . ' novas atualizações">' . $label . '</span>';
+}
+
+$arquivoVisualizadoEm = $_SESSION['master_arquivo_visualizado_em']
+    ?? date('Y-m-d H:i:s', time() - 86400);
+$arquivoVisualizadoEmSql = $master_conn->real_escape_string($arquivoVisualizadoEm);
+
+$navCounts = [
+    'usuarios' => masterSafeCount($master_conn, "SELECT COUNT(*) total FROM usuarios WHERE criado_em >= NOW() - INTERVAL 1 DAY"),
+    'cupons' => masterSafeCount($master_conn, "SELECT COUNT(*) total FROM cupons_desconto WHERE ativo = 1 AND criado_em >= NOW() - INTERVAL 1 DAY"),
+    'email' => masterSafeCount($master_conn, "SELECT COUNT(*) total FROM usuarios WHERE status = 'ativo' AND criado_em >= NOW() - INTERVAL 1 DAY"),
+    'arquivo' => masterSafeCount($master_conn, "SELECT COUNT(*) total FROM chamados_suporte WHERE status = 'concluido' AND encerrado_em > '{$arquivoVisualizadoEmSql}'"),
+    'logs' => masterSafeCount($master_conn, "SELECT COUNT(*) total FROM chat_sessions WHERE status = 'closed' AND closed_at >= NOW() - INTERVAL 1 DAY"),
+    'suporte' => masterSafeCount($master_conn, "SELECT COUNT(*) total FROM suporte_login WHERE status IN ('pendente', 'em_andamento')"),
+    'feedback' => masterSafeCount($master_conn, "SELECT COUNT(*) total FROM feedbacks WHERE lido = 0"),
+    'documentos_lgpd' => masterSafeCount($master_conn, "SELECT (SELECT COUNT(*) FROM termos_consentimento WHERE data_aceite >= NOW() - INTERVAL 1 DAY) + (SELECT COUNT(*) FROM aceites_exclusao_conta WHERE data_aceite >= NOW() - INTERVAL 1 DAY) total"),
+    'solicitacoes_lgpd' => masterSafeCount($master_conn, "SELECT COUNT(*) total FROM solicitacoes_lgpd WHERE status = 'nova'"),
+    'financeiro' => masterSafeCount($master_conn, "SELECT COUNT(DISTINCT t.id) total FROM tenants t LEFT JOIN faturas_assinatura f ON f.tenant_id COLLATE utf8mb4_unicode_ci=t.tenant_id COLLATE utf8mb4_unicode_ci AND f.status='pendente' AND f.data_vencimento<CURDATE() WHERE t.status_assinatura IN ('desativado_temporario','exclusao_em_processamento','vencido','suspenso','inativo','cancelado','pendente','trial_expired') OR f.id IS NOT NULL"),
+    'mensagens' => masterSafeCount($master_conn, "SELECT COUNT(*) total FROM mensagens_home WHERE criado_em >= NOW() - INTERVAL 1 DAY"),
+];
+$navAlertsSeen = $_SESSION['master_nav_alertas_vistos'] ?? [];
+$_SESSION['master_nav_contagens_atuais'] = $navCounts;
+foreach ($navCounts as $navKey => $navCount) {
+    $navCounts[$navKey] = max(0, $navCount - (int)($navAlertsSeen[$navKey] ?? 0));
+}
 
 // --- LÓGICA DE PESQUISA DE TENANTS ---
 $busca = trim($_GET['busca'] ?? '');
@@ -61,10 +107,14 @@ $sql_suporte_inicial = "
     ORDER BY s.criado_em DESC
 ";
 $res_suporte_inicial = $master_conn->query($sql_suporte_inicial);
+
 ?>
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+<link rel="stylesheet" href="../../assets/css/universal-theme.css?v=20260813-admin">
+<script src="../../assets/js/global-theme.js?v=20260813-admin"></script>
+    <?php require __DIR__ . '/../../includes/csrf_client.php'; ?>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel Master</title>
@@ -100,6 +150,8 @@ $res_suporte_inicial = $master_conn->query($sql_suporte_inicial);
         /* --- BUTTONS --- */
         .btn-gerenciar { background-color: #00bfff; color: #fff; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 13px; display: inline-block; transition: 0.2s; white-space: nowrap; margin-right: 5px; }
         .btn-gerenciar:hover { background-color: #009acd; }
+        .btn-gerenciar.master-nav-item { position: relative; margin-top: 10px; overflow: visible; }
+        .master-nav-badge { position: absolute; top: -11px; right: -8px; min-width: 21px; height: 21px; padding: 0 6px; border: 2px solid #111; border-radius: 999px; background: #ff3b5c; color: #fff; font-size: 11px; font-weight: 800; line-height: 17px; text-align: center; box-shadow: 0 3px 9px rgba(0, 0, 0, .35); z-index: 2; }
         .btn-chat { background-color: #e91e63; color: #fff; padding: 6px 12px; border: none; border-radius: 4px; text-decoration: none; font-size: 13px; cursor: pointer; transition: 0.2s; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }
         .btn-chat:hover { background-color: #c2185b; }
         .btn-action { border: none; border-radius: 4px; padding: 8px; cursor: pointer; font-size: 14px; color: white; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; margin-right: 5px; transition: 0.2s; }
@@ -157,6 +209,7 @@ $res_suporte_inicial = $master_conn->query($sql_suporte_inicial);
     </div>
 
     <div class="container">
+        <?php display_flash_message(); ?>
         
         <h1>Painel de Controle</h1>
         <form method="GET" class="search-container">
@@ -190,7 +243,11 @@ $res_suporte_inicial = $master_conn->query($sql_suporte_inicial);
                         <td data-label="Status"><?= htmlspecialchars($tenant['status_assinatura'] ?? '-'); ?></td>
                         <td data-label="Cadastro"><?= !empty($tenant['data_criacao']) ? date('d/m/y', strtotime($tenant['data_criacao'])) : '-'; ?></td>
                         <td data-label="Ação">
-                            <a class="btn-gerenciar" href="../../actions/admin_impersonate.php?tenant_id=<?= $tenant['id']; ?>"><i class="fas fa-external-link-alt"></i> Acessar</a>
+                            <form action="../../actions/admin_impersonate.php" method="post" style="display:inline">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+                                <input type="hidden" name="tenant_id" value="<?= (int)$tenant['id'] ?>">
+                                <button class="btn-gerenciar" type="submit"><i class="fas fa-external-link-alt"></i> Acessar</button>
+                            </form>
                             <?php if(!empty($tenant['usuario_id'])): ?>
                                 <button class="btn-chat" onclick="iniciarSuporte(<?= $tenant['usuario_id']; ?>, '<?= htmlspecialchars($tenant['email'] ?? '') ?>')" title="Iniciar Chat Online com <?= htmlspecialchars($tenant['email']) ?>">
                                     <i class="fas fa-comments"></i> Chat
@@ -208,16 +265,17 @@ $res_suporte_inicial = $master_conn->query($sql_suporte_inicial);
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 50px; margin-bottom: 20px; border-top: 1px solid #333; padding-top: 30px; flex-wrap: wrap; gap: 10px;">
             <h2 style="margin: 0; border: none; padding: 0; color: #ff9f43;"><i class="fas fa-headset"></i> Fila de Suporte</h2>
             <div>
-                <a href="usuarios_sistema.php" class="btn-gerenciar" style="background: #007bff;"><i class="fas fa-users"></i> Todos Usuários</a>
-                <a href="cupom_desconto.php" class="btn-gerenciar" style="background: #d35400;"><i class="fas fa-ticket-alt"></i> Cupons</a>
-                <a href="email_marketing.php" class="btn-gerenciar" style="background: #8e44ad;"><i class="fas fa-bullhorn"></i> Email Marketing</a>
-                <a href="chamados_resolvidos.php" class="btn-gerenciar" style="background: #2ecc71;"><i class="fas fa-archive"></i> Ver Arquivo</a>
-                <a href="arquivos_suportes.php" class="btn-gerenciar" style="background: #34495e;"><i class="fas fa-file-pdf"></i> Logs de Chat</a>
-                <a href="suporte_via_login.php" class="btn-gerenciar" style="background: #356985;"><i class="fa-solid fa-headset"></i></i> Suporte via login</a>
-                <a href="feedback.php" class="btn-gerenciar" style="background: #258966;"><i class="fa-solid fa-comment-dots"></i></i></i> Feedback</a>
-                <a href="documento_de_registro_no_sistema.php" class="btn-gerenciar" style="background: #3258;"><i class="fa-solid fa-user-shield"></i> LGPD de usuários</a>
-                <a href="controle_financeiro_sistema.php" class="btn-gerenciar" style="background: #125896;"><i class="fa-solid fa-coins"></i> Controle Financeiro</a>      
-                <a href="mensagens_home_criadas.php" class="btn-gerenciar" style="background: #102589;"><i class="fa-solid fa-envelope-open-text"></i> Mensagens Personaliza</a>
+                <a href="../../actions/master_marcar_alerta.php?categoria=usuarios" class="btn-gerenciar master-nav-item" style="background: #007bff;"><i class="fas fa-users"></i> Todos Usuários<?= masterNavBadge($navCounts['usuarios']) ?></a>
+                <a href="../../actions/master_marcar_alerta.php?categoria=cupons" class="btn-gerenciar master-nav-item" style="background: #d35400;"><i class="fas fa-ticket-alt"></i> Cupons<?= masterNavBadge($navCounts['cupons']) ?></a>
+                <a href="../../actions/master_marcar_alerta.php?categoria=email" class="btn-gerenciar master-nav-item" style="background: #8e44ad;"><i class="fas fa-bullhorn"></i> Email Marketing<?= masterNavBadge($navCounts['email']) ?></a>
+                <a href="../../actions/master_marcar_alerta.php?categoria=arquivo" class="btn-gerenciar master-nav-item" style="background: #2ecc71;"><i class="fas fa-archive"></i> Ver Arquivo<?= masterNavBadge($navCounts['arquivo']) ?></a>
+                <a href="../../actions/master_marcar_alerta.php?categoria=logs" class="btn-gerenciar master-nav-item" style="background: #34495e;"><i class="fas fa-file-pdf"></i> Logs de Chat<?= masterNavBadge($navCounts['logs']) ?></a>
+                <a href="../../actions/master_marcar_alerta.php?categoria=suporte" class="btn-gerenciar master-nav-item" style="background: #356985;"><i class="fa-solid fa-headset"></i> Suporte via login<?= masterNavBadge($navCounts['suporte']) ?></a>
+                <a href="../../actions/master_marcar_alerta.php?categoria=feedback" class="btn-gerenciar master-nav-item" style="background: #258966;"><i class="fa-solid fa-comment-dots"></i> Feedback<?= masterNavBadge($navCounts['feedback']) ?></a>
+                <a href="../../actions/master_marcar_alerta.php?categoria=documentos_lgpd" class="btn-gerenciar master-nav-item" style="background: #3258;"><i class="fa-solid fa-user-shield"></i> LGPD de usuários<?= masterNavBadge($navCounts['documentos_lgpd']) ?></a>
+                <a href="../../actions/master_marcar_alerta.php?categoria=solicitacoes_lgpd" class="btn-gerenciar master-nav-item" style="background: #6f42c1;"><i class="fa-solid fa-shield-halved"></i> Solicitações LGPD<?= masterNavBadge($navCounts['solicitacoes_lgpd']) ?></a>
+                <a href="../../actions/master_marcar_alerta.php?categoria=financeiro" class="btn-gerenciar master-nav-item" style="background: #125896;"><i class="fa-solid fa-coins"></i> Controle Financeiro<?= masterNavBadge($navCounts['financeiro']) ?></a>
+                <a href="../../actions/master_marcar_alerta.php?categoria=mensagens" class="btn-gerenciar master-nav-item" style="background: #102589;"><i class="fa-solid fa-envelope-open-text"></i> Mensagens Personaliza<?= masterNavBadge($navCounts['mensagens']) ?></a>
             </div>
         </div>
 

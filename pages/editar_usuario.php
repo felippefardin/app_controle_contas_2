@@ -1,6 +1,7 @@
 <?php
 require_once '../includes/session_init.php';
 require_once '../database.php';
+require_tenant_admin();
 require_once '../includes/utils.php'; 
 
 // Verifica Permissão do logado
@@ -25,7 +26,7 @@ if (!$id_usuario) {
 }
 
 // Busca dados do usuário e suas permissões atuais
-$stmt = $conn->prepare("SELECT * FROM usuarios WHERE id = ?");
+$stmt = $conn->prepare("SELECT * FROM usuarios WHERE id = ? AND deleted_at IS NULL");
 $stmt->bind_param("i", $id_usuario);
 $stmt->execute();
 $user = $stmt->get_result()->fetch_assoc();
@@ -59,7 +60,7 @@ $itens_basicos = [
     'contas_receber_baixadas.php' => 'Contas Recebidas',
     'lembretes.php' => 'Lembretes',
     'perfil.php' => 'Perfil',
-    'trocar_usuario.php' => 'Trocar Usuário',
+    'selecionar_usuario.php' => 'Trocar Usuário',
     'usuarios.php' => 'Gestão de Usuários'
 ];
 

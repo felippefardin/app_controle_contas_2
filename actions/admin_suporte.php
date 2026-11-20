@@ -6,6 +6,7 @@ require_once '../database.php';
 if (!isset($_SESSION['super_admin'])) {
     die("Acesso negado.");
 }
+require_csrf();
 
 $connMaster = getMasterConnection();
 $admin_nome = $_SESSION['super_admin']['nome'] ?? 'Suporte Master';

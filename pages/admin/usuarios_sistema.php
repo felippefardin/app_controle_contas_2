@@ -11,6 +11,7 @@ if (!isset($_SESSION['super_admin'])) {
 $master_conn = getMasterConnection();
 $msg_feedback = '';
 $msg_tipo = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') require_csrf();
 
 // --- LÓGICA DE EXCLUSÃO ---
 if (isset($_POST['acao']) && $_POST['acao'] == 'excluir') {
@@ -79,6 +80,9 @@ $result = $master_conn->query($sql);
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+<link rel="stylesheet" href="../../assets/css/universal-theme.css?v=20260813-admin">
+<script src="../../assets/js/global-theme.js?v=20260813-admin"></script>
+    <?php require __DIR__ . '/../../includes/csrf_client.php'; ?>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gerenciar Admins</title>

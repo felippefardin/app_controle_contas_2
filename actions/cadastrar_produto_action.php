@@ -52,6 +52,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
+        if ($codigo !== '') {
+            $check = $conn->prepare("SELECT id FROM produtos WHERE id_usuario=? AND codigo=? AND deleted_at IS NULL LIMIT 1");
+            $check->bind_param('is', $id_usuario, $codigo);
+            $check->execute();
+            $duplicado = $check->get_result()->fetch_assoc();
+            $check->close();
+            if ($duplicado) {
+                throw new RuntimeException('Este código de barras/SKU já está cadastrado em outro produto.');
+            }
+        }
         // Query atualizada para incluir a coluna 'codigo'
         $query = "INSERT INTO produtos 
             (codigo, nome, descricao, quantidade_estoque, quantidade_minima, preco_compra, preco_venda, ncm, cfop, id_usuario)

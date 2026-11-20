@@ -6,6 +6,8 @@
 require_once '../includes/session_init.php';
 require_once '../database.php'; 
 
+require_super_admin();
+
 // 1. Conecta ao banco principal (Master) usando a função do seu sistema
 $connMain = getMasterConnection();
 

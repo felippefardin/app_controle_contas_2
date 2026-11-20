@@ -2,6 +2,8 @@
 require_once '../database.php';
 require_once '../includes/session_init.php';
 
+require_super_admin();
+
 // ---------------------------------------------
 // SCRIPT: Migração automática da tabela assinaturas
 // Verifica e corrige colunas 'email' e 'plano'

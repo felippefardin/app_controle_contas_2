@@ -18,16 +18,18 @@ include('../includes/header.php');
 // Exibe a mensagem centralizada
 display_flash_message();
 
-$where = ["cp.status='baixada'"];
+$where = ["cp.status='baixada'", "cp.deleted_at IS NULL"];
 $where[] = "cp.usuario_id = " . intval($usuarioId);
 
-if (!empty($_GET['fornecedor'])) {
-    $where[] = "cp.fornecedor LIKE '%" . $conn->real_escape_string($_GET['fornecedor']) . "%'";
+if (!empty(trim($_GET['termo'] ?? ''))) {
+    $termo = $conn->real_escape_string(trim($_GET['termo']));
+    $where[] = "(pf.nome LIKE '%$termo%' OR cp.fornecedor LIKE '%$termo%' OR cp.numero LIKE '%$termo%'
+        OR cp.descricao LIKE '%$termo%' OR c.nome LIKE '%$termo%'
+        OR u.nome LIKE '%$termo%' OR CAST(cp.valor AS CHAR) LIKE '%$termo%')";
 }
 
-if (!empty($_GET['data_inicio']) && !empty($_GET['data_fim'])) {
-    $where[] = "cp.data_vencimento BETWEEN '" . $conn->real_escape_string($_GET['data_inicio']) . "' AND '" . $conn->real_escape_string($_GET['data_fim']) . "'";
-}
+if (!empty($_GET['data_inicio'])) $where[] = "DATE(cp.data_baixa) >= '" . $conn->real_escape_string($_GET['data_inicio']) . "'";
+if (!empty($_GET['data_fim'])) $where[] = "DATE(cp.data_baixa) <= '" . $conn->real_escape_string($_GET['data_fim']) . "'";
 
 $sql = "SELECT cp.*, c.nome as nome_categoria, pf.nome as nome_pessoa_fornecedor, u.nome as nome_quem_baixou
         FROM contas_pagar AS cp
@@ -51,6 +53,20 @@ $result = $conn->query($sql);
   <style>
     /* === RESET E GERAL === */
     * { box-sizing: border-box; }
+    body > main {
+        width: 100% !important;
+        max-width: none !important;
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+    body > main .main-container,
+    body > main form.search-form,
+    body > main .table-responsive,
+    body > main .table-responsive table {
+        width: 100%;
+        max-width: none !important;
+    }
+    body > main .table-responsive table { margin-left: 0; margin-right: 0; }
     body { 
         background-color: #121212; 
         color: #eee; 
@@ -171,9 +187,23 @@ $result = $conn->query($sql);
     .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.8); justify-content: center; align-items: center; padding: 10px; }
     .modal-content { background-color: #1f1f1f; padding: 25px; border-radius: 10px; width: 100%; max-width: 500px; text-align: center; position: relative; border: 1px solid #444; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
     .close-btn { position: absolute; top: 10px; right: 20px; font-size: 28px; cursor: pointer; color: #aaa; }
+    .export-modal-content { text-align: left; }
+    .export-modal-content h3 { margin: 15px 0 20px; }
+    .export-modal-content label { display:block; color:#ccc; font-size:12px; margin-bottom:5px; }
+    .export-modal-content input, .export-modal-content select {
+      width:100%; min-width:0; padding:10px; background:#333; border:1px solid #444;
+      color:#eee; border-radius:5px; font-size:14px;
+    }
+    .export-date-row { display:flex; gap:10px; }
+    .export-date-row > div { flex:1; }
+    .export-submit {
+      width:100%; margin-top:10px; background:#f39c12; color:#fff; border:0;
+      padding:11px; border-radius:5px; cursor:pointer; font-weight:bold;
+    }
 
     /* === RESPONSIVIDADE MOBILE ESPECÃFICA === */
     @media (max-width: 768px) {
+        body > main { padding-left: 8px; padding-right: 8px; }
         body { padding: 10px; }
         
         form.search-form { flex-direction: column; }
@@ -191,11 +221,14 @@ $result = $conn->query($sql);
     <h2>Contas a Pagar - Baixadas</h2>
 
     <form class="search-form" method="GET" action="">
-      <input type="text" name="fornecedor" placeholder="Fornecedor" value="<?php echo htmlspecialchars($_GET['fornecedor'] ?? ''); ?>">
+      <input type="search" name="termo" placeholder="Fornecedor, número, descrição, categoria, valor ou baixado por" value="<?= htmlspecialchars($_GET['termo'] ?? '') ?>">
       <input type="date" name="data_inicio" placeholder="Data Início" value="<?php echo htmlspecialchars($_GET['data_inicio'] ?? ''); ?>">
       <input type="date" name="data_fim" placeholder="Data Fim" value="<?php echo htmlspecialchars($_GET['data_fim'] ?? ''); ?>">
       <button type="submit"><i class="fa fa-search"></i> Buscar</button>
       <a href="contas_pagar_baixadas.php" class="clear-filters">Limpar</a>
+      <button type="button" onclick="document.getElementById('exportModal').style.display='flex'" style="background:#f39c12">
+        <i class="fa fa-download"></i> Exportar
+      </button>
       
       <button type="button" id="btnBulkExcluir" onclick="submitBulkExcluir()">
          <i class="fa fa-trash"></i> Excluir Selecionados
@@ -241,13 +274,13 @@ $result = $conn->query($sql);
             
             $linkComprovante = '--';
             if (!empty($row['comprovante'])) {
-                $linkComprovante = "<a href='../{$row['comprovante']}' target='_blank' class='btn-action btn-comprovante'><i class='fa fa-file'></i> Ver</a>";
+                $linkComprovante = "<a href='../actions/visualizar_comprovante.php?tipo=pagar&amp;id=" . (int)$row['id'] . "' target='_blank' rel='noopener' class='btn-action btn-comprovante'><i class='fa fa-file'></i> Ver</a>";
             }
             echo "<td>{$linkComprovante}</td>";
             
             echo "<td>
                 <div style='display:flex; gap:5px;'>
-                    <a href='../actions/estornar_conta_pagar.php?id={$row['id']}' class='btn-action btn-estornar' onclick=\"return confirm('Tem certeza que deseja estornar esta conta?');\"><i class='fa-solid fa-undo'></i> Estornar</a>
+                    <form action='../actions/estornar_conta_pagar.php' method='post' style='display:inline' onsubmit=\"return confirm('Tem certeza que deseja estornar esta conta?');\"><input type='hidden' name='csrf_token' value='".htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8')."'><input type='hidden' name='id' value='".(int)$row['id']."'><button type='submit' class='btn-action btn-estornar'><i class='fa-solid fa-undo'></i> Estornar</button></form>
                     
                     <button 
                         class='btn-action btn-excluir' 
@@ -271,7 +304,41 @@ $result = $conn->query($sql);
     }
     ?>
 
-</div> <div id="deleteModal" class="modal">
+</div>
+
+<div id="exportModal" class="modal">
+    <div class="modal-content export-modal-content">
+      <span class="close-btn" onclick="document.getElementById('exportModal').style.display='none'">&times;</span>
+      <h3>Exportar Relatório</h3>
+      <form action="../actions/exportar_contas_pagar.php" method="GET" target="_blank" style="display:flex;flex-direction:column;gap:10px;">
+        <input type="hidden" name="termo" value="<?= htmlspecialchars($_GET['termo'] ?? '') ?>">
+        <label>Tipo de Relatório:</label>
+        <select name="status" required>
+          <option value="pendente">Contas a Pagar (Pendentes)</option>
+          <option value="baixada" selected>Contas Pagas (Baixadas)</option>
+        </select>
+        <div class="export-date-row">
+          <div>
+            <label>De:</label>
+            <input type="date" name="data_inicio" value="<?= htmlspecialchars($_GET['data_inicio'] ?? '') ?>">
+          </div>
+          <div>
+            <label>Até:</label>
+            <input type="date" name="data_fim" value="<?= htmlspecialchars($_GET['data_fim'] ?? '') ?>">
+          </div>
+        </div>
+        <label>Formato:</label>
+        <select name="formato" required>
+          <option value="excel">Excel (.xlsx)</option>
+          <option value="pdf">PDF (.pdf)</option>
+          <option value="xml">XML (.xml)</option>
+        </select>
+        <button type="submit" class="export-submit">Baixar Arquivo</button>
+      </form>
+    </div>
+</div>
+
+<div id="deleteModal" class="modal">
     <div class="modal-content">
       <span class="close-btn" onclick="document.getElementById('deleteModal').style.display='none'">&times;</span>
       <h3>Confirmar Exclusão</h3>
@@ -323,7 +390,7 @@ function submitBulkExcluir() {
     const selected = Array.from(document.querySelectorAll('.check-item:checked')).map(cb => cb.value);
     if (selected.length === 0) return;
     
-    if (!confirm(`Tem certeza que deseja excluir ${selected.length} registros permanentemente?`)) return;
+    if (!confirm(`Deseja mover ${selected.length} registros para a lixeira?`)) return;
 
     fetch('../actions/bulk_action.php', {
         method: 'POST',
@@ -346,8 +413,9 @@ function submitBulkExcluir() {
 }
 
 window.onclick = function(event) {
-    const deleteModal = document.getElementById('deleteModal');
-    if (event.target == deleteModal) { deleteModal.style.display = 'none'; }
+    if (event.target.classList.contains('modal')) {
+        event.target.style.display = 'none';
+    }
 };
 </script>
 

@@ -78,7 +78,7 @@ include('../includes/header.php');
 display_flash_message();
 
 // Busca a conta 
-$stmt = $conn->prepare("SELECT * FROM contas_receber WHERE id = ? AND usuario_id = ?");
+$stmt = $conn->prepare("SELECT * FROM contas_receber WHERE id = ? AND usuario_id = ? AND deleted_at IS NULL");
 $stmt->bind_param("ii", $id_conta, $id_usuario);
 $stmt->execute();
 $conta = $stmt->get_result()->fetch_assoc();

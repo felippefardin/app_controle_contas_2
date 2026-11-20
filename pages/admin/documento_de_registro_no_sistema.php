@@ -2,13 +2,7 @@
 require_once '../../includes/session_init.php';
 require_once '../../database.php';
 
-$isSuperAdmin = !empty($_SESSION['super_admin']);
-$isAdmin = ($_SESSION['perfil'] ?? '') === 'admin'
-    || in_array($_SESSION['nivel_acesso'] ?? '', ['admin', 'master'], true);
-if (!$isSuperAdmin && !$isAdmin) {
-    header('Location: ../login.php');
-    exit;
-}
+require_super_admin();
 
 $admin = $_SESSION['super_admin'] ?? [
     'email' => $_SESSION['email'] ?? $_SESSION['usuario_email'] ?? 'Administrador'
@@ -18,6 +12,7 @@ $mensagem = '';
 $mensagemTipo = 'success';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'excluir') {
+    require_csrf();
     $id = (int)($_POST['id'] ?? 0);
     $stmt = $conn->prepare('SELECT caminho_arquivo FROM termos_consentimento WHERE id = ?');
     $stmt->bind_param('i', $id);
@@ -56,10 +51,25 @@ if ($busca !== '') {
 } else {
     $result = $conn->query($sql . ' ORDER BY tc.data_aceite DESC');
 }
+
+$sqlAceites = 'SELECT * FROM aceites_exclusao_conta';
+if ($busca !== '') {
+    $sqlAceites .= ' WHERE nome_snapshot LIKE ? OR email_snapshot LIKE ? OR ip_usuario LIKE ? OR protocolo LIKE ? ORDER BY data_aceite DESC';
+    $stmtAceites = $conn->prepare($sqlAceites);
+    $termoAceite = '%' . $busca . '%';
+    $stmtAceites->bind_param('ssss', $termoAceite, $termoAceite, $termoAceite, $termoAceite);
+    $stmtAceites->execute();
+    $resultAceites = $stmtAceites->get_result();
+} else {
+    $resultAceites = $conn->query($sqlAceites . ' ORDER BY data_aceite DESC');
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<link rel="stylesheet" href="../../assets/css/universal-theme.css?v=20260813-admin">
+<script src="../../assets/js/global-theme.js?v=20260813-admin"></script>
+    <?php require __DIR__ . '/../../includes/csrf_client.php'; ?>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Documentos LGPD</title>
@@ -118,7 +128,7 @@ if ($busca !== '') {
 </div>
 <main class="container">
     <div class="page-title">
-        <div><h1><i class="fas fa-file-signature"></i> Documentos LGPD</h1><p class="subtitle">Termos aceitos e assinados durante o cadastro no sistema.</p></div>
+        <div><h1><i class="fas fa-file-signature"></i> Documentos e aceites LGPD</h1><p class="subtitle">Termos de cadastro e provas de confirmação da exclusão definitiva.</p></div>
         <a href="dashboard.php" class="btn btn-gray"><i class="fas fa-arrow-left"></i> Voltar</a>
     </div>
     <?php if ($mensagem): ?><div class="notice <?= $mensagemTipo ?>"><?= htmlspecialchars($mensagem) ?></div><?php endif; ?>
@@ -128,11 +138,12 @@ if ($busca !== '') {
         <?php if ($busca !== ''): ?><a class="btn btn-gray" href="documento_de_registro_no_sistema.php">Limpar</a><?php endif; ?>
     </form>
     <?php if ($result && $result->num_rows): ?>
-    <div class="table-wrap"><table><thead><tr><th>Usuário</th><th>E-mail</th><th>Data do aceite</th><th>IP de origem</th><th style="text-align:right">Ações</th></tr></thead><tbody>
+    <div class="table-wrap"><table><thead><tr><th>Usuário</th><th>E-mail</th><th>Documento</th><th>Data do aceite</th><th>IP de origem</th><th style="text-align:right">Ações</th></tr></thead><tbody>
     <?php while ($row = $result->fetch_assoc()): ?>
         <tr>
             <td data-label="Usuário"><strong><?= htmlspecialchars($row['nome']) ?></strong></td>
             <td data-label="E-mail"><?= htmlspecialchars($row['email']) ?></td>
+            <td data-label="Documento"><?php $prefs = json_decode((string)($row['preferencias_json'] ?? ''), true) ?: []; ?><strong>Versão <?= htmlspecialchars($row['versao_documento'] ?: 'legada') ?></strong><br><small>Termos: <?= !empty($prefs['termos_uso']) ? 'confirmado' : 'legado' ?> · Privacidade: <?= !empty($prefs['aviso_privacidade']) ? 'confirmado' : 'legado' ?> · Ofertas: <?= !empty($prefs['comunicacoes_promocionais']) ? 'aceitas' : 'não aceitas' ?></small></td>
             <td data-label="Data"><?= $row['data_aceite'] ? date('d/m/Y H:i', strtotime($row['data_aceite'])) : '-' ?></td>
             <td data-label="IP"><?= htmlspecialchars($row['ip_usuario'] ?? '-') ?></td>
             <td data-label="Ações"><div class="actions">
@@ -143,5 +154,23 @@ if ($busca !== '') {
     <?php endwhile; ?>
     </tbody></table></div>
     <?php else: ?><div class="empty"><i class="fas fa-file-circle-xmark"></i>Nenhum documento encontrado.</div><?php endif; ?>
+
+    <div class="page-title" style="margin-top:34px;">
+        <div><h1 style="font-size:1.35rem;color:#ff7b89"><i class="fas fa-user-slash"></i> Aceites de exclusão de conta</h1><p class="subtitle">Provas mantidas por cinco anos após a confirmação e removidas automaticamente ao fim do prazo.</p></div>
+    </div>
+    <?php if ($resultAceites && $resultAceites->num_rows): ?>
+    <div class="table-wrap"><table><thead><tr><th>Protocolo</th><th>Usuário removido</th><th>Data do aceite</th><th>IP</th><th>Excluir prova após</th><th>Termo confirmado</th></tr></thead><tbody>
+    <?php while ($aceite = $resultAceites->fetch_assoc()): ?>
+        <tr>
+            <td data-label="Protocolo"><strong><?= htmlspecialchars($aceite['protocolo']) ?></strong><br><small>Versão <?= htmlspecialchars($aceite['versao_termo']) ?></small></td>
+            <td data-label="Usuário"><strong><?= htmlspecialchars($aceite['nome_snapshot']) ?></strong><br><small><?= htmlspecialchars($aceite['email_snapshot']) ?></small></td>
+            <td data-label="Aceite"><?= date('d/m/Y H:i:s', strtotime($aceite['data_aceite'])) ?></td>
+            <td data-label="IP"><?= htmlspecialchars($aceite['ip_usuario'] ?: '-') ?></td>
+            <td data-label="Retenção"><?= date('d/m/Y H:i:s', strtotime($aceite['excluir_apos'])) ?></td>
+            <td data-label="Termo"><details><summary style="cursor:pointer;color:#00bfff;font-weight:700">Visualizar texto</summary><p style="max-width:520px;line-height:1.5;color:#ccc"><?= htmlspecialchars($aceite['texto_aceito']) ?></p><small>Hash: <?= htmlspecialchars($aceite['texto_hash']) ?></small></details></td>
+        </tr>
+    <?php endwhile; ?>
+    </tbody></table></div>
+    <?php else: ?><div class="empty"><i class="fas fa-user-check"></i>Nenhum aceite de exclusão registrado.</div><?php endif; ?>
 </main>
 </body></html>

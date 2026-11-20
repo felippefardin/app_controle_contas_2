@@ -13,6 +13,7 @@ $mensagem = '';
 $classeMsg = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    require_csrf();
     $senhaAtual = trim($_POST['senha_atual']);
     $novaSenha = trim($_POST['nova_senha']);
     $confirmar = trim($_POST['confirmar_senha']);
@@ -58,6 +59,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<link rel="stylesheet" href="../../assets/css/universal-theme.css?v=20260813-admin">
+<script src="../../assets/js/global-theme.js?v=20260813-admin"></script>
+    <?php require __DIR__ . '/../../includes/csrf_client.php'; ?>
     <meta charset="UTF-8">
     <title>Redefinir Senha - Super Admin</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">

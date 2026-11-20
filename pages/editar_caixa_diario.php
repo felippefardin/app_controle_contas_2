@@ -3,6 +3,12 @@
 require_once '../includes/session_init.php';
 require_once '../database.php';
 
+if (empty($_SESSION['usuario_logado'])) {
+    header('Location: login.php');
+    exit;
+}
+$id_usuario = get_data_owner_id();
+
 // CORREÇÃO: Inicializa a conexão com o banco do tenant
 $conn = getTenantConnection();
 
@@ -28,8 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // É boa prática validar se os dados não estão vazios
     if(!empty($data) && is_numeric($valor)) {
-        $stmt = $conn->prepare("UPDATE caixa_diario SET data = ?, valor = ? WHERE id = ?");
-        $stmt->bind_param("sdi", $data, $valor, $id);
+        $stmt = $conn->prepare("UPDATE caixa_diario SET valor = ? WHERE id = ? AND usuario_id = ? AND tipo IN ('manual_entrada','manual_saida') AND data = CURDATE()");
+        $stmt->bind_param("dii", $valor, $id, $id_usuario);
 
         if ($stmt->execute()) {
             $mensagem_sucesso = "Lançamento editado com sucesso!";
@@ -43,8 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // 4. Busca os dados atuais do lançamento
-$stmt = $conn->prepare("SELECT * FROM caixa_diario WHERE id = ?");
-$stmt->bind_param("i", $id);
+$stmt = $conn->prepare("SELECT * FROM caixa_diario WHERE id = ? AND usuario_id = ? AND tipo IN ('manual_entrada','manual_saida') AND data = CURDATE()");
+$stmt->bind_param("ii", $id, $id_usuario);
 $stmt->execute();
 $result = $stmt->get_result();
 $lancamento = $result->fetch_assoc();

@@ -3,6 +3,7 @@ require_once '../includes/session_init.php';
 require_once '../includes/check_plan.php';
 require_once '../database.php';
 require_once '../includes/utils.php'; // Importa utils para o Flash Message e CSS
+require_once '../includes/caixa_service.php';
 
 // ----------------------------
 // 1. VERIFICA SE USUÃRIO ESTÃ LOGADO
@@ -22,6 +23,8 @@ if ($conn === null) {
 // ----------------------------
 $id_usuario = get_data_owner_id();
 $perfil     = $_SESSION['nivel_acesso'];
+$sessao_caixa = caixa_buscar_sessao($conn, $id_usuario, date('Y-m-d'));
+$caixa_aberto = $sessao_caixa && $sessao_caixa['status'] === 'aberto';
 
 // ----------------------------
 // 3. BLOCO AJAX PARA BUSCAS
@@ -29,6 +32,35 @@ $perfil     = $_SESSION['nivel_acesso'];
 if (isset($_GET['action'])) {
     $term = "%" . ($_GET['term'] ?? '') . "%";
     $response = [];
+
+    if ($_GET['action'] === 'search_barcode') {
+        $codigo = trim((string)($_GET['codigo'] ?? ''));
+        header('Content-Type: application/json; charset=UTF-8');
+        if ($codigo === '') {
+            echo json_encode(['found' => false, 'message' => 'Informe ou leia um codigo de barras.']);
+            exit;
+        }
+        $stmt = $conn->prepare("SELECT id, codigo, nome, preco_venda, quantidade_estoque
+                                FROM produtos
+                                WHERE codigo = ? AND id_usuario = ? AND deleted_at IS NULL
+                                LIMIT 1");
+        $stmt->bind_param('si', $codigo, $id_usuario);
+        $stmt->execute();
+        $produto = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$produto) {
+            echo json_encode(['found' => false, 'message' => 'Codigo nao cadastrado para esta empresa.']);
+            exit;
+        }
+        echo json_encode(['found' => true, 'product' => [
+            'id' => (int)$produto['id'],
+            'codigo' => $produto['codigo'],
+            'text' => $produto['nome'] . ' (Estoque: ' . $produto['quantidade_estoque'] . ')',
+            'preco_venda' => (float)$produto['preco_venda'],
+            'estoque' => (int)$produto['quantidade_estoque']
+        ]]);
+        exit;
+    }
 
     if ($_GET['action'] === 'search_clientes') {
         $sql = "SELECT id, nome 
@@ -44,17 +76,17 @@ if (isset($_GET['action'])) {
     }
 
     if ($_GET['action'] === 'search_produtos') {
-        $sql = "SELECT id, nome, preco_venda, quantidade_estoque 
+        $sql = "SELECT id, codigo, nome, preco_venda, quantidade_estoque 
                 FROM produtos 
-                WHERE nome LIKE ? AND id_usuario = ?";
+                WHERE (nome LIKE ? OR codigo LIKE ?) AND id_usuario = ? AND deleted_at IS NULL";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("si", $term, $id_usuario);
+        $stmt->bind_param("ssi", $term, $term, $id_usuario);
         $stmt->execute();
         $result = $stmt->get_result();
         while ($row = $result->fetch_assoc()) {
             $response[] = [
                 'id'          => $row['id'],
-                'text'        => $row['nome'] . " (Estoque: " . $row['quantidade_estoque'] . ")",
+                'text'        => ($row['codigo'] ? $row['codigo'] . ' - ' : '') . $row['nome'] . " (Estoque: " . $row['quantidade_estoque'] . ")",
                 'preco_venda' => $row['preco_venda'],
                 'estoque'     => $row['quantidade_estoque']
             ];
@@ -406,6 +438,40 @@ label {
     transition: width 0.6s ease;
 }
 
+/* Meta de vendas no modo claro */
+html[data-app-theme="light"] body.light-mode .meta-widget {
+    background-color: #f8fafc !important;
+    color: #172033 !important;
+    border-color: #d9e1eb !important;
+    box-shadow: 0 6px 18px rgba(20, 41, 70, 0.08);
+}
+
+html[data-app-theme="light"] body.light-mode .meta-header-titulo,
+html[data-app-theme="light"] body.light-mode .meta-header-editar {
+    color: #075dd8 !important;
+}
+
+html[data-app-theme="light"] body.light-mode .meta-header-editar:hover {
+    color: #003f9b !important;
+}
+
+html[data-app-theme="light"] body.light-mode .meta-header-valores {
+    color: #172033 !important;
+}
+
+html[data-app-theme="light"] body.light-mode .meta-status {
+    color: #5d6878 !important;
+}
+
+html[data-app-theme="light"] body.light-mode .meta-status.atingida {
+    color: #15803d !important;
+}
+
+html[data-app-theme="light"] body.light-mode .meta-widget .progress {
+    background-color: #e7edf5 !important;
+    border-color: #cbd5e1 !important;
+}
+
 /* =========================================
    MEDIA QUERIES (RESPONSIVIDADE)
 ========================================= */
@@ -489,7 +555,27 @@ label {
 
     <div id="alert-container"></div>
 
-    <form id="form-venda">
+    <?php if ($caixa_aberto): ?>
+        <div class="alert alert-success d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-lock-open"></i> Caixa aberto hoje com saldo inicial de
+                <strong>R$ <?= number_format((float)$sessao_caixa['valor_abertura'], 2, ',', '.') ?></strong>.
+            </span>
+            <a class="btn btn-sm btn-outline-light" href="lancamento_caixa.php">Ver movimentações</a>
+        </div>
+    <?php elseif ($sessao_caixa && $sessao_caixa['status'] === 'fechado'): ?>
+        <div class="alert alert-secondary">
+            <i class="fas fa-lock"></i> O caixa de hoje já foi fechado. Um novo caixa poderá ser aberto amanhã.
+        </div>
+    <?php else: ?>
+        <div class="alert alert-warning d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-exclamation-triangle"></i> Abra o caixa para começar as vendas de hoje.</span>
+            <button type="button" class="btn btn-success" data-toggle="modal" data-target="#modalAbrirCaixa">
+                <i class="fas fa-lock-open"></i> Abrir caixa
+            </button>
+        </div>
+    <?php endif; ?>
+
+    <form id="form-venda"<?= $caixa_aberto ? '' : ' style="opacity:.45;pointer-events:none"' ?>>
 
         <div class="form-group">
             <label for="cliente_id">Cliente</label>
@@ -506,6 +592,20 @@ label {
         <div class="card bg-dark text-white mb-4">
             <div class="card-header"><h2>Adicionar Produtos</h2></div>
             <div class="card-body">
+                <div class="form-group">
+                    <label for="barcode_input"><i class="fas fa-barcode"></i> Código de barras / SKU (opcional)</label>
+                    <div class="input-group">
+                        <input type="text" id="barcode_input" class="form-control"
+                               placeholder="Leia com o aparelho ou digite o código e pressione Enter"
+                               autocomplete="off">
+                        <div class="input-group-append">
+                            <button type="button" id="buscar-barcode" class="btn btn-info" title="Buscar código">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <small class="form-text text-muted">Leitores USB e Bluetooth funcionam automaticamente neste campo.</small>
+                </div>
                 <div class="form-row align-items-end">
                     <div class="form-group col-md-8">
                         <label for="produto_select">Produto</label>
@@ -567,6 +667,35 @@ label {
         </div>
 
     </form>
+
+    <div class="modal fade" id="modalAbrirCaixa" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content bg-dark text-light">
+                <form method="post" action="../actions/abrir_caixa.php">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="fas fa-cash-register"></i> Abrir caixa de hoje</h5>
+                        <button type="button" class="close text-light" data-dismiss="modal"><span>&times;</span></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                        <div class="form-group">
+                            <label>Dinheiro inicial em caixa (opcional)</label>
+                            <input type="text" name="valor_abertura" class="form-control" value="0,00" inputmode="decimal">
+                            <small class="text-muted">Pode abrir com zero. Se houver troco ou fundo de caixa, informe o valor.</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Observação (opcional)</label>
+                            <input type="text" name="observacao" class="form-control" maxlength="255" placeholder="Ex.: fundo de troco">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-success">Confirmar abertura</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 
 <?php if ($perfil === 'admin' || $perfil === 'proprietario'): ?>
@@ -877,7 +1006,7 @@ $(document).ready(function() {
        SELECT2 PRODUTOS
        ================================== */
     $('#produto_select').select2({
-        placeholder: 'Pesquisar produto pelo nome...',
+        placeholder: 'Pesquisar produto pelo nome ou codigo...',
         ajax: {
             url: 'vendas.php?action=search_produtos',
             dataType: 'json',
@@ -924,6 +1053,65 @@ $(document).ready(function() {
     /* ================================
        ALTERAÇÃO DE QUANTIDADE
        ================================== */
+    function buscarCodigoDeBarras() {
+        const campo = $('#barcode_input');
+        const codigo = campo.val().trim();
+        if (!codigo) return;
+        $.getJSON('vendas.php', { action: 'search_barcode', codigo: codigo })
+            .done(function(data) {
+                if (!data.found) {
+                    showAlert(data.message || 'Produto nao encontrado.', 'warning');
+                    campo.select().focus();
+                    return;
+                }
+                const produto = data.product;
+                const produtoId = produto.id;
+                const produtoNome = produto.text.split(' (Estoque:')[0];
+                const precoVenda = parseFloat(produto.preco_venda || 0).toFixed(2);
+                const estoque = parseInt(produto.estoque);
+                const existente = $(`#venda-items tr[data-id="${produtoId}"]`);
+                if (estoque <= 0) {
+                    showAlert('Este produto esta sem estoque.', 'danger');
+                    campo.val('').focus();
+                    return;
+                }
+                if (existente.length > 0) {
+                    const quantidade = existente.find('.quantidade');
+                    const atual = parseInt(quantidade.val() || 0);
+                    if (atual >= estoque) {
+                        showAlert('Quantidade maxima disponivel em estoque atingida.', 'warning');
+                    } else {
+                        quantidade.val(atual + 1).trigger('input');
+                    }
+                    campo.val('').focus();
+                    return;
+                }
+                const row = `
+                    <tr data-id="${produtoId}" data-preco="${precoVenda}">
+                        <td>${produtoNome}</td>
+                        <td><input type="number" class="form-control quantidade" value="1" min="1" max="${estoque}"></td>
+                        <td class="preco-unitario">R$ ${precoVenda}</td>
+                        <td class="subtotal">R$ ${precoVenda}</td>
+                        <td><button type="button" class="btn btn-danger btn-sm remover-item"><i class="fas fa-trash"></i></button></td>
+                    </tr>`;
+                $('#venda-items').append(row);
+                atualizarTotal();
+                campo.val('').focus();
+            })
+            .fail(function() {
+                showAlert('Nao foi possivel consultar o codigo.', 'danger');
+                campo.focus();
+            });
+    }
+
+    $('#barcode_input').on('keydown', function(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            buscarCodigoDeBarras();
+        }
+    });
+    $('#buscar-barcode').on('click', buscarCodigoDeBarras);
+
     $('#venda-items').on('input', '.quantidade', function() {
 
         const tr = $(this).closest('tr');

@@ -1,99 +1,42 @@
 <?php
-// cron/processar_cancelamentos.php
-// Deve ser executado diariamente via CRON JOB do servidor (ex: 00:01)
+declare(strict_types=1);
+if (PHP_SAPI !== 'cli') { http_response_code(403); exit("Somente CLI.\n"); }
 
-require_once __DIR__ . '/../includes/config/config.php';
+define('APP_SKIP_SESSION', true);
 require_once __DIR__ . '/../database.php';
+require_once __DIR__ . '/../includes/account_lifecycle.php';
 require_once __DIR__ . '/../actions/enviar_email.php';
 
-$conn = getMasterConnection();
-$hoje = date('Y-m-d');
-
-// Busca TENANTS com assinatura vencida E com cancelamento agendado
-// Nota: Assumindo que 'data_renovacao' é a data limite
-$sql = "SELECT * FROM tenants 
-        WHERE data_renovacao < ? 
-        AND tipo_cancelamento IS NOT NULL 
-        AND status_assinatura != 'suspenso'";
-
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("s", $hoje);
-$stmt->execute();
-$result = $stmt->get_result();
-
+$db = getMasterConnection();
+$result = $db->query("SELECT * FROM tenants WHERE status_assinatura IN ('desativado_temporario','exclusao_em_processamento') AND exclusao_programada_em IS NOT NULL AND exclusao_programada_em<=NOW() ORDER BY id");
+$deleted = 0; $failed = 0;
 while ($tenant = $result->fetch_assoc()) {
-    
-    $tenant_id = $tenant['tenant_id'];
-    $admin_email = $tenant['admin_email'];
-    $nome_empresa = $tenant['nome_empresa'];
-
-    if ($tenant['tipo_cancelamento'] == 'desativar') {
-        // ==========================================
-        // OPÇÃO 1: APENAS SUSPENDER (Mantém dados)
-        // ==========================================
-        
-        // Atualiza Tenant
-        $upd = $conn->prepare("UPDATE tenants SET status_assinatura = 'suspenso', tipo_cancelamento = NULL WHERE id = ?");
-        $upd->bind_param("i", $tenant['id']);
-        $upd->execute();
-        $upd->close();
-
-        // Atualiza Usuários vinculados para inativo/suspenso (opcional, dependendo da sua lógica de login)
-        $updUser = $conn->prepare("UPDATE usuarios SET status = 'suspenso' WHERE tenant_id = ?");
-        $updUser->bind_param("s", $tenant_id);
-        $updUser->execute();
-        $updUser->close();
-
-        $assunto = "Conta Suspensa - Período Encerrado";
-        $msg = "Olá,<br>O período de vigência da conta <strong>$nome_empresa</strong> encerrou. O acesso foi suspenso conforme solicitado. Seus dados estão salvos.";
-        enviarEmail($admin_email, $nome_empresa, $assunto, $msg);
-
-    } elseif ($tenant['tipo_cancelamento'] == 'excluir') {
-        // ==========================================
-        // OPÇÃO 2: EXCLUSÃO TOTAL (Banco + Registros)
-        // ==========================================
-        
-        $db_name = $tenant['db_database'];
-        $db_user = $tenant['db_user'];
-
-        // 1. Dropar o Banco de Dados do Tenant
-        if (!empty($db_name)) {
-            // Conecta como root ou usuário com permissão de DROP
-            $db_host_master = $_ENV['DB_HOST'] ?? 'localhost';
-            $db_user_master = $_ENV['DB_USER'] ?? 'root';
-            $db_pass_master = $_ENV['DB_PASSWORD'] ?? '';
-
-            $connDrop = new mysqli($db_host_master, $db_user_master, $db_pass_master);
-            
-            if (!$connDrop->connect_error) {
-                $connDrop->query("DROP DATABASE IF EXISTS `$db_name`");
-                // Tenta remover usuário do MySQL se existir lógica para isso
-                try {
-                    $connDrop->query("DROP USER IF EXISTS '$db_user'@'localhost'");
-                } catch (Exception $e) { /* ignora */ }
-                $connDrop->close();
-            }
+    $tenantId = (string)$tenant['tenant_id'];
+    try {
+        if ((string)$tenant['status_assinatura'] === 'desativado_temporario') {
+            $claim = $db->prepare("UPDATE tenants SET status_assinatura='exclusao_em_processamento' WHERE id=? AND status_assinatura='desativado_temporario' AND exclusao_programada_em<=NOW()");
+            $tenantPk = (int)$tenant['id'];
+            $claim->bind_param('i', $tenantPk); $claim->execute();
+            $claimed = $claim->affected_rows === 1; $claim->close();
+            if (!$claimed) continue;
         }
-
-        // 2. Apagar usuários vinculados na tabela master
-        $delUsers = $conn->prepare("DELETE FROM usuarios WHERE tenant_id = ?");
-        $delUsers->bind_param("s", $tenant_id);
-        $delUsers->execute();
-        $delUsers->close();
-
-        // 3. Apagar o Tenant
-        $delTenant = $conn->prepare("DELETE FROM tenants WHERE id = ?");
-        $delTenant->bind_param("i", $tenant['id']);
-        
-        if ($delTenant->execute()) {
-            $assunto = "Conta Encerrada e Excluída";
-            $msg = "A conta <strong>$nome_empresa</strong> e todos os seus dados foram excluídos permanentemente conforme agendamento.";
-            enviarEmail($admin_email, $nome_empresa, $assunto, $msg);
-        }
-        $delTenant->close();
+        account_delete_tenant_database($tenant);
+        $db->begin_transaction();
+        $users = $db->prepare('DELETE FROM usuarios WHERE tenant_id=?');
+        $users->bind_param('s',$tenantId); $users->execute(); $users->close();
+        $tenantDelete = $db->prepare("DELETE FROM tenants WHERE id=? AND status_assinatura='exclusao_em_processamento' AND exclusao_programada_em<=NOW()");
+        $tenantPk=(int)$tenant['id']; $tenantDelete->bind_param('i',$tenantPk); $tenantDelete->execute();
+        if($tenantDelete->affected_rows!==1) throw new RuntimeException('Tenant mudou de estado durante a exclusão.');
+        $tenantDelete->close(); $db->commit(); $deleted++;
+        $name=(string)($tenant['nome'] ?: $tenant['nome_empresa'] ?: 'Cliente');
+        enviarEmail((string)$tenant['admin_email'],$name,'Conta excluída após o período de preservação','Sua conta permaneceu desativada por um ano sem solicitação de reativação. Conforme informado, a conta e os dados preservados foram excluídos permanentemente.');
+        echo "[EXCLUÍDA] {$tenantId}\n";
+    } catch(Throwable $e) {
+        try{$db->rollback();}catch(Throwable){}
+        $failed++; error_log("Falha ao excluir tenant expirado {$tenantId}: ".$e->getMessage());
+        fwrite(STDERR,"[ERRO] {$tenantId}: {$e->getMessage()}\n");
     }
 }
-
-$stmt->close();
-$conn->close();
-?>
+$db->close();
+echo "Resultado: {$deleted} excluída(s), {$failed} falha(s).\n";
+exit($failed ? 1 : 0);
