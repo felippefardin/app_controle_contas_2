@@ -409,6 +409,32 @@ select.form-control {
                 </div>
             </div>
 
+            <div class="card">
+                <div class="card-header"><i class="fa-solid fa-print"></i> Impressão do DANFE NFC-e</div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        A NFC-e utiliza impressora comum, não fiscal. Ao imprimir, selecione no navegador a impressora térmica instalada neste computador.
+                    </div>
+                    <div class="row">
+                        <div class="col-half">
+                            <label for="impressora-largura">Largura do papel</label>
+                            <select class="form-control" id="impressora-largura" name="impressora_largura">
+                                <option value="58" <?= (int)($dadosEmpresa['impressora_largura']??80)===58?'selected':'' ?>>58 mm</option>
+                                <option value="80" <?= (int)($dadosEmpresa['impressora_largura']??80)===80?'selected':'' ?>>80 mm</option>
+                            </select>
+                        </div>
+                        <div class="col-half">
+                            <label for="impressao-automatica">Comportamento após autorização</label>
+                            <label style="display:flex;align-items:center;gap:10px;margin-top:12px">
+                                <input type="checkbox" id="impressao-automatica" name="impressao_automatica" value="1" <?= ($dadosEmpresa['impressao_automatica']??'0')==='1'?'checked':'' ?>>
+                                Abrir automaticamente a janela de impressão do DANFE
+                            </label>
+                        </div>
+                    </div>
+                    <small>O papel deve ter pelo menos 58 mm e o QR Code precisa permanecer legível. Impressoras ECF não devem ser usadas para imprimir DANFE NFC-e.</small>
+                </div>
+            </div>
+
         </div>
 
         <div class="btn-container">

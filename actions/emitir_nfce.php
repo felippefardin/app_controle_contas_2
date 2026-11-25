@@ -42,16 +42,17 @@ if (!$id_venda) {
 
 try {
     log_nfce("🔹 Iniciando emissão para venda #{$id_venda}");
+    $emissaoSefaz = isset($_POST['emitir_nfce_sefaz']) || isset($_POST['enviar_nfce_homologacao']);
     $homologacaoPiloto = isset($_POST['enviar_nfce_homologacao']);
     $somenteValidacao = isset($_POST['validar_nfce_local']);
-    if ($homologacaoPiloto) {
+    if ($emissaoSefaz) {
         if (empty($_SESSION['tenant_id']) || !is_tenant_admin()) {
             http_response_code(403);
-            echo json_encode(['message' => 'Envio em homologação indisponível para esta conta.']);
+            echo json_encode(['success' => false, 'message' => 'A emissão de NFC-e está disponível apenas para administradores da empresa.']);
             exit;
         }
     }
-    if ($somenteValidacao || $homologacaoPiloto) {
+    if ($somenteValidacao || $emissaoSefaz) {
         $token = $_SESSION['token_validacao_nfce'] ?? '';
         $enviado = $_POST['token_validacao_nfce'] ?? '';
         if ($token === '' || !is_string($enviado) || !hash_equals($token, $enviado)) {
@@ -60,7 +61,7 @@ try {
             exit;
         }
     }
-    $validacaoLocal = !$homologacaoPiloto && ($somenteValidacao || is_file('/etc/appcontrolepro-nfce-validacao-local'));
+    $validacaoLocal = !$emissaoSefaz && ($somenteValidacao || is_file('/etc/appcontrolepro-nfce-validacao-local'));
     if ($validacaoLocal) {
         $conn->begin_transaction(MYSQLI_TRANS_START_READ_ONLY);
     } else {
@@ -71,7 +72,7 @@ try {
     
     // A. Busca dados cadastrais (CNPJ, Endereço) da tabela 'empresa_config'
     // Assumimos que existe apenas 1 configuração por Tenant (LIMIT 1)
-    $stmtConfig = $conn->query("SELECT * FROM empresa_config LIMIT 1" . ($homologacaoPiloto ? " FOR UPDATE" : ""));
+    $stmtConfig = $conn->query("SELECT * FROM empresa_config LIMIT 1" . ($emissaoSefaz ? " FOR UPDATE" : ""));
     $empresaConfig = $stmtConfig->fetch_assoc();
 
     if (!$empresaConfig && !$validacaoLocal) {
@@ -105,8 +106,9 @@ try {
         $empresaConfig['csc_id'] = '000001';
     }
     $tpAmb = $empresaConfig['ambiente'];
-    if ($homologacaoPiloto && ($tpAmb !== 2 || empty($empresaConfig['csc']) || empty($empresaConfig['csc_id']))) {
-        throw new RuntimeException('Selecione Homologação e configure o CSC e seu ID antes de enviar.');
+    $homologacaoPiloto = $emissaoSefaz && $tpAmb === 2;
+    if ($emissaoSefaz && (empty($empresaConfig['csc']) || empty($empresaConfig['csc_id']))) {
+        throw new RuntimeException('Configure o CSC e o ID CSC do ambiente selecionado antes de emitir.');
     }
     if ($tpAmb === 1 && !filter_var($_ENV['FISCAL_ALLOW_PRODUCTION'] ?? false, FILTER_VALIDATE_BOOL)) throw new Exception('Produção bloqueada até a homologação ser validada.');
 
@@ -118,16 +120,16 @@ try {
     log_nfce("🔢 Número NF reservado: {$novo_numero_nf}");
 
     // 5ï¸âƒ£ Configuração do NFePHP
-    if ($homologacaoPiloto) {
-        $jaEnviada = $conn->prepare("SELECT id FROM notas_fiscais WHERE id_venda = ? AND ambiente = 2 AND numero IS NOT NULL LIMIT 1");
-        $jaEnviada->bind_param('i', $id_venda);
+    if ($emissaoSefaz) {
+        $jaEnviada = $conn->prepare("SELECT id FROM notas_fiscais WHERE id_venda = ? AND ambiente = ? AND status IN ('em_envio', 'autorizada') LIMIT 1");
+        $jaEnviada->bind_param('ii', $id_venda, $tpAmb);
         $jaEnviada->execute();
         if ($jaEnviada->get_result()->fetch_row()) {
-            throw new RuntimeException('Esta venda já possui uma tentativa em homologação. Consulte o resultado antes de reenviar.');
+            throw new RuntimeException('Esta venda já possui uma NFC-e enviada neste ambiente. Consulte o resultado antes de tentar novamente.');
         }
         $seriePiloto = (int) ($empresaConfig['serie_nfce'] ?? 1);
-        $numero = $conn->prepare('SELECT COALESCE(MAX(numero), 0) + 1 FROM notas_fiscais WHERE ambiente = 2 AND serie = ?');
-        $numero->bind_param('i', $seriePiloto);
+        $numero = $conn->prepare('SELECT COALESCE(MAX(numero), 0) + 1 FROM notas_fiscais WHERE ambiente = ? AND serie = ?');
+        $numero->bind_param('ii', $tpAmb, $seriePiloto);
         $numero->execute();
         $novo_numero_nf = (int) $numero->get_result()->fetch_row()[0];
     }
@@ -287,13 +289,13 @@ try {
 
     log_nfce("ðŸ” XML assinado com sucesso.");
 
-    if ($homologacaoPiloto) {
+    if ($emissaoSefaz) {
         if (!preg_match('/Id="NFe([0-9]{44})"/', $xmlAssinado, $matches)) {
             throw new RuntimeException('Não foi possível identificar a chave do XML assinado.');
         }
         $chavePiloto = $matches[1];
-        $reserva = $conn->prepare("INSERT INTO notas_fiscais (id_venda, numero, serie, modelo, ambiente, status, chave_acesso) VALUES (?, ?, ?, 65, 2, 'em_envio', ?)");
-        $reserva->bind_param('iiis', $id_venda, $novo_numero_nf, $seriePiloto, $chavePiloto);
+        $reserva = $conn->prepare("INSERT INTO notas_fiscais (id_venda, numero, serie, modelo, ambiente, status, chave_acesso) VALUES (?, ?, ?, 65, ?, 'em_envio', ?)");
+        $reserva->bind_param('iiiis', $id_venda, $novo_numero_nf, $seriePiloto, $tpAmb, $chavePiloto);
         $reserva->execute();
         $idTentativa = $conn->insert_id;
         $conn->commit();
@@ -317,7 +319,7 @@ try {
 
         // Grava no banco
         $serie=(int)($empresaConfig['serie_nfce']??1);
-        if ($homologacaoPiloto) {
+        if ($emissaoSefaz) {
             if ($chave !== $chavePiloto) throw new RuntimeException('A chave retornada difere da chave enviada.');
             $stmtNota = $conn->prepare("UPDATE notas_fiscais SET status='autorizada', protocolo=?, xml_path=?, data_emissao=NOW() WHERE id=?");
             $stmtNota->bind_param('ssi', $prot, $xmlPath, $idTentativa);
@@ -328,11 +330,12 @@ try {
         $stmtNota->execute();
 
         $conn->commit();
-        echo json_encode(['success' => true, 'message' => $homologacaoPiloto ? 'NFC-e autorizada em homologação. Chave: ' . $chave : 'Nota emitida!', 'chave' => $chave]);
+        $nomeAmbiente = $tpAmb === 1 ? 'produção' : 'homologação';
+        echo json_encode(['success' => true, 'message' => 'NFC-e autorizada pela SEFAZ em ' . $nomeAmbiente . '. Chave: ' . $chave, 'chave' => $chave, 'ambiente' => $tpAmb]);
     } else {
         // Erro na SEFAZ
         $motivo = $stdCl->protNFe->infProt->xMotivo ?? $stdCl->xMotivo ?? 'Erro desconhecido';
-        if ($homologacaoPiloto && isset($idTentativa)) {
+        if ($emissaoSefaz && isset($idTentativa)) {
             $retorno = $conn->prepare("UPDATE notas_fiscais SET mensagem_erro=? WHERE id=?");
             $retorno->bind_param('si', $motivo, $idTentativa);
             $retorno->execute();

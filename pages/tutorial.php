@@ -191,11 +191,15 @@ body.light-mode .note :is(p,li,strong,b) { color:#fff !important; }
                 </div>
             </section>
 
-            <section id="estoque-compras" class="guide-section" data-keywords="estoque produto sku ncm cfop compra fornecedor">
-                <div class="section-title"><div class="icon"><i class="fas fa-boxes-stacked"></i></div><div><h2>Produtos, estoque e compras</h2><p>Controle entradas, saídas, custos e níveis mínimos.</p></div></div>
+            <section id="estoque-compras" class="guide-section" data-keywords="estoque produto sku ncm cfop compra fornecedor nfe nota fiscal chave acesso código barras leitor xml sefaz importar">
+                <div class="section-title"><div class="icon"><i class="fas fa-boxes-stacked"></i></div><div><h2>Produtos, estoque e compras</h2><p>Registre manualmente ou importe uma NF-e para seguir com estoque e financeiro.</p></div></div>
                 <div class="guide-grid">
                     <article class="guide-card"><h3>Cadastrar produto</h3><ul><li>Use código ou SKU único.</li><li>Informe preço de compra e venda.</li><li>Defina estoque atual e mínimo.</li><li>Para emissão fiscal, revise NCM e CFOP.</li></ul><a class="guide-link" href="controle_estoque.php">Produtos e estoque</a></article>
-                    <article class="guide-card"><h3>Registrar compra</h3><ol><li>Selecione o fornecedor.</li><li>Adicione produtos, quantidades e custos.</li><li>Confira e confirme.</li></ol><p>A compra aumenta o estoque e pode gerar uma conta a pagar.</p><a class="guide-link" href="compras.php">Registrar compra</a></article>
+                    <article class="guide-card"><h3>Registrar manualmente</h3><ol><li>Selecione o fornecedor.</li><li>Adicione produtos, quantidades e custos.</li><li>Informe o número do documento, vencimento e condição de pagamento.</li><li>Confira e finalize.</li></ol><p>A compra aumenta o estoque e pode gerar uma ou mais contas a pagar.</p></article>
+                    <article class="guide-card"><h3>Importar NF-e pelo leitor</h3><ol><li>Conecte o leitor USB ou Bluetooth.</li><li>Deixe o cursor no campo “Chave de acesso da NF-e”.</li><li>Leia o código de barras ou digite os 44 números.</li><li>Clique em “Baixar dados”; ao completar 44 dígitos, a consulta também pode iniciar automaticamente.</li></ol><div class="note ok">A importação é opcional. O cadastro manual continua disponível.</div></article>
+                    <article class="guide-card"><h3>O que é preenchido</h3><ul><li>Número e série da nota.</li><li>Fornecedor pelo CNPJ.</li><li>Produtos, códigos, NCM e CFOP.</li><li>Quantidades e custos unitários.</li></ul><p>Produtos e fornecedores já existentes são reconhecidos. Os novos são cadastrados somente quando a compra é finalizada.</p></article>
+                    <article class="guide-card"><h3>Requisitos da consulta</h3><p>Cadastre o CNPJ e o certificado digital A1 em Configuração fiscal. A nota precisa ter sido emitida para a empresa e estar disponível na Distribuição DF-e da SEFAZ.</p><div class="note warn">O número curto da nota não identifica sozinho um documento fiscal. Para baixar os dados, use a chave de acesso completa de 44 dígitos.</div></article>
+                    <article class="guide-card"><h3>Conferir e continuar</h3><ol><li>Confira fornecedor, itens, quantidades e valores.</li><li>Remova ou ajuste itens quando necessário.</li><li>Escolha se deseja gerar Contas a Pagar.</li><li>Defina parcela única ou parcelamento.</li><li>Clique em “Finalizar Compra”.</li></ol><p>Somente nessa confirmação o estoque e o financeiro são atualizados.</p><a class="guide-link" href="compras.php">Registrar ou importar compra</a></article>
                 </div>
             </section>
 

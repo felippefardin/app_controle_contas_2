@@ -44,6 +44,7 @@ function numeroParcela(string $numeroDocumento, int $idCompra, int $parcela, int
 
 $idUsuario = get_data_owner_id();
 $idFornecedor = (int)($_POST['id_fornecedor'] ?? 0);
+$fornecedorImportado = is_array($_POST['fornecedor_importado'] ?? null) ? $_POST['fornecedor_importado'] : [];
 $observacao = trim((string)($_POST['observacao'] ?? ''));
 $produtos = $_POST['produtos'] ?? [];
 $gerarConta = (int)($_POST['gerar_conta_pagar'] ?? 0) === 1;
@@ -53,7 +54,7 @@ $primeiroVencimento = trim((string)($_POST['data_vencimento'] ?? ''));
 $tipoPagamento = ($_POST['tipo_pagamento'] ?? 'unica') === 'parcelado' ? 'parcelado' : 'unica';
 $numeroParcelas = $tipoPagamento === 'parcelado' ? (int)($_POST['numero_parcelas'] ?? 0) : 1;
 
-if ($idFornecedor <= 0 || !is_array($produtos) || !$produtos) {
+if (($idFornecedor <= 0 && trim((string)($fornecedorImportado['nome'] ?? '')) === '') || !is_array($produtos) || !$produtos) {
     set_flash_message('danger', 'Selecione um fornecedor e adicione pelo menos um produto.');
     header('Location: ../pages/compras.php');
     exit;
@@ -81,20 +82,37 @@ $itensValidados = [];
 $valorTotal = 0.0;
 foreach ($produtos as $produto) {
     $idProduto = (int)($produto['id'] ?? 0);
-    $quantidade = (int)($produto['quantidade'] ?? 0);
+    $quantidade = (float)($produto['quantidade'] ?? 0);
     $preco = (float)($produto['preco'] ?? 0);
-    if ($idProduto <= 0 || $quantidade <= 0 || $preco <= 0) {
+    $importado = (int)($produto['importado'] ?? 0) === 1;
+    if (($idProduto <= 0 && !$importado) || $quantidade <= 0 || $preco <= 0) {
         set_flash_message('danger', 'Há um produto com quantidade ou custo inválido.');
         header('Location: ../pages/compras.php');
         exit;
     }
-    $itensValidados[] = compact('idProduto', 'quantidade', 'preco');
+    $itensValidados[] = [
+        'idProduto'=>$idProduto, 'quantidade'=>$quantidade, 'preco'=>$preco, 'importado'=>$importado,
+        'codigo'=>mb_substr(trim((string)($produto['codigo']??'')),0,100),
+        'nome'=>mb_substr(trim((string)($produto['nome']??'')),0,255),
+        'ncm'=>mb_substr(preg_replace('/\D/','',(string)($produto['ncm']??'')),0,20),
+        'cfop'=>mb_substr(preg_replace('/\D/','',(string)($produto['cfop']??'')),0,10),
+    ];
     $valorTotal += $quantidade * $preco;
 }
 $valorTotal = round($valorTotal, 2);
 
 $conn->begin_transaction();
 try {
+    if ($idFornecedor <= 0) {
+        $nomeFornecedor = mb_substr(trim((string)($fornecedorImportado['nome'] ?? '')), 0, 255);
+        $cnpjFornecedor = preg_replace('/\D/', '', (string)($fornecedorImportado['cnpj'] ?? ''));
+        if ($nomeFornecedor === '' || !preg_match('/^\d{14}$/D', $cnpjFornecedor)) throw new RuntimeException('Os dados do fornecedor importado são inválidos.');
+        $stmtFornecedorNovo = $conn->prepare("INSERT INTO pessoas_fornecedores (nome, cpf_cnpj, email, contato, endereco, tipo, id_usuario) VALUES (?, ?, '', '', '', 'fornecedor', ?)");
+        $stmtFornecedorNovo->bind_param('ssi', $nomeFornecedor, $cnpjFornecedor, $idUsuario);
+        $stmtFornecedorNovo->execute();
+        $idFornecedor = (int)$conn->insert_id;
+        $stmtFornecedorNovo->close();
+    }
     // Confirma que o fornecedor pertence à empresa atual.
     $stmtFornecedor = $conn->prepare("SELECT id FROM pessoas_fornecedores WHERE id = ? AND id_usuario = ? AND tipo = 'fornecedor'");
     $stmtFornecedor->bind_param('ii', $idFornecedor, $idUsuario);
@@ -139,13 +157,32 @@ try {
     $stmtCompra->close();
 
     foreach ($itensValidados as $item) {
+        if ($item['idProduto'] <= 0 && $item['importado']) {
+            if ($item['nome'] === '') throw new RuntimeException('Um item importado não possui descrição.');
+            if ($item['codigo'] !== '') {
+                $stmtProdutoExistente = $conn->prepare('SELECT id FROM produtos WHERE id_usuario=? AND codigo=? AND deleted_at IS NULL LIMIT 1');
+                $stmtProdutoExistente->bind_param('is', $idUsuario, $item['codigo']);
+                $stmtProdutoExistente->execute();
+                $item['idProduto'] = (int)($stmtProdutoExistente->get_result()->fetch_row()[0] ?? 0);
+                $stmtProdutoExistente->close();
+            }
+            if ($item['idProduto'] <= 0) {
+                $estoqueInicial=0; $estoqueMinimo=0; $precoVenda=0.0;
+                $descricao='Cadastrado automaticamente pela importação de NF-e de compra.';
+                $stmtProdutoNovo=$conn->prepare('INSERT INTO produtos (codigo,nome,descricao,quantidade_estoque,quantidade_minima,preco_compra,preco_venda,ncm,cfop,id_usuario) VALUES (?,?,?,?,?,?,?,?,?,?)');
+                $stmtProdutoNovo->bind_param('sssiiddssi',$item['codigo'],$item['nome'],$descricao,$estoqueInicial,$estoqueMinimo,$item['preco'],$precoVenda,$item['ncm'],$item['cfop'],$idUsuario);
+                $stmtProdutoNovo->execute();
+                $item['idProduto']=(int)$conn->insert_id;
+                $stmtProdutoNovo->close();
+            }
+        }
         $stmtItem = $conn->prepare('INSERT INTO compra_items (id_compra, id_produto, quantidade, preco_unitario) VALUES (?, ?, ?, ?)');
-        $stmtItem->bind_param('iiid', $idCompra, $item['idProduto'], $item['quantidade'], $item['preco']);
+        $stmtItem->bind_param('iidd', $idCompra, $item['idProduto'], $item['quantidade'], $item['preco']);
         $stmtItem->execute();
         $stmtItem->close();
 
         $stmtEstoque = $conn->prepare('UPDATE produtos SET quantidade_estoque = quantidade_estoque + ? WHERE id = ? AND id_usuario = ?');
-        $stmtEstoque->bind_param('iii', $item['quantidade'], $item['idProduto'], $idUsuario);
+        $stmtEstoque->bind_param('dii', $item['quantidade'], $item['idProduto'], $idUsuario);
         $stmtEstoque->execute();
         if ($stmtEstoque->affected_rows !== 1) {
             throw new RuntimeException('Um dos produtos não pertence à empresa atual.');
@@ -154,7 +191,7 @@ try {
 
         $observacaoMovimento = 'Compra #' . $idCompra;
         $stmtMovimento = $conn->prepare("INSERT INTO movimento_estoque (id_produto, id_usuario, id_pessoa_fornecedor, tipo, quantidade, observacao) VALUES (?, ?, ?, 'entrada', ?, ?)");
-        $stmtMovimento->bind_param('iiiis', $item['idProduto'], $idUsuario, $idFornecedor, $item['quantidade'], $observacaoMovimento);
+        $stmtMovimento->bind_param('iiids', $item['idProduto'], $idUsuario, $idFornecedor, $item['quantidade'], $observacaoMovimento);
         $stmtMovimento->execute();
         $stmtMovimento->close();
     }

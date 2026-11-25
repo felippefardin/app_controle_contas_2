@@ -1,3 +1,11 @@
+<?php
+// Algumas páginas legadas ainda podem solicitar o rodapé mais de uma vez.
+// Mantém os atalhos, modais e scripts globais como instância única.
+if (defined('APP_FOOTER_RENDERED')) {
+    return;
+}
+define('APP_FOOTER_RENDERED', true);
+?>
     </main>
 
 <?php
@@ -88,9 +96,10 @@ if (file_exists(__DIR__ . '/../pages/calendario.php')) {
     flex-direction: column;
     gap: 12px;
     z-index: 1002;
+    align-items: center;
 }
 
-.action-buttons a {
+.action-buttons > :is(a, button) {
     background-color: transparent;
     color: rgba(255, 255, 255, 0.35);
     width: 50px;
@@ -108,6 +117,10 @@ if (file_exists(__DIR__ . '/../pages/calendario.php')) {
         color 0.3s ease,
         transform 0.2s ease,
         box-shadow 0.3s ease;
+    box-sizing: border-box;
+    flex: 0 0 50px;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 /* ===============================

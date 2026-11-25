@@ -173,6 +173,11 @@ display_flash_message();
         .table thead th { border-top: none; border-bottom: 2px solid #0af; }
         .table-bordered td, .table-bordered th { border: 1px solid #444; }
         .total-compra { font-size: 1.5rem; font-weight: bold; color: #28a745; }
+        .entrada-nota { border: 1px solid #3d556b; border-radius: 8px; background: #18232d; padding: 18px; margin-bottom: 22px; }
+        .entrada-nota .form-text { color: #c6d3df !important; }
+        .entrada-nota .btn-consultar-nfe { height: calc(1.5em + .75rem + 2px); display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+        .action-buttons { left: 20px !important; bottom: 70px !important; align-items: center !important; gap: 12px !important; }
+        .action-buttons > :is(a, button) { width: 50px !important; height: 50px !important; min-width: 50px !important; min-height: 50px !important; margin: 0 !important; flex: 0 0 50px !important; border-radius: 50% !important; box-sizing: border-box !important; }
         .modal-content { background-color: #222; color: #eee; border: 1px solid #444; }
         .modal-header, .modal-footer { border-color: #444; }
         .close { color: #eee; }
@@ -234,6 +239,10 @@ display_flash_message();
         html[data-app-theme="light"] body.light-mode main .container .total-compra {
             color: #137a3b !important;
         }
+        html[data-app-theme="light"] body.light-mode main .container .entrada-nota {
+            background: #eef7ff !important; border-color: #b9d8f3 !important; color: #172033 !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container .entrada-nota .form-text { color: #425466 !important; }
 
         @media (max-width: 768px) {
             .container { padding: 15px; margin-top: 15px; width: 95%; }
@@ -249,6 +258,22 @@ display_flash_message();
 
     <form action="../actions/registrar_compra.php" method="POST" id="form-compra">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="fornecedor_importado[nome]" id="fornecedor_importado_nome">
+        <input type="hidden" name="fornecedor_importado[cnpj]" id="fornecedor_importado_cnpj">
+        <div class="entrada-nota">
+            <h2 class="h5"><i class="fas fa-barcode"></i> Importar NF-e (opcional)</h2>
+            <div class="form-row align-items-end mb-1">
+                <div class="form-group col-lg-9">
+                    <label for="chave_nfe_compra">Chave de acesso da NF-e</label>
+                    <input type="text" inputmode="numeric" autocomplete="off" class="form-control" id="chave_nfe_compra" maxlength="44" placeholder="Leia o código de barras ou digite os 44 números">
+                </div>
+                <div class="form-group col-lg-3">
+                    <button type="button" id="consultar-nfe" class="btn btn-info btn-block btn-consultar-nfe"><i class="fas fa-cloud-download-alt"></i> Baixar dados</button>
+                </div>
+            </div>
+            <small class="form-text mt-0">Leitores USB/Bluetooth preenchem este campo automaticamente. A importação consulta a SEFAZ com o certificado A1 da empresa.</small>
+            <div id="retorno-nfe" class="alert d-none mb-0" role="status" aria-live="polite"></div>
+        </div>
         <div class="form-group">
             <label for="fornecedor_id">Fornecedor</label>
             <div class="input-group">
@@ -544,6 +569,70 @@ $(document).ready(function() {
             dataType: 'json', delay: 250,
             processResults: data => ({ results: data.results }), cache: true
         }
+    });
+
+    function escapeHtml(valor) {
+        return $('<div>').text(valor == null ? '' : String(valor)).html();
+    }
+
+    function adicionarItemCompra(item, indice) {
+        var chaveLinha = Number(item.id_produto || 0) > 0 ? String(item.id_produto) : 'nfe-' + indice;
+        if ($('#compra-items').find(`tr[data-id="${chaveLinha}"]`).length > 0) return;
+        var qtd = Number(item.quantidade || 0);
+        var preco = Number(item.preco || 0);
+        var precisaCadastro = Number(item.id_produto || 0) <= 0;
+        var badge = precisaCadastro ? ' <span class="badge badge-warning">novo no estoque</span>' : '';
+        var row = `<tr data-id="${escapeHtml(chaveLinha)}">
+            <td class="align-middle">${escapeHtml(item.nome)}${badge}
+                <input type="hidden" name="produtos[${escapeHtml(chaveLinha)}][id]" value="${Number(item.id_produto || 0)}">
+                <input type="hidden" name="produtos[${escapeHtml(chaveLinha)}][importado]" value="${precisaCadastro ? 1 : 0}">
+                <input type="hidden" name="produtos[${escapeHtml(chaveLinha)}][codigo]" value="${escapeHtml(item.codigo)}">
+                <input type="hidden" name="produtos[${escapeHtml(chaveLinha)}][nome]" value="${escapeHtml(item.nome)}">
+                <input type="hidden" name="produtos[${escapeHtml(chaveLinha)}][ncm]" value="${escapeHtml(item.ncm)}">
+                <input type="hidden" name="produtos[${escapeHtml(chaveLinha)}][cfop]" value="${escapeHtml(item.cfop)}">
+            </td>
+            <td><input type="number" step="0.001" name="produtos[${escapeHtml(chaveLinha)}][quantidade]" class="form-control quantidade" value="${qtd}" min="0.001" required></td>
+            <td><input type="number" step="0.0001" name="produtos[${escapeHtml(chaveLinha)}][preco]" class="form-control preco" value="${preco.toFixed(4)}" min="0.0001" required></td>
+            <td class="subtotal align-middle">${(qtd * preco).toFixed(2)}</td>
+            <td class="align-middle text-center"><button type="button" class="btn btn-danger btn-sm remover-item"><i class="fas fa-trash"></i></button></td>
+        </tr>`;
+        $('#compra-items').append(row);
+    }
+
+    $('#consultar-nfe').on('click', function() {
+        var chave = $('#chave_nfe_compra').val().replace(/\D/g, '');
+        var retorno = $('#retorno-nfe');
+        if (chave.length !== 44) {
+            retorno.removeClass('d-none alert-success alert-info').addClass('alert-danger').text('Informe a chave completa da NF-e, com 44 dígitos.');
+            return;
+        }
+        var botao = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Consultando');
+        retorno.removeClass('d-none alert-danger alert-success').addClass('alert-info').text('Consultando a SEFAZ...');
+        $.ajax({url:'../actions/consultar_nfe_compra.php',method:'POST',dataType:'json',data:{chave_acesso:chave,csrf_token:$('input[name="csrf_token"]').val()}})
+        .done(function(data) {
+            $('#numero_documento').val('NF-' + data.nota.numero);
+            $('#fornecedor_importado_nome').val(data.fornecedor.nome || '');
+            $('#fornecedor_importado_cnpj').val(data.fornecedor.cnpj || '');
+            if (Number(data.fornecedor.id || 0) > 0) {
+                $('#fornecedor_id').append(new Option(data.fornecedor.nome, data.fornecedor.id, true, true)).trigger('change').prop('required', true);
+            } else {
+                $('#fornecedor_id').val(null).trigger('change').prop('required', false);
+            }
+            $('#compra-items').empty();
+            data.itens.forEach(adicionarItemCompra);
+            atualizarTotal();
+            retorno.removeClass('alert-info alert-danger').addClass('alert-success').text(data.message + (Number(data.fornecedor.id || 0) === 0 ? ' O fornecedor será cadastrado ao finalizar.' : ''));
+        }).fail(function(xhr) {
+            var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Não foi possível consultar a NF-e.';
+            retorno.removeClass('alert-info alert-success').addClass('alert-danger').text(msg);
+        }).always(function() {
+            botao.prop('disabled', false).html('<i class="fas fa-cloud-download-alt"></i> Baixar dados');
+        });
+    });
+
+    $('#chave_nfe_compra').on('input', function() {
+        this.value = this.value.replace(/\D/g, '').slice(0, 44);
+        if (this.value.length === 44) $('#consultar-nfe').trigger('click');
     });
 
     // Adicionar produto

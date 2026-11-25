@@ -25,6 +25,16 @@ $id_usuario = get_data_owner_id();
 $perfil     = $_SESSION['nivel_acesso'];
 $sessao_caixa = caixa_buscar_sessao($conn, $id_usuario, date('Y-m-d'));
 $caixa_aberto = $sessao_caixa && $sessao_caixa['status'] === 'aberto';
+$ambiente_nfce = 2;
+$stmtAmbienteNfce = $conn->prepare("SELECT valor FROM configuracoes_tenant WHERE chave = 'ambiente' LIMIT 1");
+if ($stmtAmbienteNfce && $stmtAmbienteNfce->execute()) {
+    $ambienteSalvo = $stmtAmbienteNfce->get_result()->fetch_column();
+    if (in_array((int) $ambienteSalvo, [1, 2], true)) {
+        $ambiente_nfce = (int) $ambienteSalvo;
+    }
+}
+$stmtAmbienteNfce?->close();
+$token_nfce = $_SESSION['token_validacao_nfce'] ??= bin2hex(random_bytes(32));
 
 // ----------------------------
 // 3. BLOCO AJAX PARA BUSCAS
@@ -522,6 +532,296 @@ html[data-app-theme="light"] body.light-mode .meta-widget .progress {
     }
 }
 
+/* Select2 insere as listas de clientes e produtos diretamente no body.
+   Estas regras garantem contraste correto quando o tema claro está ativo. */
+html[data-app-theme="light"] .select2-container--default .select2-selection--single,
+html[data-app-theme="light"] .select2-container--default .select2-search--dropdown .select2-search__field,
+html[data-app-theme="light"] .select2-container--default .select2-dropdown {
+    background-color: #ffffff !important;
+    color: #172033 !important;
+    border-color: #b8c5d6 !important;
+}
+
+html[data-app-theme="light"] .select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: #172033 !important;
+}
+
+html[data-app-theme="light"] .select2-container--default .select2-selection--single .select2-selection__placeholder {
+    color: #667085 !important;
+}
+
+html[data-app-theme="light"] .select2-container--default .select2-results__option {
+    background-color: #ffffff !important;
+    color: #172033 !important;
+}
+
+html[data-app-theme="light"] .select2-container--default .select2-results__option--selected {
+    background-color: #e6f0ff !important;
+    color: #12345b !important;
+}
+
+html[data-app-theme="light"] .select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background-color: #075dd8 !important;
+    color: #ffffff !important;
+}
+
+html[data-app-theme="light"] .select2-container--default .select2-results__message,
+html[data-app-theme="light"] .select2-container--default .select2-results__option[aria-disabled="true"] {
+    color: #667085 !important;
+}
+
+/* =========================================
+   CONTRASTE COMPLETO POR TEMA
+========================================= */
+html[data-app-theme="light"] body.light-mode {
+    background-color: #eef3f9 !important;
+    color: #172033 !important;
+}
+
+html[data-app-theme="light"] body.light-mode > .container {
+    background-color: #ffffff !important;
+    color: #172033 !important;
+    border: 1px solid #d5deea !important;
+    box-shadow: 0 10px 28px rgba(20, 41, 70, .12) !important;
+}
+
+html[data-app-theme="light"] body.light-mode :is(h1, h2) {
+    color: #075dad !important;
+    border-bottom-color: #1597d4 !important;
+}
+
+html[data-app-theme="light"] body.light-mode :is(label, legend, .total-venda, .meta-header-valores) {
+    color: #172033 !important;
+}
+
+html[data-app-theme="light"] body.light-mode :is(small, .text-muted, .form-text) {
+    color: #556274 !important;
+}
+
+html[data-app-theme="light"] body.light-mode :is(.form-control, select, textarea) {
+    background-color: #ffffff !important;
+    color: #172033 !important;
+    border-color: #aebccd !important;
+}
+
+html[data-app-theme="light"] body.light-mode :is(.form-control, textarea)::placeholder {
+    color: #667085 !important;
+    opacity: 1 !important;
+}
+
+html[data-app-theme="light"] body.light-mode select option {
+    background-color: #ffffff !important;
+    color: #172033 !important;
+}
+
+html[data-app-theme="light"] body.light-mode :is(.card.bg-dark, .modal-content) {
+    background-color: #ffffff !important;
+    color: #172033 !important;
+    border-color: #d5deea !important;
+}
+
+html[data-app-theme="light"] body.light-mode :is(.card-header, .modal-header, .modal-footer) {
+    background-color: #eaf5fc !important;
+    color: #075dad !important;
+    border-color: #c8d9e8 !important;
+}
+
+html[data-app-theme="light"] body.light-mode .modal-content .close {
+    color: #172033 !important;
+    opacity: .8 !important;
+}
+
+html[data-app-theme="light"] body.light-mode .table-responsive {
+    background-color: #ffffff !important;
+    border: 1px solid #d5deea !important;
+}
+
+html[data-app-theme="light"] body.light-mode .table tbody tr,
+html[data-app-theme="light"] body.light-mode .table tbody td {
+    background-color: #ffffff !important;
+    color: #172033 !important;
+    border-color: #d5deea !important;
+}
+
+html[data-app-theme="light"] body.light-mode .table tbody tr:hover,
+html[data-app-theme="light"] body.light-mode .table tbody tr:hover td {
+    background-color: #edf5ff !important;
+    color: #102a4c !important;
+}
+
+html[data-app-theme="light"] body.light-mode .alert-box {
+    background-color: #ffffff !important;
+    color: #172033 !important;
+    border: 1px solid #d5deea;
+    box-shadow: 0 8px 24px rgba(20, 41, 70, .18);
+}
+
+html[data-app-theme="light"] body.light-mode .btn-fechar-alert {
+    color: #344054 !important;
+}
+
+html[data-app-theme="light"] body.light-mode .alert-secondary {
+    background-color: #eef2f7 !important;
+    color: #243247 !important;
+    border-color: #cbd5e1 !important;
+}
+
+html[data-app-theme="light"] body.light-mode .alert-warning {
+    background-color: #fff4ce !important;
+    color: #5b3a00 !important;
+    border-color: #e4b84a !important;
+}
+
+html[data-app-theme="light"] .caixa-status-alert {
+    background-color: #d9f2e2 !important;
+    color: #14532d !important;
+    border-color: #70bd89 !important;
+}
+
+html[data-app-theme="light"] .caixa-status-alert :is(.caixa-status-texto, .caixa-saldo-inicial, i) {
+    color: #14532d !important;
+}
+
+html[data-app-theme="light"] .caixa-status-alert .btn-movimentacoes {
+    background-color: #166534 !important;
+    color: #ffffff !important;
+    border-color: #166534 !important;
+    font-weight: 600;
+}
+
+html[data-app-theme="light"] .caixa-status-alert .btn-movimentacoes:hover,
+html[data-app-theme="light"] .caixa-status-alert .btn-movimentacoes:focus {
+    background-color: #0f4d27 !important;
+    color: #ffffff !important;
+    border-color: #0f4d27 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode {
+    background-color: #0f1115 !important;
+    color: #edf4fc !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode > .container {
+    background-color: #191c22 !important;
+    color: #edf4fc !important;
+    border: 1px solid #374151 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode :is(h1, h2) {
+    color: #4fd1ff !important;
+    border-bottom-color: #2fbce9 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode :is(label, legend, .total-venda, .meta-header-valores) {
+    color: #edf4fc !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode :is(small, .text-muted, .form-text, .meta-status) {
+    color: #b8c5d6 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode :is(.form-control, select, textarea),
+html[data-app-theme="dark"] .select2-container--default :is(.select2-selection--single, .select2-search__field, .select2-dropdown) {
+    background-color: #252a33 !important;
+    color: #f1f5f9 !important;
+    border-color: #526071 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode :is(.form-control, textarea)::placeholder,
+html[data-app-theme="dark"] .select2-container--default .select2-selection__placeholder {
+    color: #aab6c5 !important;
+    opacity: 1 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode select option,
+html[data-app-theme="dark"] .select2-container--default .select2-results__option {
+    background-color: #252a33 !important;
+    color: #f1f5f9 !important;
+}
+
+html[data-app-theme="dark"] .select2-container--default .select2-selection__rendered {
+    color: #f1f5f9 !important;
+}
+
+html[data-app-theme="dark"] .select2-container--default .select2-results__option--selected {
+    background-color: #334155 !important;
+    color: #ffffff !important;
+}
+
+html[data-app-theme="dark"] .select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background-color: #087cba !important;
+    color: #ffffff !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode :is(.card.bg-dark, .modal-content, .table-responsive) {
+    background-color: #191c22 !important;
+    color: #edf4fc !important;
+    border-color: #374151 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode :is(.card-header, .modal-header, .modal-footer) {
+    background-color: #202b38 !important;
+    color: #4fd1ff !important;
+    border-color: #405065 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode .modal-content .close {
+    color: #ffffff !important;
+    opacity: .9 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode .table tbody tr,
+html[data-app-theme="dark"] body.dark-mode .table tbody td {
+    background-color: #232831 !important;
+    color: #edf4fc !important;
+    border-color: #455164 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode .table tbody tr:hover,
+html[data-app-theme="dark"] body.dark-mode .table tbody tr:hover td {
+    background-color: #2d3745 !important;
+    color: #ffffff !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode .alert-box {
+    background-color: #20252e !important;
+    color: #f1f5f9 !important;
+    border-top: 1px solid #455164;
+    border-right: 1px solid #455164;
+    border-bottom: 1px solid #455164;
+}
+
+html[data-app-theme="dark"] .caixa-status-alert {
+    background-color: #173d29 !important;
+    color: #e1f8e9 !important;
+    border-color: #3b8f5b !important;
+}
+
+html[data-app-theme="dark"] .caixa-status-alert :is(.caixa-status-texto, .caixa-saldo-inicial, i) {
+    color: #e1f8e9 !important;
+}
+
+html[data-app-theme="dark"] .caixa-status-alert .btn-movimentacoes {
+    background-color: #2f9e5b !important;
+    color: #ffffff !important;
+    border-color: #58c77e !important;
+    font-weight: 600;
+}
+
+html[data-app-theme="dark"] .caixa-status-alert .btn-movimentacoes:hover,
+html[data-app-theme="dark"] .caixa-status-alert .btn-movimentacoes:focus {
+    background-color: #3abf6d !important;
+    color: #071d10 !important;
+    border-color: #70df98 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode .btn-fechar-alert {
+    color: #d7e0ea !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode :is(.btn-warning, .btn-info) {
+    color: #111827 !important;
+}
 </style>
 <div class="container">
 
@@ -557,11 +857,11 @@ html[data-app-theme="light"] body.light-mode .meta-widget .progress {
     <div id="alert-container"></div>
 
     <?php if ($caixa_aberto): ?>
-        <div class="alert alert-success d-flex justify-content-between align-items-center">
-            <span><i class="fas fa-lock-open"></i> Caixa aberto hoje com saldo inicial de
-                <strong>R$ <?= number_format((float)$sessao_caixa['valor_abertura'], 2, ',', '.') ?></strong>.
+        <div class="alert alert-success caixa-status-alert d-flex justify-content-between align-items-center">
+            <span class="caixa-status-texto"><i class="fas fa-lock-open"></i> Caixa aberto hoje com saldo inicial de
+                <strong class="caixa-saldo-inicial">R$ <?= number_format((float)$sessao_caixa['valor_abertura'], 2, ',', '.') ?></strong>.
             </span>
-            <a class="btn btn-sm btn-outline-light" href="lancamento_caixa.php">Ver movimentações</a>
+            <a class="btn btn-sm btn-outline-light btn-movimentacoes" href="lancamento_caixa.php">Ver movimentações</a>
         </div>
     <?php elseif ($sessao_caixa && $sessao_caixa['status'] === 'fechado'): ?>
         <div class="alert alert-secondary">
@@ -662,9 +962,15 @@ html[data-app-theme="light"] body.light-mode .meta-widget .progress {
             <button type="button" id="btn-recibo" class="btn btn-primary btn-lg mr-2">
                 <i class="fas fa-receipt"></i> Finalizar e Gerar Recibo
             </button>
-            <button type="button" id="btn-nfe" class="btn btn-warning btn-lg">
-                <i class="fas fa-vial"></i> Finalizar e Testar NFC-e (Local)
-            </button>
+            <?php if (is_tenant_admin()): ?>
+                <button type="button" id="btn-nfe" class="btn btn-warning btn-lg">
+                    <i class="fas fa-file-invoice"></i>
+                    Finalizar e Enviar NFC-e à SEFAZ (<?= $ambiente_nfce === 1 ? 'Produção' : 'Homologação' ?>)
+                </button>
+                <small class="d-block mt-2 text-muted">
+                    A venda será registrada e a NFC-e será transmitida à SEFAZ no ambiente fiscal configurado.
+                </small>
+            <?php endif; ?>
         </div>
 
     </form>
@@ -1250,27 +1556,31 @@ $(document).ready(function() {
     });
 
     /* ================================
-       EMITIR NF-e (MODO TESTE / MOCK)
+       EMITIR NFC-e NA SEFAZ
        ================================== */
     function emitirNFe(vendaId) {
 
-        const urlEmissao = '../actions/testar_emissao_mock.php';
+        const urlEmissao = '../actions/emitir_nfce.php';
 
-        showAlert('â³ Gerando NFC-e de Simulação...', 'info');
+        showAlert('Transmitindo NFC-e à SEFAZ. Aguarde a autorização...', 'info');
 
         fetch(urlEmissao, {
             method: 'POST',
-            body: new URLSearchParams({ id_venda: vendaId })
+            body: new URLSearchParams({
+                id_venda: vendaId,
+                emitir_nfce_sefaz: '1',
+                token_validacao_nfce: <?= json_encode($token_nfce, JSON_UNESCAPED_SLASHES) ?>
+            })
         })
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                showAlert('✅ SIMULAÇÃO: NFC-e gerada com sucesso! Chave Fictícia: ' + data.chave, 'success');
+                showAlert(data.message || 'NFC-e autorizada pela SEFAZ.', 'success');
                 setTimeout(() => {
                     window.open('../actions/gerar_danfe.php?chave=' + data.chave, '_blank');
                 }, 1500);
             } else
-                showAlert('âŒ Erro na simulação da NFC-e: ' + data.message, 'danger');
+                showAlert('A NFC-e não foi autorizada: ' + data.message, 'danger');
         })
         .catch(err => {
             console.error(err);
@@ -1290,8 +1600,6 @@ $(document).ready(function() {
 
 });
 </script>
-
-<?php include('../includes/footer.php'); ?>
 
 </body>
 </html>

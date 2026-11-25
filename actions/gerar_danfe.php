@@ -18,6 +18,17 @@ if (!$chave) {
 
 // 3. Busca XML no Banco
 $conn = getTenantConnection();
+$configImpressao = ['impressora_largura' => '80', 'impressao_automatica' => '0'];
+$resultadoImpressao = $conn->query("SELECT chave, valor FROM configuracoes_tenant WHERE chave IN ('impressora_largura', 'impressao_automatica')");
+if ($resultadoImpressao) {
+    while ($config = $resultadoImpressao->fetch_assoc()) {
+        $configImpressao[$config['chave']] = $config['valor'];
+    }
+}
+$larguraDanfe = in_array((int)$configImpressao['impressora_largura'], [58, 80], true)
+    ? (int)$configImpressao['impressora_largura']
+    : 80;
+$impressaoAutomatica = $configImpressao['impressao_automatica'] === '1';
 $stmt = $conn->prepare("SELECT xml_path, protocolo, data_emissao FROM notas_fiscais WHERE chave_acesso = ?");
 $stmt->bind_param("s", $chave);
 $stmt->execute();
@@ -108,6 +119,7 @@ $chaveFormatada = implode(' ', str_split($chave, 4));
     <meta charset="UTF-8">
     <title>DANFE NFC-e - Visualização</title>
     <style>
+        @page { size: <?= $larguraDanfe ?>mm auto; margin: 2mm; }
         body { 
             font-family: "Courier New", Courier, monospace; 
             font-size: 12px; 
@@ -117,7 +129,8 @@ $chaveFormatada = implode(' ', str_split($chave, 4));
         }
 
         .danfe-container { 
-            width: 78mm; 
+            width: <?= $larguraDanfe - 4 ?>mm;
+            box-sizing: border-box;
             margin: 0 auto; 
             background: #fff; 
             padding: 15px; 
@@ -255,8 +268,27 @@ $chaveFormatada = implode(' ', str_split($chave, 4));
             </tr>
         </thead>
         <tbody>
-            <!-- (seus itens continuam iguais) -->
-            <?= /* SEUS ITENS PHP */ '' ?>
+            <?php if (isset($det)): ?>
+                <?php foreach ($det as $itemXml): $produtoXml = $itemXml->prod; ?>
+                    <tr>
+                        <td><?= htmlspecialchars((string)$produtoXml->xProd) ?></td>
+                        <td><?= number_format((float)$produtoXml->qCom, 3, ',', '.') ?></td>
+                        <td><?= htmlspecialchars((string)$produtoXml->uCom) ?></td>
+                        <td><?= number_format((float)$produtoXml->vUnCom, 2, ',', '.') ?></td>
+                        <td class="text-right"><?= number_format((float)$produtoXml->vProd, 2, ',', '.') ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <?php foreach ($itensVenda as $itemVenda): ?>
+                    <tr>
+                        <td><?= htmlspecialchars((string)$itemVenda['nome']) ?></td>
+                        <td><?= number_format((float)$itemVenda['quantidade'], 3, ',', '.') ?></td>
+                        <td>UN</td>
+                        <td><?= number_format((float)$itemVenda['preco_unitario'], 2, ',', '.') ?></td>
+                        <td class="text-right"><?= number_format((float)$itemVenda['subtotal'], 2, ',', '.') ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </tbody>
     </table>
 
@@ -306,6 +338,12 @@ $chaveFormatada = implode(' ', str_split($chave, 4));
     </div>
 
 </div>
+
+<?php if ($impressaoAutomatica): ?>
+<script>
+window.addEventListener('load', () => window.print(), { once: true });
+</script>
+<?php endif; ?>
 
 </body>
 </html>

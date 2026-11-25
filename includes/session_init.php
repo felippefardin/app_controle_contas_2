@@ -300,6 +300,7 @@ $actionPermissions = [
     'set_meta_vendas.php' => 'vendas.php',
     'emitir_nfce.php' => 'vendas.php',
     'registrar_compra.php' => 'compras.php',
+    'consultar_nfe_compra.php' => 'compras.php',
     'cadastrar_pessoa_fornecedor_action.php' => 'cadastrar_pessoa_fornecedor.php',
     'editar_pessoa_fornecedor_action.php' => 'cadastrar_pessoa_fornecedor.php',
     'excluir_pessoa_fornecedor.php' => 'cadastrar_pessoa_fornecedor.php',
