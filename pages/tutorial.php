@@ -261,13 +261,34 @@ body.light-mode .note :is(p,li,strong,b) { color:#fff !important; }
                 </div>
             </section>
 
-            <section id="assinatura" class="guide-section" data-keywords="assinatura plano cupom desconto indicação mercado pago">
+            <section id="assinatura" class="guide-section" data-keywords="assinatura plano cupom desconto indicação mercado pago próximas faturas próxima fatura comprovantes histórico cobrança proporcional usuários extras cancelamento reativação">
                 <div class="section-title"><div class="icon"><i class="fas fa-credit-card"></i></div><div><h2>Assinatura, planos e cupons</h2><p>Gerencie o acesso da empresa aos recursos contratados.</p></div></div>
                 <div class="guide-grid">
-                    <article class="guide-card"><h3>Plano atual</h3><p>O plano define recursos e quantidade de usuários extras. Consulte status, renovação e histórico na área da assinatura.</p><a class="guide-link" href="minha_assinatura.php">Minha assinatura</a></article>
+                    <article class="guide-card"><h3>Plano atual</h3><p>Em Meu perfil → Minha assinatura, confira o plano ativo, o limite de usuários incluídos e as vagas extras contratadas.</p><a class="guide-link" href="minha_assinatura.php">Minha assinatura</a></article>
                     <article class="guide-card"><h3>Cupons</h3><p>Cupons públicos podem ser usados conforme a campanha. Cupons internos são direcionados pela administração a clientes específicos.</p></article>
                     <article class="guide-card"><h3>Indique e ganhe</h3><p>O código de indicação vincula o novo cadastro ao indicador. O ranking depende do registro correto e das condições da campanha.</p></article>
-                    <article class="guide-card"><h3>Pagamento recorrente</h3><p>Acompanhe cobranças pelo provedor configurado e mantenha os webhooks ativos para atualizar a assinatura automaticamente.</p></article>
+                    <article class="guide-card">
+                        <h3>Próximas faturas</h3>
+                        <p>Em Minha assinatura → Financeiro → Próximas faturas, confira a data e o valor previstos. A página consulta o Mercado Pago ao ser aberta e reflete as alterações já registradas na assinatura.</p>
+                        <a class="guide-link" href="proximas_faturas.php">Ver próximas faturas</a>
+                    </article>
+                    <article class="guide-card">
+                        <h3>Troca de plano e cobrança proporcional</h3>
+                        <p>Em Minha assinatura, selecione Alterar plano para conferir o impacto antes de confirmar. Quando um plano mais caro é ativado durante um ciclo já pago, a próxima fatura pode somar a mensalidade do novo ciclo à diferença pelos dias restantes. Se houver acréscimo ou crédito programado pela troca, Próximas faturas mostra a composição do total.</p>
+                    </article>
+                    <article class="guide-card">
+                        <h3>Usuários extras</h3>
+                        <p>Em Minha assinatura → Capacidade, use + Add para contratar uma vaga extra por R$ 4,00 ao mês. Se houver uma troca de plano pendente, aguarde o fechamento do ciclo e a conclusão da troca para contratar novas vagas.</p>
+                    </article>
+                    <article class="guide-card">
+                        <h3>Histórico e comprovantes</h3>
+                        <p>Use Histórico ou Comprovantes na seção Financeiro da assinatura para consultar pagamentos anteriores.</p>
+                        <a class="guide-link" href="historico_pagamento.php">Ver histórico de pagamentos</a>
+                    </article>
+                    <article class="guide-card">
+                        <h3>Encerramento da assinatura</h3>
+                        <p>Em Minha assinatura, use Encerrar conta no fim do ciclo para agendar o encerramento. O acesso fica disponível até o fim do ciclo vigente. Se mudar de ideia, consulte em Meu perfil a opção de reverter o cancelamento enquanto estiver disponível.</p>
+                    </article>
                 </div>
             </section>
 

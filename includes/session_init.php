@@ -8,6 +8,7 @@ date_default_timezone_set('America/Sao_Paulo');
 // --- Inicia sessão global para todo o domínio ---
 if (session_status() === PHP_SESSION_NONE) {
 
+    ini_set('session.gc_maxlifetime', (string) max(2400, (int) ini_get('session.gc_maxlifetime')));
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
 
@@ -31,30 +32,68 @@ if (PHP_SAPI !== 'cli' && !headers_sent()) {
     header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
 }
 
-$now = time();
-$idleLimit = !empty($_SESSION['super_admin']) ? 1800 : 7200;
-if (!empty($_SESSION['last_activity_at']) && ($now - (int) $_SESSION['last_activity_at']) > $idleLimit) {
-    $_SESSION = [];
-    if (ini_get('session.use_cookies')) {
-        $params = session_get_cookie_params();
-        setcookie(session_name(), '', [
-            'expires' => time() - 42000,
-            'path' => $params['path'],
-            'domain' => $params['domain'],
-            'secure' => $params['secure'],
-            'httponly' => $params['httponly'],
-            'samesite' => $params['samesite'] ?? 'Lax',
-        ]);
-    }
-    session_destroy();
-    session_start();
-}
-$_SESSION['last_activity_at'] = $now;
 
-$hasAuthenticatedIdentity = ($_SESSION['usuario_logado'] ?? false) === true || !empty($_SESSION['super_admin']);
-if ($hasAuthenticatedIdentity && (empty($_SESSION['session_regenerated_at']) || ($now - (int) $_SESSION['session_regenerated_at']) > 900)) {
-    session_regenerate_id(true);
-    $_SESSION['session_regenerated_at'] = $now;
+const SESSION_IDLE_SECONDS = 2400;
+
+$now = time();
+$isActivityRequest = basename((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) === 'atividade_sessao.php';
+if (is_authenticated()) {
+    $lastActivity = (int) ($_SESSION['last_activity_at'] ?? $now);
+    if ($now - $lastActivity >= SESSION_IDLE_SECONDS) {
+        $_SESSION = [];
+        if (ini_get('session.use_cookies')) {
+            $params = session_get_cookie_params();
+            $params['expires'] = $now - 3600;
+            unset($params['lifetime']);
+            setcookie(session_name(), '', $params);
+        }
+        session_destroy();
+
+        if (!$isActivityRequest && PHP_SAPI !== 'cli') {
+            $accept = (string) ($_SERVER['HTTP_ACCEPT'] ?? '');
+            if (str_contains($accept, 'text/html')) {
+                header('Location: ' . session_idle_root() . 'pages/login.php?erro=inatividade', true, 303);
+            } else {
+                http_response_code(401);
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['status' => 'error', 'msg' => 'Sessão encerrada por inatividade.']);
+            }
+            exit;
+        }
+    } else {
+        $_SESSION['last_activity_at'] = $lastActivity;
+        if (!$isActivityRequest && $now - (int) ($_SESSION['session_regenerated_at'] ?? 0) > 900) {
+            session_regenerate_id(true);
+            $_SESSION['session_regenerated_at'] = $now;
+        }
+    }
+}
+
+function session_idle_root(): string
+{
+    $project = str_replace('\\', '/', dirname(__DIR__)) . '/';
+    $script = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_FILENAME'] ?? ''));
+    if (strncasecmp($script, $project, strlen($project)) !== 0) {
+        return '';
+    }
+
+    return str_repeat('../', substr_count(substr($script, strlen($project)), '/'));
+}
+
+function session_idle_script(): void
+{
+    if (!is_authenticated()) {
+        return;
+    }
+
+    $path = session_idle_root();
+    $remaining = max(0, SESSION_IDLE_SECONDS - (time() - (int) $_SESSION['last_activity_at']));
+    printf(
+        '<script defer src="%sassets/js/session-idle.js" data-remaining="%d" data-csrf="%s"></script>',
+        $path,
+        $remaining,
+        htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8')
+    );
 }
 
 // ------------------------------
@@ -92,11 +131,11 @@ function verificar_acesso_admin() {
 // ------------------------------
 // 🔰 CSRF PROTECTION
 // ------------------------------
-if (empty($_SESSION['csrf_token'])) {
+if (session_status() === PHP_SESSION_ACTIVE && empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-$csrf_token = $_SESSION['csrf_token'];
+$csrf_token = $_SESSION['csrf_token'] ?? '';
 
 function csrf_token(): string
 {
@@ -278,6 +317,25 @@ $actionPermissions = [
 
 $executingFile = basename((string) ($_SERVER['SCRIPT_FILENAME'] ?? ''));
 $executingDirectory = basename(dirname((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')));
+
+// O direito ao módulo fiscal vem do plano atual da empresa.
+if (($executingDirectory === 'pages' && $executingFile === 'configuracao_fiscal.php')
+    || ($executingDirectory === 'actions' && in_array($executingFile, ['salvar_configuracao_fiscal.php', 'emitir_nfce.php', 'testar_emissao_mock.php'], true))) {
+    require_once __DIR__ . '/../database.php';
+    $fiscalTenantId = (string) ($_SESSION['tenant_id'] ?? '');
+    $fiscalTenant = $fiscalTenantId === '' ? null : getTenantById($fiscalTenantId, getMasterConnection());
+    if (!in_array($fiscalTenant['plano_atual'] ?? null, ['plus', 'essencial'], true)) {
+        http_response_code(403);
+        if ($executingDirectory === 'actions' && $executingFile !== 'salvar_configuracao_fiscal.php') {
+            header('Content-Type: application/json; charset=UTF-8');
+            echo json_encode(['success' => false, 'message' => 'O módulo fiscal está disponível nos planos Plus e Essencial.']);
+        } else {
+            echo 'O módulo fiscal está disponível nos planos Plus e Essencial.';
+        }
+        exit;
+    }
+}
+
 if ($executingDirectory === 'pages' && isset($pagePermissions[$executingFile])) {
     require_page_permission($pagePermissions[$executingFile]);
 } elseif ($executingDirectory === 'actions' && isset($actionPermissions[$executingFile])) {

@@ -110,7 +110,7 @@ try {
                         plano_atual=?, status_assinatura=?, id_assinatura_mp=?,
                         indicacao_meses_gratis=?, indicacao_inicio_beneficio=COALESCE(indicacao_inicio_beneficio, NOW()),
                         indicacao_fim_beneficio=?, indicacao_beneficio_utilizado=1, data_renovacao=?
-                        WHERE tenant_id=? AND status_assinatura NOT IN ('desativado_temporario','exclusao_em_processamento')");
+                        WHERE tenant_id=? AND status_assinatura NOT IN ('desativado_temporario','exclusao_em_processamento') AND (tipo_cancelamento IS NULL OR tipo_cancelamento<>'excluir' OR exclusao_programada_em IS NULL)");
                     $tenantUpdate->bind_param(
                         'sssisss',
                         $checkout['plano'],
@@ -124,7 +124,7 @@ try {
                 } else {
                     $cupomAtivoId = $checkout['cupom_id'] ?? null;
                     $promocaoAtivaId = $checkout['promocao_id'] ?? null;
-                    $tenantUpdate = $conn->prepare("UPDATE tenants SET plano_atual=?, status_assinatura=?, id_assinatura_mp=?, cupom_ativo_id=?, promocao_ativa_id=? WHERE tenant_id=? AND status_assinatura NOT IN ('desativado_temporario','exclusao_em_processamento')");
+                    $tenantUpdate = $conn->prepare("UPDATE tenants SET plano_atual=?, status_assinatura=?, id_assinatura_mp=?, cupom_ativo_id=?, promocao_ativa_id=? WHERE tenant_id=? AND status_assinatura NOT IN ('desativado_temporario','exclusao_em_processamento') AND (tipo_cancelamento IS NULL OR tipo_cancelamento<>'excluir' OR exclusao_programada_em IS NULL)");
                     $tenantUpdate->bind_param('sssiss', $checkout['plano'], $systemStatus, $resourceId, $cupomAtivoId, $promocaoAtivaId, $checkout['tenant_id']);
                 }
                 $tenantUpdate->execute();
@@ -140,7 +140,7 @@ try {
                 }
             } else {
                 // Não derruba um plano ativo durante uma tentativa de troca ainda pendente.
-                $tenantUpdate = $conn->prepare("UPDATE tenants SET status_assinatura=? WHERE tenant_id=? AND id_assinatura_mp=?");
+                $tenantUpdate = $conn->prepare("UPDATE tenants SET status_assinatura=CASE WHEN (tipo_cancelamento='excluir' AND exclusao_programada_em IS NOT NULL) OR status_assinatura='exclusao_em_processamento' THEN status_assinatura ELSE ? END WHERE tenant_id=? AND id_assinatura_mp=?");
                 $systemStatus = in_array($statusMp, ['cancelled', 'canceled'], true) ? 'cancelado' : ($statusMp === 'paused' ? 'suspenso' : 'pendente');
                 $tenantUpdate->bind_param('sss', $systemStatus, $checkout['tenant_id'], $resourceId);
                 $tenantUpdate->execute();
@@ -157,10 +157,17 @@ try {
                 'cancelled', 'canceled' => 'cancelado',
                 default => 'pendente',
             };
-            $legacyUpdate = $conn->prepare('UPDATE tenants SET status_assinatura=? WHERE tenant_id=? AND id_assinatura_mp=?');
+            $legacyUpdate = $conn->prepare("UPDATE tenants SET status_assinatura=CASE WHEN (tipo_cancelamento='excluir' AND exclusao_programada_em IS NOT NULL) OR status_assinatura='exclusao_em_processamento' THEN status_assinatura ELSE ? END WHERE tenant_id=? AND id_assinatura_mp=?");
             $legacyUpdate->bind_param('sss', $systemStatus, $legacyTenant, $resourceId);
             $legacyUpdate->execute();
-            if ($legacyUpdate->affected_rows < 1) throw new RuntimeException('Assinatura antiga não pertence ao tenant.');
+            if ($legacyUpdate->affected_rows < 1) {
+                $linked = $conn->prepare('SELECT 1 FROM tenants WHERE tenant_id=? AND id_assinatura_mp=? LIMIT 1');
+                $linked->bind_param('ss', $legacyTenant, $resourceId);
+                $linked->execute();
+                $matched = (bool) $linked->get_result()->fetch_row();
+                $linked->close();
+                if (!$matched) throw new RuntimeException('Assinatura antiga não pertence ao tenant.');
+            }
             $legacyUpdate->close();
         }
 

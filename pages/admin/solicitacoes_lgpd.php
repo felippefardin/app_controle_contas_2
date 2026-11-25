@@ -63,6 +63,7 @@ $rotulosStatus = ['nova' => 'Nova', 'em_analise' => 'Em análise', 'concluida' =
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<?php session_idle_script(); ?>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="../../assets/css/universal-theme.css?v=20260813-admin">

@@ -245,6 +245,14 @@ if ($tenant_id) {
         $stmt->close();
     }
 }
+$trocaPlanoPendente = false;
+if ($tenant_id) {
+    $stmtTroca = $conn->prepare("SELECT id FROM trocas_planos WHERE tenant_id = ? AND estado <> 'concluida' LIMIT 1");
+    $stmtTroca->bind_param('s', $tenant_id);
+    $stmtTroca->execute();
+    $trocaPlanoPendente = (bool) $stmtTroca->get_result()->fetch_row();
+    $stmtTroca->close();
+}
 $conn->close();
 
 include('../includes/header.php');
@@ -288,6 +296,9 @@ display_flash_message();
         .btn-custom:hover { transform: translateY(-2px); color: #fff; }
         .btn-assinar { background: linear-gradient(135deg, #28a745, #218838); box-shadow: 0 4px 10px rgba(40, 167, 69, 0.3); }
         .btn-cancel { background: transparent; border: 1px solid #ff003c; color: #ff003c; margin-top: 10px; font-size: 0.95rem; width: auto; display: inline-flex; padding: 8px 20px; }
+        html[data-app-theme="dark"] .btn-custom.btn-cancel { color: #ff879d; border-color: #ff879d; }
+        html[data-app-theme="dark"] .btn-custom.btn-cancel:hover,
+        html[data-app-theme="dark"] .btn-custom.btn-cancel:focus-visible { color: #ffc2cd; border-color: #ffc2cd; }
         .btn-cancel:hover { background: rgba(255, 0, 60, 0.1); color: #ff4d79; border-color: #ff4d79; }
         .plans-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 6px; }
         .plan-card { padding: 10px 12px; border-radius: 8px; display: flex; flex-direction: column; justify-content: space-between; text-align: center; transition: transform 0.2s; }
@@ -400,6 +411,28 @@ display_flash_message();
         @media (max-width: 768px) {
             .container-assinatura { --assinatura-espaco-caixas: 16px; }
         }
+        html[data-app-theme="light"] .btn-plano-atual:disabled,
+    body.light-mode .btn-plano-atual:disabled {
+        color: #075985 !important;
+        opacity: 1 !important;
+    }
+        html[data-app-theme="light"] .btn-custom.btn-alterar-plano,
+    body.light-mode .btn-custom.btn-alterar-plano {
+        color: #fff;
+        background: #075985;
+    }
+    html[data-app-theme="light"] .btn-custom.btn-alterar-plano:is(:hover, :focus-visible),
+    body.light-mode .btn-custom.btn-alterar-plano:is(:hover, :focus-visible) {
+        color: #fff;
+        background: #0c4a6e;
+    }
+        .financial-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .financial-actions .btn-custom { padding: 8px 10px; }
+    .financial-actions .btn-history { background-color: #0e6879; }
+    .financial-actions .btn-next-invoice { background-color: #075985; color: #fff; }
+    @media (max-width: 575px) {
+        .financial-actions { grid-template-columns: 1fr; gap: 8px; }
+    }
     </style>
 </head>
 <body>
@@ -537,9 +570,9 @@ display_flash_message();
             <?php if (in_array($status_assinatura, ['trial', 'ativo', 'padrao'], true)): ?>
                 <div class="mt-4 text-center">
                     <button type="button" class="btn-custom btn-cancel" onclick="abrirModalCancelamento()">
-                        <i class="fa-solid fa-pause"></i> Desativar conta temporariamente
+                        <i class="fa-solid fa-pause"></i> Encerrar conta no fim do ciclo
                     </button>
-                    <small style="display:block; margin-top:8px; color:#aaa;">Sem cobranças e com os dados preservados por até 1 ano.</small>
+                    <small style="display:block; margin-top:8px; color:#aaa;">Acesso mantido até o fim do ciclo vigente.</small>
                 </div>
             <?php endif; ?>
 
@@ -583,7 +616,20 @@ display_flash_message();
 
                     <?php if ($extras_comprados > 0): ?>
                     <form id="formRemoveExtra" action="../actions/remover_extra_action.php" method="POST">
-                        <input type="hidden" name="qtd_remover" value="1">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+                            <?php
+                            $dbUsuariosExtra = getTenantConnection();
+                            $usuarioAtor = (int) ($_SESSION['usuario_id'] ?? 0);
+                            $donoConta = (int) get_data_owner_id();
+                            $usuariosRemoviveis = $dbUsuariosExtra ? $dbUsuariosExtra->query("SELECT id,nome FROM usuarios WHERE deleted_at IS NULL AND status='ativo' AND COALESCE(is_master,0)=0 AND id NOT IN ($usuarioAtor,$donoConta) ORDER BY nome") : null;
+                            ?>
+                            <label for="usuario-extra-remover">Usuário da vaga</label>
+                            <select id="usuario-extra-remover" name="usuario_remover">
+                                <option value="0">Vaga sem usuário</option>
+                                <?php while ($usuarioExtra = $usuariosRemoviveis?->fetch_assoc()): ?>
+                                    <option value="<?= (int) $usuarioExtra['id'] ?>"><?= htmlspecialchars($usuarioExtra['nome'], ENT_QUOTES, 'UTF-8') ?></option>
+                                <?php endwhile; ?>
+                            </select>
                         <button type="button" class="btn-custom btn-remove-user" onclick="confirmarRemocao()">
                             <i class="fa-solid fa-minus"></i> Remover
                         </button>
@@ -618,9 +664,11 @@ display_flash_message();
                     </div>
 
                     <?php if ($ativo): ?>
-                        <button disabled class="btn-custom" style="background: transparent; border: 1px solid #00bfff; color: #00bfff; cursor: default; opacity: 0.8;">
+                        <button disabled class="btn-custom btn-plano-atual" style="background: transparent; border: 1px solid #00bfff; color: #00bfff; cursor: default; opacity: 0.8;">
                             <i class="fa-solid fa-check"></i> Plano Atual
                         </button>
+                    <?php elseif ($status_assinatura === 'ativo' && !empty($dados_assinatura['id_assinatura_mp'])): ?>
+                        <a class="btn-custom btn-alterar-plano" href="simular_troca_plano.php?plano=<?= rawurlencode($slug) ?>">Alterar plano</a>
                     <?php else: ?>
                         <a href="assinar.php?plano_selecionado=<?= htmlspecialchars($slug) ?>" class="btn-custom" style="background: #00bfff;">
                             <?= $e_plano_atual ? 'Reativar Plano' : 'Selecionar Plano' ?>
@@ -633,9 +681,10 @@ display_flash_message();
 
     <div class="card-custom">
         <div class="card-title"><i class="fa-solid fa-wallet"></i> Financeiro</div>
-        <div class="btn-group">
+        <div class="financial-actions">
             <a href="historico_pagamento.php" class="btn-custom btn-history"><i class="fa-solid fa-list-ul"></i> Histórico</a>
             <a href="historico_pagamento.php" class="btn-custom btn-receipt"><i class="fa-solid fa-file-invoice-dollar"></i> Comprovantes</a>
+            <a href="proximas_faturas.php" class="btn-custom btn-next-invoice"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i> Próximas faturas</a>
         </div>
     </div>
 
@@ -645,7 +694,7 @@ display_flash_message();
     <div class="modal-dialog">
         <div class="modal-content" style="background-color: #2c2c2c; color: #eee; border: 1px solid #444;">
             <div class="modal-header" style="border-bottom: 1px solid #444;">
-                <h5 class="modal-title" style="color: #ffb020;"><i class="fa-solid fa-pause"></i> Desativar conta temporariamente</h5>
+                <h5 class="modal-title" style="color: #ffb020;"><i class="fa-solid fa-pause"></i> Encerrar conta no fim do ciclo</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -655,11 +704,11 @@ display_flash_message();
                     <div class="form-check mb-3 p-3" style="background: rgba(255,255,255,0.05); border-radius: 5px;">
                         <input class="form-check-input" type="radio" name="opcao_cancelamento" id="opcao1" value="desativar" required>
                         <label class="form-check-label" for="opcao1">
-                            <strong>Desativar temporariamente por até 1 ano:</strong><br>
-                            <small style="color: #aaa;">Acesso e cobranças são interrompidos imediatamente. Todos os usuários, cadastros e dados ficam preservados por 1 ano.</small>
+                            <strong>Confirmo o encerramento e a exclusão permanente ao fim do ciclo.</strong><br>
+                            <small style="color: #aaa;">O acesso continua até o fim do ciclo. A próxima cobrança fica pausada enquanto o cancelamento estiver pendente.</small>
                         </label>
                     </div>
-                    <div class="mt-3 p-3" style="background: rgba(255,193,7,.1); border:1px solid rgba(255,193,7,.35); border-radius:5px;"><small>Se ninguém solicitar a reativação pelo e-mail cadastrado dentro de 1 ano, a conta será excluída permanentemente.</small></div>
+                    <div class="mt-3 p-3" style="background: rgba(255,193,7,.1); border:1px solid rgba(255,193,7,.35); border-radius:5px;"><small>Para reativar a conta antes do encerramento, entre em contato com o suporte.</small></div>
                 </form>
             </div>
             <div class="modal-footer" style="border-top: 1px solid #444;">
@@ -680,6 +729,16 @@ function abrirModalCancelamento() {
 }
 
 function confirmarAdicao() {
+    <?php if ($trocaPlanoPendente): ?>
+    Swal.fire({
+        title: 'Troca de plano em andamento',
+        text: 'Sua troca de plano ainda está em andamento. Aguarde o fechamento do ciclo atual da assinatura para contratar mais usuários.',
+        icon: 'info',
+        confirmButtonText: 'Entendi',
+        confirmButtonColor: '#00bfff',
+        background: '#1e1e1e', color: '#eee'
+    });
+    <?php else: ?>
     Swal.fire({
         title: 'Adicionar Usuário?',
         text: "Adicional de R$ <?= number_format($preco_por_extra, 2, ',', '.') ?>/mês na fatura.",
@@ -692,12 +751,13 @@ function confirmarAdicao() {
     }).then((result) => {
         if (result.isConfirmed) document.getElementById('formAddExtra').submit();
     });
+    <?php endif; ?>
 }
 
 function confirmarRemocao() {
     Swal.fire({
         title: 'Remover Vaga?',
-        text: "Verifique se seus usuários ativos cabem no novo limite.",
+        text: "A vaga fica disponível até o fim do ciclo. A próxima cobrança será reduzida, sem estorno. Se você selecionar um usuário, o acesso dele será encerrado no fim do ciclo.",
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#d33',

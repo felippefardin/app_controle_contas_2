@@ -12,7 +12,9 @@ $pageCanonical = $scheme . '://' . $host . $requestPath;
 $pageOgImage = $scheme . '://' . $host . $basePath . '/img/dashboard-ia-financeira.png';
 $pageStylesheet = '../assets/css/protecao-dados.css?v=20260804-5';
 $pageBodyClass = 'privacy-page';
-$homeUrl = '../index.php';
+$homeUrl = ($_SESSION['usuario_logado'] ?? false) === true
+    ? 'home.php'
+    : '../index.php';
 $loggedEmail = (string) ($_SESSION['email'] ?? $_SESSION['usuario_email'] ?? '');
 
 include '../includes/header.php';

@@ -13,6 +13,7 @@ if (!in_array($temaAtual, ['light', 'dark'], true)) $temaAtual = 'dark';
 <!DOCTYPE html>
 <html lang="pt-BR" data-app-theme="<?= htmlspecialchars($temaAtual, ENT_QUOTES, 'UTF-8') ?>">
 <head>
+<?php session_idle_script(); ?>
 <link rel="stylesheet" href="../assets/css/universal-theme.css?v=20260731-theme-button-v3">
 <script src="../assets/js/global-theme.js?v=20260903-cookie-5"></script>
     <meta charset="UTF-8">
@@ -155,6 +156,9 @@ display_flash_message();
 <div class="login-container">
     <h2><i class="fa-solid fa-right-to-bracket"></i> Login</h2>
 
+    <?php if (($_GET['erro'] ?? '') === 'inatividade'): ?>
+        <p role="status">Sua sessão foi encerrada após 40 minutos de inatividade. Entre novamente para continuar.</p>
+    <?php endif; ?>
     <form action="../actions/login.php" method="POST">
         <label for="email">E-mail</label>
         <input type="email" id="email" name="email" required autofocus>

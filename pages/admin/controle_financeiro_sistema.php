@@ -118,6 +118,7 @@ $overdueValue = array_sum(array_map(fn($row) => (float)$row['valor_vencido'], $f
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+<?php session_idle_script(); ?>
 <link rel="stylesheet" href="../../assets/css/universal-theme.css?v=20260813-admin">
 <script src="../../assets/js/global-theme.js?v=20260813-admin"></script>
     <meta charset="UTF-8">

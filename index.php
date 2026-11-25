@@ -26,6 +26,7 @@ if (!in_array($temaAtual, ['light', 'dark'], true)) $temaAtual = 'dark';
 <!DOCTYPE html>
 <html lang="pt-BR" data-app-theme="<?= htmlspecialchars($temaAtual, ENT_QUOTES, 'UTF-8') ?>">
 <head>
+<?php session_idle_script(); ?>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Controle vendas, estoque, caixa, contas e equipe em um só sistema. Feito para pessoas físicas, autônomos, MEIs e pequenas empresas.">
@@ -473,7 +474,7 @@ if (!in_array($temaAtual, ['light', 'dark'], true)) $temaAtual = 'dark';
         <div class="row g-4 align-items-center">
             <div class="col-md-5"><div class="fw-bold fs-5"><i class="bi bi-wallet2 text-info me-2"></i>App Controle Pro</div><p class="text-secondary small mt-2 mb-0">Gestão integrada para pessoas físicas, autônomos, MEIs e empresas.</p></div>
             <div class="col-md-4 d-flex flex-wrap gap-3 justify-content-md-center"><a class="footer-link" href="pages/protecao_de_dados.php">Proteção de dados</a><a class="footer-link" href="pages/suporte.php">Suporte</a><a class="footer-link" href="pages/login.php">Área do cliente</a></div>
-            <div class="col-md-3 text-md-end text-secondary small">&copy; <?= date('Y') ?> Felipe Fardin.<br>Todos os direitos reservados.</div>
+            <div class="col-md-3 text-md-end text-secondary small">&copy; <?= date('Y') ?> Felippe Andreata Dev.<br>Todos os direitos reservados.</div>
         </div>
     </div>
 </footer>

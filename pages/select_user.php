@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../includes/profile_avatar.php';
 session_start();
 include('../database.php');
 
@@ -56,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['select_user_id'])) {
                 <?php foreach ($usuarios as $usuario_item): ?>
                     <li>
                         <button type="submit" name="select_user_id" value="<?= $usuario_item['id'] ?>">
-                            <img src="../img/usuarios/<?= htmlspecialchars($usuario_item['foto']) ?>" alt="Foto de Perfil">
+                            <img src="<?= htmlspecialchars(profile_image_url($usuario_item['foto']), ENT_QUOTES, 'UTF-8') ?>" referrerpolicy="no-referrer" alt="Foto de Perfil">
                             <?= htmlspecialchars($usuario_item['nome']) ?>
                         </button>
                     </li>

@@ -44,6 +44,17 @@ if (!$tenant) {
     exit('Conta não identificada.');
 }
 
+// O checkout de adesão não pode criar outra recorrência para um assinante ativo.
+$stmtRecorrencia = $conn->prepare("SELECT 1 FROM tenants WHERE tenant_id=? AND status_assinatura='ativo' AND COALESCE(id_assinatura_mp, '') <> '' LIMIT 1");
+$stmtRecorrencia->bind_param('s', $tenantId);
+$stmtRecorrencia->execute();
+$temRecorrenciaAtiva = (bool) $stmtRecorrencia->get_result()->fetch_row();
+$stmtRecorrencia->close();
+if ($temRecorrenciaAtiva) {
+    header('Location: ../pages/minha_assinatura.php?aviso=recorrencia_ativa', true, 303);
+    exit;
+}
+
 $mesesGratisIndicacao = (int)($tenant['indicacao_beneficio_utilizado'] ?? 0) === 0
     ? min(2, max(0, (int)($tenant['indicacao_meses_gratis'] ?? 0)))
     : 0;

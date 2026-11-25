@@ -27,6 +27,7 @@ $classeBody = trim($classeBody . ' ' . $pageBodyClass);
 <!DOCTYPE html>
 <html lang="pt-BR" data-app-theme="<?= htmlspecialchars($temaAtual, ENT_QUOTES, 'UTF-8') ?>">
 <head>
+<?php session_idle_script(); ?>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="csrf-token" content="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">

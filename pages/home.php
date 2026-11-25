@@ -593,7 +593,11 @@ if ($tenant_id && $connMaster) {
     $gestao_items = ['lembrete.php', 'relatorios.php'];
     $show_gestao = in_array($perfil, ['admin', 'proprietario', 'master'], true);
     foreach($gestao_items as $item) { if(temPermissao($item, $permissoes_usuario, $perfil)) $show_gestao = true; }
-    $show_configuracoes = true;
+    $show_configuracoes =
+    is_tenant_admin()
+    || temPermissao('perfil.php', $permissoes_usuario, $perfil)
+    || temPermissao('selecionar_usuario.php', $permissoes_usuario, $perfil)
+    || temPermissao('configuracao_fiscal.php', $permissoes_usuario, $perfil);
     ?>
 
     <div class="tabs-container">
@@ -696,7 +700,7 @@ if ($tenant_id && $connMaster) {
                 <?php endif; ?>
                 <?php if (in_array($perfil, ['admin', 'proprietario', 'master'], true)): ?>
                     <a class="menu-item" href="usuarios.php"><i class="fas fa-users"></i><span>Equipe e permissões</span></a>
-                    <a class="menu-item" href="selecionar_usuario.php"><i class="fas fa-users-gear"></i><span>Trocar usuário</span></a>
+                    
                 <?php endif; ?>
             </div>
         </div>
@@ -705,13 +709,19 @@ if ($tenant_id && $connMaster) {
         <?php if($show_configuracoes): ?>
         <div id="tab-configuracoes" class="tab-content" style="display:none;">
             <div class="menu-grid">
-                <a class="menu-item" href="perfil.php"><i class="fas fa-user-circle"></i><span>Meu perfil</span></a>
+                <?php if (temPermissao('selecionar_usuario.php', $permissoes_usuario, $perfil)): ?>
+                    <a class="menu-item" href="selecionar_usuario.php">
+                        <i class="fas fa-users-gear"></i>
+                        <span>Trocar usuário</span>
+                    </a>
+                <?php endif; ?>
+                <?php if (temPermissao('perfil.php', $permissoes_usuario, $perfil)): ?><a class="menu-item" href="perfil.php"><i class="fas fa-user-circle"></i><span>Meu perfil</span></a><?php endif; ?>
                 <?php if (temPermissao('configuracao_fiscal.php', $permissoes_usuario, $perfil)): ?>
                     <a class="menu-item" href="configuracao_fiscal.php"><i class="fas fa-file-invoice"></i><span>Configuração fiscal</span></a>
                 <?php endif; ?>
-                <a class="menu-item" href="minha_assinatura.php"><i class="fas fa-credit-card"></i><span>Assinatura e plano</span></a>
-                <a class="menu-item" href="protecao_de_dados.php"><i class="fas fa-shield-halved"></i><span>Proteção de dados</span></a>
-                <a class="menu-item" href="solicitar_meu_suporte.php"><i class="fas fa-headset"></i><span>Suporte</span></a>
+                <?php if (is_tenant_admin()): ?><a class="menu-item" href="minha_assinatura.php"><i class="fas fa-credit-card"></i><span>Assinatura e plano</span></a><?php endif; ?>
+                <?php if (is_tenant_admin()): ?><a class="menu-item" href="protecao_de_dados.php"><i class="fas fa-shield-halved"></i><span>Proteção de dados</span></a><?php endif; ?>
+                <?php if (is_tenant_admin()): ?><a class="menu-item" href="solicitar_meu_suporte.php"><i class="fas fa-headset"></i><span>Suporte</span></a><?php endif; ?>
             </div>
         </div>
         <?php endif; ?>

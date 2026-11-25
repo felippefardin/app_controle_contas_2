@@ -527,6 +527,7 @@ html[data-app-theme="light"] body.light-mode .meta-widget .progress {
 
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1><i class="fas fa-cash-register"></i> Caixa de Vendas (PDV)</h1>
+        <a href="vendas_periodo.php" class="btn btn-secondary">Validar NFC-e de venda registrada</a>
         <a href="fechamento_caixa.php" class="btn btn-info">
             <i class="fas fa-print"></i> Fechamento de Caixa
         </a>

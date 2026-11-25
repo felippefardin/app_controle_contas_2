@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<?php session_idle_script(); ?>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Entre em contato com o suporte do App Controle Pro e acompanhe sua solicitação por protocolo.">

@@ -19,6 +19,7 @@ display_flash_message();
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<?php session_idle_script(); ?>
   <link rel="stylesheet" href="../assets/css/universal-theme.css?v=20260804-theme-button-login">
   <script src="../assets/js/global-theme.js?v=20260805-icons"></script>
   <meta charset="UTF-8" />
@@ -457,7 +458,7 @@ display_flash_message();
     </div>
 
     <div style="margin-top: 20px; display:flex; justify-content:center;">
-        <div class="cf-turnstile" data-sitekey="0x4AAAAAACDq-KxXYje-dbsU" data-theme="auto"></div>
+        <div class="cf-turnstile" data-sitekey="<?= htmlspecialchars($_ENV['TURNSTILE_SITE_KEY'] ?? '', ENT_QUOTES, 'UTF-8') ?>" data-theme="auto"></div>
     </div>
 
     <button class="btn-submit" type="submit">Finalizar Cadastro e Testar Grátis</button>
@@ -620,10 +621,20 @@ display_flash_message();
         if ($(this).val() === "fisica") { $("#labelNome").text("Nome Completo:"); $("#tipo_doc").val("cpf").trigger("change"); } 
         else { $("#labelNome").text("Nome da Empresa:"); $("#tipo_doc").val("cnpj").trigger("change"); }
       });
-      $("#tipo_doc").on("change", function() { aplicarMascaraDocumento($(this).val()); });
+      let ultimoTipoDocumento;
+      $("#tipo_doc").on("change", function() {
+        const tipo = $(this).val() || "cpf";
+        if (ultimoTipoDocumento && tipo !== ultimoTipoDocumento) {
+          $("#documento").val("");
+          try { localStorage.removeItem("reg_documento"); } catch {}
+        }
+        ultimoTipoDocumento = tipo;
+        aplicarMascaraDocumento(tipo);
+      });
       $("#telefone").mask("(00) 00000-0000");
       loadLocal();
-      aplicarMascaraDocumento($("#tipo_doc").val() || "cpf");
+      ultimoTipoDocumento = $("#tipo_doc").val() || "cpf";
+      aplicarMascaraDocumento(ultimoTipoDocumento);
   });
 
   document.addEventListener('DOMContentLoaded', function() {

@@ -13,8 +13,8 @@ if (!hash_equals((string)($_SESSION['csrf_token'] ?? ''), (string)($_POST['csrf_
 }
 
 $data = (string)($_POST['data'] ?? '');
-if (!caixa_data_valida($data) || $data !== date('Y-m-d')) {
-    exit('Somente o caixa aberto de hoje pode ser fechado.');
+if (!caixa_data_valida($data) || $data > date('Y-m-d')) {
+    exit('Informe uma data válida até hoje.');
 }
 
 $conn = getTenantConnection();
@@ -25,7 +25,7 @@ try {
     $conn->begin_transaction();
     $sessao = caixa_buscar_sessao($conn, $ownerId, $data, true);
     if (!$sessao || $sessao['status'] !== 'aberto') {
-        throw new RuntimeException('Não existe um caixa aberto para fechar hoje.');
+        throw new RuntimeException('Não existe um caixa aberto na data selecionada.');
     }
 
     $stmt = $conn->prepare('SELECT COUNT(*) quantidade,COALESCE(SUM(valor_total),0) total,COALESCE(MAX(id),0) ultimo_id FROM vendas WHERE id_usuario=? AND DATE(data_venda)=?');

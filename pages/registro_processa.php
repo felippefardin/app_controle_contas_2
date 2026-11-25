@@ -28,7 +28,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use Dotenv\Dotenv;
 use Dompdf\Dompdf;
 
-define('TURNSTILE_SECRET_KEY', '0x4AAAAAACDq-BZPjGJTF8DhHDOEQ6NrWBw');
+define('TURNSTILE_SECRET_KEY', $_ENV['TURNSTILE_SECRET_KEY'] ?? '');
 
 // Inicializa a conexão com o banco master
 $conn = getMasterConnection();
@@ -109,7 +109,7 @@ function return_error($msg, $data) {
     exit;
 }
 
-// if (!verificarTurnstile($turnstileToken)) return_error("Verificação de segurança falhou (Captcha).", $form_data);
+if (!verificarTurnstile($turnstileToken)) return_error("Verificação de segurança falhou (Captcha).", $form_data);
 if ($aceite_lgpd !== '1' || $aceite_termos !== '1' || $aceite_privacidade !== '1') {
     return_error('É necessário confirmar separadamente os Termos de Uso e o Aviso de Privacidade.', $form_data);
 }
@@ -164,7 +164,7 @@ try {
         sincronizarRecompensasIndicador($conn, $idIndicador);
     }
 
-    $tenantId = 'T' . substr(md5(uniqid($email, true)), 0, 32);
+    $tenantId = 'T' . substr(bin2hex(random_bytes(16)), 0, 31);
     $dbHost = $_ENV['DB_HOST'] ?? 'localhost';
     $dbDatabase = 'tenant_db_' . $new_usuario_id;
     $dbUser = 'dbuser_' . $new_usuario_id;
@@ -187,12 +187,15 @@ try {
 
     $conn->query("UPDATE usuarios SET tenant_id = '$tenantId' WHERE id = $new_usuario_id");
 
-    $rootConn = new mysqli($dbHost, $_ENV['DB_USER'], $_ENV['DB_PASSWORD']);
-    $rootConn->query("CREATE DATABASE IF NOT EXISTS `$dbDatabase` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci");
-    $rootConn->query("CREATE USER IF NOT EXISTS '$dbUser'@'localhost' IDENTIFIED BY '$dbPassword'");
-    $rootConn->query("GRANT ALL PRIVILEGES ON `$dbDatabase`.* TO '$dbUser'@'localhost'");
-    $rootConn->query("FLUSH PRIVILEGES");
-    $rootConn->close();
+    $provisionConn = new mysqli($dbHost, $_ENV['DB_USER'], $_ENV['DB_PASSWORD']);
+    try {
+        $provisionStmt = $provisionConn->prepare('CALL appcontrolepro_provisionamento.criar_empresa(?, ?)');
+        $provisionStmt->bind_param('is', $new_usuario_id, $dbPassword);
+        $provisionStmt->execute();
+        $provisionStmt->close();
+    } finally {
+        $provisionConn->close();
+    }
 
     // Todo tenant precisa receber sua estrutura antes do primeiro login.
     $tenantSchemaPath = __DIR__ . '/../includes/tenant_schema._sql';
@@ -248,7 +251,8 @@ try {
             . htmlspecialchars($section['body'], ENT_QUOTES, 'UTF-8') . '</p></section>';
     }
 
-    $htmlLgpd = '<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><style>'
+    $htmlLgpd = '<!doctype html><html lang="pt-BR"><head>
+<?php session_idle_script(); ?><meta charset="UTF-8"><style>'
         . '@page{margin:32px 42px 42px}body{font-family:DejaVu Sans,Arial,sans-serif;color:#243244;font-size:10.5px;line-height:1.5}'
         . 'h1{color:#087ea4;font-size:21px;border-bottom:2px solid #087ea4;padding-bottom:9px;margin-bottom:5px}h2{font-size:12.5px;color:#0b6685;margin:12px 0 3px}'
         . '.version{color:#66758a;font-size:9px;margin-bottom:13px}.intro{background:#eaf7fc;border-left:4px solid #087ea4;padding:11px 13px;margin-bottom:13px}'

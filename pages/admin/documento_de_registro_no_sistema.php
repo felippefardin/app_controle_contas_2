@@ -10,6 +10,22 @@ $admin = $_SESSION['super_admin'] ?? [
 $conn = getMasterConnection();
 $mensagem = '';
 $mensagemTipo = 'success';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'reativar_ciclo') {
+    require_csrf();
+    require_once __DIR__ . '/../../includes/account_cycle_transition.php';
+    try {
+        $protocol = (string) ($_POST['protocolo'] ?? '');
+        $request = $conn->execute_query('SELECT tenant_id_snapshot, data_aceite FROM aceites_exclusao_conta WHERE protocolo=?', [$protocol])->fetch_assoc();
+        if (!$request) throw new DomainException('Protocolo inválido.');
+        account_cycle_change($conn, $request['tenant_id_snapshot'], true, static function () {}, $request['data_aceite']);
+        $mensagem = 'Conta reativada. O encerramento foi revertido.';
+    } catch (Throwable $error) {
+        error_log('Falha ao reativar conta: ' . $error->getMessage());
+        $mensagem = 'A reativação não foi confirmada. Verifique a situação da assinatura antes de tentar novamente.';
+        $mensagemTipo = 'danger';
+    }
+}
+
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'excluir') {
     require_csrf();
@@ -67,6 +83,7 @@ if ($busca !== '') {
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<?php session_idle_script(); ?>
 <link rel="stylesheet" href="../../assets/css/universal-theme.css?v=20260813-admin">
 <script src="../../assets/js/global-theme.js?v=20260813-admin"></script>
     <?php require __DIR__ . '/../../includes/csrf_client.php'; ?>
@@ -159,12 +176,36 @@ if ($busca !== '') {
         <div><h1 style="font-size:1.35rem;color:#ff7b89"><i class="fas fa-user-slash"></i> Aceites de exclusão de conta</h1><p class="subtitle">Provas mantidas por cinco anos após a confirmação e removidas automaticamente ao fim do prazo.</p></div>
     </div>
     <?php if ($resultAceites && $resultAceites->num_rows): ?>
-    <div class="table-wrap"><table><thead><tr><th>Protocolo</th><th>Usuário removido</th><th>Data do aceite</th><th>IP</th><th>Excluir prova após</th><th>Termo confirmado</th></tr></thead><tbody>
+    <div class="table-wrap"><table><thead><tr><th>Protocolo</th><th>Usuário</th><th>Encerramento do ciclo</th><th>Data do aceite</th><th>IP</th><th>Excluir prova após</th><th>Termo confirmado</th></tr></thead><tbody>
     <?php while ($aceite = $resultAceites->fetch_assoc()): ?>
         <tr>
             <td data-label="Protocolo"><strong><?= htmlspecialchars($aceite['protocolo']) ?></strong><br><small>Versão <?= htmlspecialchars($aceite['versao_termo']) ?></small></td>
             <td data-label="Usuário"><strong><?= htmlspecialchars($aceite['nome_snapshot']) ?></strong><br><small><?= htmlspecialchars($aceite['email_snapshot']) ?></small></td>
-            <td data-label="Aceite"><?= date('d/m/Y H:i:s', strtotime($aceite['data_aceite'])) ?></td>
+            <td data-label="Encerramento do ciclo">
+    <?php
+    $ciclo = $conn->execute_query(
+        "SELECT exclusao_programada_em, GREATEST(0, CEIL(TIMESTAMPDIFF(SECOND, NOW(), exclusao_programada_em) / 86400)) AS dias
+         FROM tenants WHERE tenant_id = ? AND tipo_cancelamento = 'excluir' AND exclusao_programada_em IS NOT NULL AND desativada_em = ?",
+        [(string) $aceite['tenant_id_snapshot'], (string) $aceite['data_aceite']]
+    )->fetch_assoc();
+    ?>
+    <?php if ($ciclo): ?>
+        <?= htmlspecialchars(date('d/m/Y H:i', strtotime($ciclo['exclusao_programada_em']))) ?><br>
+        <?= (int) $ciclo['dias'] ?> dia(s) restante(s)
+        <?php if ((int) $ciclo['dias'] > 0): ?>
+        <form method="post">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
+            <input type="hidden" name="acao" value="reativar_ciclo">
+            <input type="hidden" name="protocolo" value="<?= htmlspecialchars($aceite['protocolo']) ?>">
+            <button type="submit" title="Reativar conta"><i class="fas fa-rotate-left" aria-hidden="true"></i> Reativar conta</button>
+        </form>
+        <?php endif; ?>
+
+    <?php else: ?>
+        &mdash;
+    <?php endif; ?>
+</td>
+<td data-label="Aceite"><?= date('d/m/Y H:i:s', strtotime($aceite['data_aceite'])) ?></td>
             <td data-label="IP"><?= htmlspecialchars($aceite['ip_usuario'] ?: '-') ?></td>
             <td data-label="Retenção"><?= date('d/m/Y H:i:s', strtotime($aceite['excluir_apos'])) ?></td>
             <td data-label="Termo"><details><summary style="cursor:pointer;color:#00bfff;font-weight:700">Visualizar texto</summary><p style="max-width:520px;line-height:1.5;color:#ccc"><?= htmlspecialchars($aceite['texto_aceito']) ?></p><small>Hash: <?= htmlspecialchars($aceite['texto_hash']) ?></small></details></td>

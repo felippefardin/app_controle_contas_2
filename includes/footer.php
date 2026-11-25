@@ -35,7 +35,7 @@ if (file_exists(__DIR__ . '/../pages/calendario.php')) {
 ================================ -->
 <footer class="footer-app">
     <p>
-        &copy; <?= date('Y') ?> App Controle de Contas. Desenvolvido por Felippe Fardin.
+        &copy; <?= date('Y') ?> App Controle de Contas. Desenvolvido por Felippe Andreata DEV.
         <a href="../pages/tutorial.php">Tutorial</a>
         <a href="../pages/suporte.php">Suporte</a>
         <a href="../pages/protecao_de_dados.php">Proteção de Dados</a>

@@ -2,7 +2,8 @@
 // pages/perfil.php
 require_once '../includes/session_init.php';
 require_once '../database.php';
-require_once '../includes/utils.php'; 
+require_once '../includes/utils.php';
+require_once '../includes/profile_avatar.php'; 
 
 // 1. Verifica Login
 if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true) {
@@ -102,7 +103,7 @@ if ($connMaster) {
     $stmtM->close();
 }
 
-$uploadDir = '../img/usuarios/';
+$uploadDir = __DIR__ . '/../img/usuarios/';
 $erro = '';
 
 if (isset($_GET['mensagem'])) {
@@ -115,32 +116,18 @@ if (isset($_GET['erro'])) {
 // 3. Processa o formulário de atualização de perfil
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_POST['excluir_conta']) && !isset($_POST['acao_suporte_inicial'])) {
+        require_csrf();
         $nome_novo = trim($_POST['nome'] ?? '');
         $documento_novo = preg_replace('/[^0-9]/', '', $_POST['documento'] ?? '');
         $telefone_novo = trim($_POST['telefone'] ?? '');
         $email_novo = trim($_POST['email'] ?? '');
         $senha_nova = trim($_POST['senha'] ?? '');
         $senha_confirmar = trim($_POST['senha_confirmar'] ?? '');
-        $novoNomeFoto = $foto_atual;
-
-        // Upload de Foto
-        if (isset($_FILES['foto']) && $_FILES['foto']['error'] === UPLOAD_ERR_OK) {
-            $fileTmpPath = $_FILES['foto']['tmp_name'];
-            $fileName = $_FILES['foto']['name'];
-            $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-            $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif'];
-
-            if (in_array($fileExtension, $allowedExtensions)) {
-                $novoNomeFoto = $id_usuario . '_' . time() . '.' . $fileExtension;
-                $dest_path = $uploadDir . $novoNomeFoto;
-
-                if (move_uploaded_file($fileTmpPath, $dest_path)) {
-                    if ($foto_atual && $foto_atual !== 'default-profile.png' && file_exists($uploadDir . $foto_atual)) {
-                        unlink($uploadDir . $foto_atual);
-                    }
-                } else $erro = "Erro ao salvar a imagem no servidor.";
-            } else $erro = "Tipo de arquivo inválido. Use jpg, jpeg, png ou gif.";
+        $novoNomeFoto = $_POST['avatar_perfil'] ?? '';
+        if (!is_string($novoNomeFoto) || ($novoNomeFoto !== '' && profile_avatar_url($novoNomeFoto) === null)) {
+            $erro = 'Selecione um avatar válido da galeria.';
         }
+        $novoNomeFoto = $novoNomeFoto === '' ? null : $novoNomeFoto;
 
         if (!$erro) {
             if (empty($nome_novo) || empty($email_novo)) $erro = "Nome e E-mail são obrigatórios.";
@@ -155,18 +142,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if ($stmt_check->num_rows > 0) $erro = "Este e-mail já está em uso.";
                 else {
-                    $senha_hash = null;
-                    if (!empty($senha_nova)) {
-                        $senha_hash = password_hash($senha_nova, PASSWORD_DEFAULT);
-                        $stmt_update = $conn->prepare("UPDATE usuarios SET nome=?, documento=?, telefone=?, email=?, senha=?, foto=? WHERE id=?");
-                        $stmt_update->bind_param("ssssssi", $nome_novo, $documento_novo, $telefone_novo, $email_novo, $senha_hash, $novoNomeFoto, $id_usuario);
-                    } else {
-                        $stmt_update = $conn->prepare("UPDATE usuarios SET nome=?, documento=?, telefone=?, email=?, foto=? WHERE id=?");
-                        $stmt_update->bind_param("sssssi", $nome_novo, $documento_novo, $telefone_novo, $email_novo, $novoNomeFoto, $id_usuario);
+                    $fotoEnviada = null;
+                    $perfilAtualizado = false;
+                    try {
+                        $fotoEnviada = profile_save_uploaded_photo($_FILES['foto'] ?? null, (int) $id_usuario, $uploadDir);
+                        $novoNomeFoto = $fotoEnviada ?? $novoNomeFoto;
+                    } catch (RuntimeException $e) {
+                        $erro = $e->getMessage();
                     }
 
-                    if ($stmt_update->execute()) {
-                        
+                    if (!$erro) {
+                        try {
+                            $senha_hash = null;
+                            if (!empty($senha_nova)) {
+                                $senha_hash = password_hash($senha_nova, PASSWORD_DEFAULT);
+                                $stmt_update = $conn->prepare("UPDATE usuarios SET nome=?, documento=?, telefone=?, email=?, senha=?, foto=COALESCE(?, foto) WHERE id=?");
+                                $stmt_update->bind_param("ssssssi", $nome_novo, $documento_novo, $telefone_novo, $email_novo, $senha_hash, $novoNomeFoto, $id_usuario);
+                            } else {
+                                $stmt_update = $conn->prepare("UPDATE usuarios SET nome=?, documento=?, telefone=?, email=?, foto=COALESCE(?, foto) WHERE id=?");
+                                $stmt_update->bind_param("sssssi", $nome_novo, $documento_novo, $telefone_novo, $email_novo, $novoNomeFoto, $id_usuario);
+                            }
+
+                            $perfilAtualizado = $stmt_update->execute();
+                            $stmt_update->close();
+                        } catch (mysqli_sql_exception $e) {
+                            $perfilAtualizado = false;
+                        }
+
+                        if (!$perfilAtualizado) {
+                            if ($fotoEnviada !== null) {
+                                @unlink($uploadDir . $fotoEnviada);
+                            }
+                            $erro = 'Erro ao atualizar os dados no banco.';
+                        }
+                    }
+
+                    if ($perfilAtualizado) {
+                        if ($novoNomeFoto !== null && preg_match('/^profile_\d+_[a-f0-9]{32}\.(jpg|png|gif)$/D', $foto_atual)) {
+                            @unlink($uploadDir . $foto_atual);
+                        }
+
                         // Sincroniza Master
                         try {
                             $connMaster = getMasterConnection();
@@ -187,13 +202,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         } catch (Exception $e) {}
 
                         $_SESSION['usuario_nome'] = $nome_novo;
-                        $_SESSION['usuario_foto'] = $novoNomeFoto;
+                        $_SESSION['usuario_foto'] = $novoNomeFoto ?? $foto_atual;
                         $_SESSION['email'] = $email_novo;
 
                         set_flash_message('success', "Dados atualizados com sucesso!");
                         header("Location: perfil.php");
                         exit;
-                    } else $erro = "Erro ao atualizar os dados no banco.";
+                    }
                 }
                 $stmt_check->close();
             }
@@ -248,6 +263,73 @@ display_flash_message();
             align-items: center;
             justify-content: center;
             gap: 10px;
+        }
+
+        .profile-image-section {
+            grid-column: 1 / -1;
+            min-width: 0;
+            margin-bottom: 8px;
+            padding: 16px;
+            border: 1px solid rgba(127, 127, 127, .34);
+            border-radius: 10px;
+        }
+        .profile-image-actions {
+            display: grid;
+            grid-template-columns: auto minmax(0, 420px);
+            align-items: center;
+            gap: 12px 24px;
+            margin-bottom: 14px;
+        }
+        .profile-image-section .profile-photo-container { margin: 0; }
+        .profile-avatar-gallery summary {
+            cursor: pointer;
+            padding: 10px 12px;
+            border: 1px solid rgba(127, 127, 127, .45);
+            border-radius: 7px;
+            font-weight: 700;
+        }
+        .profile-avatar-gallery summary:hover { background: rgba(127, 127, 127, .1); }
+        .profile-avatar-gallery fieldset { min-width: 0; margin: 14px 0 0; padding: 0; border: 0; }
+        .profile-avatar-gallery h3 { font-size: 1rem; margin: 14px 0 8px; }
+        .profile-avatar-gallery label { cursor: pointer; margin: 0; }
+        .profile-avatar-gallery input { accent-color: #168bd1; }
+        .profile-avatar-grid {
+            display: grid;
+            grid-template-columns: repeat(9, minmax(0, 1fr));
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .profile-avatar-option { position: relative; min-width: 0; }
+        .profile-avatar-option input { position: absolute; opacity: 0; }
+        .profile-avatar-option span {
+            display: grid;
+            justify-items: center;
+            gap: 4px;
+            padding: 7px 3px;
+            border: 1px solid rgba(127, 127, 127, .45);
+            border-radius: 8px;
+            font-size: .82rem;
+            overflow-wrap: anywhere;
+            text-align: center;
+        }
+        .profile-avatar-option:hover span { background: rgba(127, 127, 127, .1); }
+        .profile-avatar-option input:checked + span {
+            border-color: #168bd1;
+            box-shadow: inset 0 0 0 1px #168bd1;
+            background: rgba(22, 139, 209, .14);
+        }
+        .profile-avatar-option input:focus-visible + span,
+        .profile-avatar-gallery summary:focus-visible { outline: 2px solid #168bd1; outline-offset: 2px; }
+        .profile-avatar-option img { max-width: 100%; height: auto; border-radius: 50%; background: #e5e7eb; }
+        .profile-avatar-gallery small { display: block; margin-bottom: 4px; }
+        .profile-referral { grid-column: 1 / -1; width: 100%; max-width: 420px; }
+
+        @media (max-width: 992px) {
+            .profile-avatar-grid { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); }
+        }
+        @media (max-width: 600px) {
+            .profile-image-section { padding: 12px; }
+            .profile-image-actions { grid-template-columns: minmax(0, 1fr); }
         }
 
         /* Foto de Perfil */
@@ -436,7 +518,6 @@ display_flash_message();
         .page-container > form:first-of-type .input-wrapper {
             height: 39px;
         }
-        .page-container > form:first-of-type .profile-photo-container,
         .page-container > form:first-of-type .btn-area { grid-column: 1 / -1; }
         .page-container > form:first-of-type .profile-photo-container {
             display: flex;
@@ -444,7 +525,6 @@ display_flash_message();
             justify-content: center;
             gap: 12px;
         }
-        .page-container > form:first-of-type .profile-photo-container br { display: none; }
         .page-container > form:first-of-type .profile-badge { margin-top: 0; }
 
         /* Tema claro: remove as cores escuras fixas desta página. */
@@ -540,24 +620,74 @@ display_flash_message();
     </style>
 </head>
 <body>
+<?php
+$cancelamento = getMasterConnection()->execute_query(
+    "SELECT exclusao_programada_em, GREATEST(0, CEIL(TIMESTAMPDIFF(SECOND, NOW(), exclusao_programada_em) / 86400)) AS dias
+     FROM tenants WHERE tenant_id = ? AND tipo_cancelamento = 'excluir' AND exclusao_programada_em IS NOT NULL",
+    [(string) ($_SESSION['tenant_id'] ?? '')]
+)->fetch_assoc();
+?>
+<?php if ($cancelamento): ?>
+<div class="alert alert-warning m-3" role="status">
+    Encerramento programado para <?= htmlspecialchars(date('d/m/Y H:i', strtotime($cancelamento['exclusao_programada_em']))) ?>.
+    Dias restantes: <?= (int) $cancelamento['dias'] ?>.
+    Para ativar o plano novamente, entre em contato com o suporte.
+</div>
+<?php endif; ?>
+
 
 <div class="page-container">
     <h2><i class="fa-solid fa-user-pen"></i> Editar Perfil</h2>
 
     <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
         
-        <div class="profile-photo-container">
-            <img src="../img/usuarios/<?= htmlspecialchars($foto_atual ?? 'default-profile.png', ENT_QUOTES, 'UTF-8') ?>" alt="Foto" class="profile-photo">
-            <br>
-            <div class="profile-badge">
-                <?= $perfil_texto ?>
-            </div>
-        </div>
+        <section class="profile-image-section" aria-label="Imagem do perfil">
+            <div class="profile-image-actions">
+                <div class="profile-photo-container">
+                    <img src="<?= htmlspecialchars(profile_image_url($foto_atual), ENT_QUOTES, 'UTF-8') ?>" referrerpolicy="no-referrer" alt="Imagem atual do perfil" class="profile-photo">
+                    <div class="profile-badge">
+                        <?= $perfil_texto ?>
+                    </div>
+                </div>
 
-        <div class="form-group">
-            <label for="foto">Alterar Foto:</label>
-            <input type="file" name="foto" id="foto" class="form-control" accept="image/*" style="padding-bottom: 38px;">
-        </div>
+                <div class="form-group">
+                    <label for="foto">Alterar Foto:</label>
+                    <input type="file" name="foto" id="foto" class="form-control" accept="image/jpeg,image/png,image/gif">
+                </div>
+
+            </div>
+            <details class="profile-avatar-gallery">
+                <summary>Escolher um avatar da galeria</summary>
+                <fieldset>
+                    <legend>Imagem do perfil</legend>
+                    <label class="profile-avatar-keep">
+                        <input type="radio" name="avatar_perfil" value="" checked>
+                        Manter a imagem atual
+                    </label>
+                    <?php foreach (profile_avatar_catalog() as $group => $styles): ?>
+                        <h3><?= $group === 'pessoa' ? 'Pessoa física' : 'Pessoa jurídica (CNPJ)' ?></h3>
+                        <div class="profile-avatar-grid">
+                            <?php foreach ($styles as $style => $names): ?>
+                                <?php foreach ($names as $index => $label): ?>
+                                    <?php $choice = 'dicebear:' . $style . '-' . ($index + 1); ?>
+                                    <label class="profile-avatar-option">
+                                        <input type="radio" name="avatar_perfil" value="<?= htmlspecialchars($choice) ?>">
+                                        <span>
+                                            <img src="<?= htmlspecialchars(profile_image_url($choice), ENT_QUOTES, 'UTF-8') ?>"
+                                                alt="" width="56" height="56" loading="lazy" referrerpolicy="no-referrer">
+                                            <?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?>
+                                        </span>
+                                    </label>
+                                <?php endforeach; ?>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endforeach; ?>
+                    <small>Selecione um avatar e clique em Salvar Alterações. Se anexar uma foto, ela será usada no lugar do avatar.</small>
+                    <a href="https://www.dicebear.com/" target="_blank" rel="noopener noreferrer">Avatares do DiceBear</a>
+                </fieldset>
+            </details>
+        </section>
 
         <div class="form-group">
             <label>Nome Completo:</label>
@@ -567,17 +697,6 @@ display_flash_message();
         <div class="form-group">
             <label>E-mail:</label>
             <input type="email" name="email" class="form-control" required value="<?= htmlspecialchars($email ?? '') ?>">
-        </div>
-
-        <div class="form-group">
-            <label for="codigo_indicacao" class="fw-bold">Seu Código de Indicação (Exclusivo)</label>
-            <div class="input-group">
-                <input type="text" class="form-control text-center fw-bold text-primary" id="codigo_indicacao" value="<?= htmlspecialchars($codigo_indicacao ?: 'Não disponível') ?>" readonly>
-                <button class="btn-outline-secondary" type="button" onclick="copiarCodigo()">
-                    <i class="fa-regular fa-copy"></i>&nbsp;Copiar
-                </button>
-            </div>
-            <small class="text-muted">Compartilhe este código para indicar amigos.</small>
         </div>
 
         <div class="form-group">
@@ -604,6 +723,17 @@ display_flash_message();
                 <input type="password" name="senha_confirmar" id="senha_confirmar" class="form-control" placeholder="Repita se for alterar">
                 <i class="fa-solid fa-eye toggle-password" onclick="togglePass('senha_confirmar', this)"></i>
             </div>
+        </div>
+
+        <div class="form-group profile-referral">
+            <label for="codigo_indicacao" class="fw-bold">Seu Código de Indicação (Exclusivo)</label>
+            <div class="input-group">
+                <input type="text" class="form-control text-center fw-bold text-primary" id="codigo_indicacao" value="<?= htmlspecialchars($codigo_indicacao ?: 'Não disponível') ?>" readonly>
+                <button class="btn-outline-secondary" type="button" onclick="copiarCodigo()">
+                    <i class="fa-regular fa-copy"></i>&nbsp;Copiar
+                </button>
+            </div>
+            <small class="text-muted">Compartilhe este código para indicar amigos.</small>
         </div>
 
         <div class="btn-area">

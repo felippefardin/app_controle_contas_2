@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../includes/fiscal_a1.php';
 require_once '../includes/session_init.php';
 require_once '../database.php';
 require_once '../includes/utils.php'; // Utils para Flash Message
@@ -60,6 +61,10 @@ try {
         }
     }
 
+    if (isset($_FILES['certificado_a1']) && $_FILES['certificado_a1']['error'] !== UPLOAD_ERR_NO_FILE) {
+        if (!is_tenant_admin()) throw new RuntimeException('Apenas administradores podem cadastrar o certificado A1.');
+        fiscal_a1_upload($cnpj, $_FILES['certificado_a1'], (string) ($_POST['certificado_a1_senha'] ?? ''));
+    }
     $conn->commit();
     
     // Mensagem de Sucesso

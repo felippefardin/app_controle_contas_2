@@ -117,6 +117,8 @@ display_flash_message();
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 
 <style>
+
+
  body { background-color: #121212 !important; color: #e0e0e0; }
 
 .page-header {
@@ -149,7 +151,7 @@ display_flash_message();
     margin-bottom: 15px; transition: all 0.3s ease;
 }
 .card-lembrete:hover {
-    transform: translateY(-3px); border-color: #555; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
 }
 .card-body { padding: 15px; }
 .prioridade-verde { border-left: 4px solid #28a745; }
@@ -166,7 +168,22 @@ display_flash_message();
     display: flex; justify-content: space-between; align-items: center;
 }
 .btn-icon { background: none; border: none; color: #666; font-size: 1rem; padding: 5px; transition: 0.2s; }
-.btn-icon:hover { color: #fff; }
+.card-lembrete .btn-icon {
+    border-radius: 6px;
+    cursor: pointer;
+}
+.card-lembrete .btn-icon:is(:hover, :focus-visible) {
+    background: #eff6ff;
+    color: #1e40af !important;
+}
+.card-lembrete .btn-icon.text-danger:is(:hover, :focus-visible) {
+    background: #fff1f2;
+    color: #b91c1c !important;
+}
+.card-lembrete .btn-icon:is(:hover, :focus-visible) i {
+    color: inherit !important;
+    opacity: 1;
+}
 .btn-comentario { color: #00bfff; font-size: 0.9rem; text-decoration: none; background: none; border: none; }
 .btn-comentario:hover { text-decoration: underline; text-shadow: 0 0 5px rgba(0,191,255,0.5); }
 
@@ -182,9 +199,18 @@ display_flash_message();
 .comentario-header { font-size: 0.8rem; color: #00bfff; font-weight: bold; margin-bottom: 3px; }
 .comentario-texto { font-size: 0.9rem; color: #eee; margin: 0; }
 .comentario-data { font-size: 0.7rem; color: #666; float: right; }
+@media (min-width: 992px) {
+    .container.lembrete-full-desktop {
+        width: 100%;
+        max-width: none;
+        padding-inline: 24px;
+    }
+}
+.container.lembrete-full-desktop { border-radius: 16px; padding-block-start: 16px; }
+.container.lembrete-full-desktop .page-header > .btn-main { margin-inline-end: 8px; }
 </style>
 
-<div class="container">
+<div class="container lembrete-full-desktop">
     
     <div class="page-header">
         <h2 class="page-title"><i class="fas fa-sticky-note me-2"></i>Lembretes</h2>

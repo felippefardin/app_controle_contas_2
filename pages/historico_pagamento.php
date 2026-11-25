@@ -95,6 +95,23 @@ include('../includes/header.php');
         .text-original { text-decoration: line-through; color: #777; font-size: 0.85rem; margin-right: 5px; }
         .text-final { color: #fff; font-weight: bold; }
         .discount-tag { font-size: 0.75rem; color: #2ecc71; display: block; }
+    
+        /* Recibo visivel no celular */
+        @media (max-width: 768px) {
+            .table-responsive { overflow-x: auto; }
+            .table-responsive th:last-child,
+            .table-responsive td:last-child {
+                position: sticky;
+                right: 0;
+                background-color: #1e1e1e;
+                box-shadow: -3px 0 6px rgba(0, 0, 0, 0.25);
+            }
+            .table-responsive .btn-recibo {
+                min-height: 44px;
+                box-sizing: border-box;
+                white-space: nowrap;
+            }
+        }
     </style>
 </head>
 <body>

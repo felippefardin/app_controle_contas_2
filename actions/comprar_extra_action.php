@@ -1,6 +1,6 @@
 <?php
 
-session_start();
+require_once __DIR__ . '/../includes/session_init.php';
 require_once __DIR__ . '/../database.php';
 require_once __DIR__ . '/../includes/utils.php';
 require_once __DIR__ . '/../includes/mercadopago_security.php';
@@ -32,6 +32,14 @@ try {
         throw new RuntimeException('Conta não encontrada.');
     }
 
+    $trocaPendente = $conn->prepare("SELECT id FROM trocas_planos WHERE tenant_id=? AND estado<>'concluida' LIMIT 1");
+    $trocaPendente->bind_param('s', $tenantId); $trocaPendente->execute();
+    if ($trocaPendente->get_result()->fetch_row()) {
+        $conn->rollback();
+        set_flash_message('warning', 'Sua troca de plano ainda está em andamento. Aguarde o fechamento do ciclo atual da assinatura para contratar mais usuários.');
+        header('Location: ' . $nextPage);
+        exit;
+    }
     $totalExtras = (int) $tenant['usuarios_extras'] + $quantity;
     $trial = $tenant['status_assinatura'] === 'trial';
     if (!$trial && empty($tenant['id_assinatura_mp'])) {

@@ -119,6 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $token_valido) {
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<?php session_idle_script(); ?>
 <link rel="stylesheet" href="../assets/css/universal-theme.css">
 <script src="../assets/js/global-theme.js"></script>
 <meta charset="UTF-8" />

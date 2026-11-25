@@ -82,21 +82,27 @@ $result_chamados = $master_conn->query($sql_chamados);
 
 // --- LÓGICA DE RANKING ---
 $sql_ranking = "
-    SELECT 
+    SELECT
         u_ind.nome AS nome_indicador,
         u_ind.email AS email_indicador,
-        t.nome_empresa,
-        COUNT(i.id) AS total_indicacoes,
-        FLOOR(COUNT(i.id) / 3) AS premios_ganhos,
-        (3 - (COUNT(i.id) % 3)) AS faltam_para_proximo
-    FROM indicacoes i
-    JOIN usuarios u_ind ON i.id_indicador = u_ind.id
-    LEFT JOIN tenants t ON u_ind.tenant_id COLLATE utf8mb4_unicode_ci = t.tenant_id COLLATE utf8mb4_unicode_ci
-    GROUP BY i.id_indicador
-    ORDER BY total_indicacoes DESC
+        (
+            SELECT MAX(t.nome_empresa)
+            FROM tenants t
+            WHERE t.tenant_id COLLATE utf8mb4_unicode_ci =
+                  u_ind.tenant_id COLLATE utf8mb4_unicode_ci
+        ) AS nome_empresa,
+        ranking.total_indicacoes,
+        FLOOR(ranking.total_indicacoes / 3) AS premios_ganhos,
+        (3 - (ranking.total_indicacoes % 3)) AS faltam_para_proximo
+    FROM (
+        SELECT id_indicador, COUNT(id) AS total_indicacoes
+        FROM indicacoes
+        GROUP BY id_indicador
+    ) ranking
+    JOIN usuarios u_ind ON ranking.id_indicador = u_ind.id
+    ORDER BY ranking.total_indicacoes DESC, ranking.id_indicador ASC
     LIMIT 10
 ";
-$res_ranking = $master_conn->query($sql_ranking);
 
 // --- LÓGICA SUPORTE INICIAL (ONBOARDING) ---
 $sql_suporte_inicial = "
@@ -112,6 +118,7 @@ $res_suporte_inicial = $master_conn->query($sql_suporte_inicial);
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+<?php session_idle_script(); ?>
 <link rel="stylesheet" href="../../assets/css/universal-theme.css?v=20260813-admin">
 <script src="../../assets/js/global-theme.js?v=20260813-admin"></script>
     <?php require __DIR__ . '/../../includes/csrf_client.php'; ?>

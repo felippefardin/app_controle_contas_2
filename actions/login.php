@@ -83,6 +83,7 @@ try {
     if ($isSuperAdmin) {
         session_regenerate_id(true);
         $_SESSION['session_regenerated_at'] = time();
+        $_SESSION['last_activity_at'] = $_SESSION['session_regenerated_at'];
         $_SESSION['super_admin'] = $userMaster;
         
         // Gatilho para mensagem home (caso o admin acesse a home.php)
@@ -194,6 +195,7 @@ try {
     // 6. Define Variáveis de Sessão Finais
     session_regenerate_id(true);
     $_SESSION['session_regenerated_at'] = time();
+    $_SESSION['last_activity_at'] = $_SESSION['session_regenerated_at'];
     $_SESSION['usuario_id']        = $idUsuarioTenant ?? $userMaster['id'];
     $_SESSION['dados_usuario_id']  = $idProprietarioDados ?? $idUsuarioTenant ?? $userMaster['id'];
     $_SESSION['usuario_id_master'] = $userMaster['id'];

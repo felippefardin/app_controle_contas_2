@@ -181,8 +181,8 @@ unset($_SESSION['flash_caixa']);
         <div class="mt-3 no-print">
             <?php if ($caixa_fechado): ?>
                 <div class="alert alert-success"><i class="fas fa-check-circle"></i> Caixa fechado em <?= date('d/m/Y H:i', strtotime($fechamento['fechado_em'])) ?>. Nenhuma venda nova pendente.</div>
-            <?php elseif ($caixa_aberto && $data_selecionada === date('Y-m-d')): ?>
-                <div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> Este caixa ainda precisa ser confirmado. Se houver novas vendas depois do fechamento, confirme novamente.</div>
+            <?php elseif ($caixa_aberto && caixa_data_valida($data_selecionada) && $data_selecionada <= date('Y-m-d')): ?>
+                <div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> Confira os totais da data selecionada e confirme o fechamento deste caixa.</div>
                 <form method="post" action="../actions/fechar_caixa.php" onsubmit="return confirm('Confirmar o fechamento deste caixa? Os totais atuais serão registrados.');">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="data" value="<?= htmlspecialchars($data_selecionada, ENT_QUOTES, 'UTF-8') ?>">

@@ -100,7 +100,7 @@ function run_migrations_for_connection(mysqli $db, string $scope, bool $dryRun =
     $database = (string) ($db->query('SELECT DATABASE()')->fetch_row()[0] ?? '');
     if ($database === '') throw new RuntimeException('Conexão sem banco selecionado.');
     ensure_migration_table($db);
-    $lockName = 'app_controle_migrations_' . hash('sha256', $database);
+    $lockName = 'app_controle_migrations_' . substr(hash('sha256', $database), 0, 32);
     $lockStmt = $db->prepare('SELECT GET_LOCK(?, 10)');
     $lockStmt->bind_param('s', $lockName);
     $lockStmt->execute();

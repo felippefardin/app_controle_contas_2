@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../includes/fiscal_a1.php';
 require_once '../includes/session_init.php';
 require_once '../database.php';
 require_once '../includes/utils.php'; // Importa utils
@@ -29,13 +30,15 @@ if ($stmtKv) {
         $dadosEmpresa[$row['chave']] = $row['valor'];
     }
 }
+$fiscalCnpj = preg_replace('/\D/', '', (string) ($dadosEmpresa['cnpj'] ?? ''));
+$fiscalA1Uploaded = !empty($_SESSION['tenant_id']) && strlen($fiscalCnpj) === 14 && is_file(fiscal_a1_path($fiscalCnpj));
 $requisitos = [
  'Razão social'=>!empty($dadosEmpresa['razao_social']),
  'CNPJ com 14 dígitos'=>strlen(preg_replace('/\D/','',$dadosEmpresa['cnpj']??''))===14,
  'Inscrição estadual'=>!empty($dadosEmpresa['ie']),
  'Endereço completo e código IBGE'=>!empty($dadosEmpresa['logradouro'])&&!empty($dadosEmpresa['numero'])&&!empty($dadosEmpresa['bairro'])&&!empty($dadosEmpresa['municipio'])&&preg_match('/^\d{7}$/',$dadosEmpresa['cod_municipio']??''),
  'CSC e ID CSC de homologação'=>!empty($dadosEmpresa['csc'])&&!empty($dadosEmpresa['csc_id']),
- 'Certificado A1 configurado'=>!empty($dadosEmpresa['certificado_a1_path'])&&is_file(__DIR__.'/../'.$dadosEmpresa['certificado_a1_path'])
+ 'Certificado A1 configurado'=>$fiscalA1Uploaded || !empty($dadosEmpresa['certificado_a1_path'])&&is_file(__DIR__.'/../'.$dadosEmpresa['certificado_a1_path'])
 ];
 $prontoHomologacao=!in_array(false,$requisitos,true);
 $permiteProducao=filter_var($_ENV['FISCAL_ALLOW_PRODUCTION']??false,FILTER_VALIDATE_BOOL);
@@ -255,6 +258,7 @@ select.form-control {
     <div class="card" style="margin-bottom:25px;height:auto"><div class="card-header"><i class="fa-solid fa-stethoscope"></i> Diagnóstico fiscal</div><div class="card-body"><div class="alert" style="border-left-color:<?= $prontoHomologacao?'#2ecc71':'#f39c12' ?>"><strong><?= $prontoHomologacao?'Pronto para testes reais em homologação.':'Modo simulação: faltam requisitos para transmitir à SEFAZ.' ?></strong></div><?php foreach($requisitos as $rotulo=>$ok): ?><div style="padding:5px;color:<?= $ok?'#2ecc71':'#ff7675' ?>"><i class="fa-solid <?= $ok?'fa-circle-check':'fa-circle-xmark' ?>"></i> <?=htmlspecialchars($rotulo)?></div><?php endforeach; ?><p style="color:#aaa">Produção: <strong><?= $permiteProducao?'liberada pelo servidor':'bloqueada por segurança' ?></strong>.</p></div></div>
 
     <form action="../actions/salvar_configuracao_fiscal.php" method="POST" enctype="multipart/form-data">
+<input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
         
         <div style="display: flex; flex-direction: column; gap: 30px;">
 
@@ -277,8 +281,8 @@ select.form-control {
 
                     <div class="row">
                         <div class="col-third">
-                            <label>CNPJ</label>
-                            <input type="text" class="form-control" name="cnpj"
+                            <label for="cnpj-emitente">CNPJ do emitente da NFC-e</label><p class="form-text">Contas cadastradas com CPF ou CNPJ podem usar o PDV nos planos Plus e Essencial. Informe aqui o CNPJ do estabelecimento habilitado na SEFAZ para emitir NFC-e.</p>
+                            <input type="text" class="form-control" id="cnpj-emitente" name="cnpj"
                                 value="<?= htmlspecialchars($dadosEmpresa['cnpj'] ?? '') ?>"
                                 required placeholder="Apenas números">
                         </div>
@@ -384,7 +388,20 @@ select.form-control {
                     <div class="row">
                         <div class="col-full">
                             <div class="alert alert-info" style="margin-bottom: 0; font-size: 0.9rem;">
-                                <i class="fa-solid fa-circle-info"></i> O certificado A1 deve ser enviado ao suporte técnico para configuração.
+                                <i class="fa-solid fa-circle-info"></i> <?php if (is_tenant_admin()): ?><div style="margin-bottom:12px">
+<button type="button" class="btn btn-secondary" commandfor="guia-certificado-a1" command="show-modal">Como cadastrar meu A1</button>
+<dialog id="guia-certificado-a1" aria-labelledby="titulo-guia-a1" style="max-width:min(620px,90vw);max-height:85vh;overflow:auto;border:1px solid var(--border-color);border-radius:12px;padding:24px;background:var(--bg-card);color:var(--text-primary)">
+<h2 id="titulo-guia-a1">Como cadastrar o certificado A1</h2>
+<ol>
+<li>Confirme o credenciamento do estabelecimento para NFC-e na SEFAZ da sua UF. Separe o CSC e o ID CSC do ambiente que vai configurar.</li>
+<li>Preencha os dados fiscais do emitente, incluindo CNPJ, inscrição estadual, endereço e código IBGE.</li>
+<li>Em Certificado digital A1, selecione o arquivo .pfx ou .p12 do CNPJ emitente, informe a senha e clique em Salvar Configurações.</li>
+<li>Comece pelo ambiente de homologação. Confirme a autorização de uma NFC-e de teste antes de usar o ambiente de produção.</li>
+</ol>
+<p>Faça o cadastro como administrador da empresa, nesta tela. Guarde o arquivo e a senha em local seguro e evite enviá-los por e-mail ou WhatsApp.</p>
+<button type="button" class="btn btn-secondary" commandfor="guia-certificado-a1" command="close">Fechar</button>
+</dialog></div>
+<label for="certificado-a1">Certificado digital A1</label><input type="file" class="form-control" id="certificado-a1" name="certificado_a1" accept=".pfx,.p12"><label for="certificado-a1-senha">Senha do certificado</label><input type="password" class="form-control" id="certificado-a1-senha" name="certificado_a1_senha" autocomplete="new-password"><small>Use o certificado do CNPJ emitente. Deixe os campos vazios para manter o certificado atual.</small><?php else: ?>O cadastro do certificado A1 está disponível para administradores da empresa.<?php endif; ?>
                             </div>
                         </div>
                     </div>
