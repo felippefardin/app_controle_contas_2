@@ -47,7 +47,7 @@ function enviarEmail($email, $nome, $assunto, $corpoHtml, $corpoAlt) {
 
 // 2. Conecta ao banco MASTER para buscar todos os Tenants ativos
 $masterConn = getMasterConnection();
-$sqlTenants = "SELECT * FROM tenants WHERE status_assinatura NOT IN ('cancelado', 'inativo')";
+$sqlTenants = "SELECT * FROM tenants WHERE status_assinatura NOT IN ('cancelado', 'inativo', 'desativado_temporario', 'exclusao_em_processamento')";
 $resultTenants = $masterConn->query($sqlTenants);
 
 echo "<h2>Processando Lembretes Automáticos</h2>";
@@ -70,7 +70,7 @@ if ($resultTenants && $resultTenants->num_rows > 0) {
             SELECT cp.*, u.nome AS usuario_nome, u.email AS usuario_email
             FROM contas_pagar cp
             JOIN usuarios u ON cp.usuario_id = u.id
-            WHERE cp.status = 'pendente' 
+            WHERE cp.status = 'pendente' AND cp.deleted_at IS NULL
             AND (DATEDIFF(cp.data_vencimento, CURDATE()) = 7 
                  OR DATEDIFF(cp.data_vencimento, CURDATE()) = 3)
         ");
@@ -97,7 +97,7 @@ if ($resultTenants && $resultTenants->num_rows > 0) {
             SELECT cr.*, u.nome AS cliente_nome, u.email AS cliente_email
             FROM contas_receber cr
             JOIN usuarios u ON cr.usuario_id = u.id
-            WHERE cr.data_vencimento BETWEEN ? AND ? AND cr.status = 'pendente'
+            WHERE cr.data_vencimento BETWEEN ? AND ? AND cr.status = 'pendente' AND cr.deleted_at IS NULL
         ");
         $stmtReceber->bind_param("ss", $hoje, $data_limite);
         $stmtReceber->execute();

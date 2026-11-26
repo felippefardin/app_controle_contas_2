@@ -1,62 +1,20 @@
 <?php
-require_once '../includes/config/config.php';
-$token = $_GET['token'] ?? '';
+declare(strict_types=1);
+require_once __DIR__ . '/../includes/session_init.php';
+require_once __DIR__ . '/../database.php';
 
-$conn = getMasterConnection();
-
-// Validar token
-$sql = "SELECT id FROM usuarios WHERE token_recovery = ? AND token_expiry > NOW()";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("s", $token);
-$stmt->execute();
-$result = $stmt->get_result();
-$user = $result->fetch_assoc();
-$stmt->close();
-
-if (!$user) {
-    die("Link inválido ou expirado.");
+$token = trim((string)($_GET['token'] ?? ''));
+$valid = false;
+$deadline = '';
+if (preg_match('/^[a-f0-9]{64}$/', $token)) {
+    $hash = hash('sha256', $token);
+    $db = getMasterConnection();
+    $stmt = $db->prepare("SELECT t.exclusao_programada_em FROM usuarios u JOIN tenants t ON t.tenant_id=u.tenant_id AND LOWER(t.admin_email)=LOWER(u.email) WHERE u.token_reset=? AND u.token_expira_em>NOW() AND t.status_assinatura='desativado_temporario' AND t.exclusao_programada_em>NOW() LIMIT 1");
+    $stmt->bind_param('s', $hash); $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc(); $stmt->close(); $db->close();
+    $valid = (bool)$row;
+    if ($row) $deadline = date('d/m/Y', strtotime((string)$row['exclusao_programada_em']));
 }
 ?>
-
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <title>Reativar Conta</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
-    <div class="container mt-5">
-        <div class="row justify-content-center">
-            <div class="col-md-6">
-                <div class="card shadow">
-                    <div class="card-header bg-primary text-white">
-                        <h3 class="mb-0">Reativar Conta</h3>
-                    </div>
-                    <div class="card-body">
-                        <form action="../actions/confirmar_reativacao.php" method="POST">
-                            <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
-                            <input type="hidden" name="token" value="<?php echo $token; ?>">
-                            
-                            <div class="mb-3">
-                                <label class="form-label">Nova Senha</label>
-                                <input type="password" name="nova_senha" required class="form-control" minlength="6">
-                            </div>
-                            
-                            <hr>
-                            <h4 class="mb-3">Escolha seu Plano</h4>
-                            <select name="novo_plano" class="form-select mb-3">
-                                <option value="mensal">Plano Mensal</option>
-                                <option value="anual">Plano Anual</option>
-                            </select>
-                            
-                            <button type="submit" class="btn btn-success w-100">Salvar Senha e Ir para Pagamento</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</body>
-</html>
+<!doctype html><html lang="pt-br"><head>
+<?php session_idle_script(); ?><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Reativar conta</title><link rel="stylesheet" href="../assets/css/universal-theme.css"><script src="../assets/js/global-theme.js"></script><link rel="stylesheet" href="../assets/vendor/fontawesome/css/all.min.css"><style>body{min-height:100vh;margin:0;display:grid;place-items:center;padding:20px;font-family:Segoe UI,Arial,sans-serif}.reactivation-card{width:min(520px,100%);padding:32px;border:1px solid var(--app-border);border-radius:18px;background:var(--app-surface);color:var(--app-text);box-shadow:var(--app-shadow);text-align:center}.reactivation-card i{font-size:2.4rem;color:var(--app-accent)}.reactivation-card h1{margin:16px 0 10px}.reactivation-card p{color:var(--app-muted);line-height:1.6}.reactivation-card button,.reactivation-card a{display:inline-flex;justify-content:center;width:100%;box-sizing:border-box;margin-top:14px;padding:13px;border:0;border-radius:9px;background:#0b8f55;color:#fff;text-decoration:none;font-weight:800;cursor:pointer}</style></head><body><main class="reactivation-card"><?php if($valid): ?><i class="fas fa-box-open"></i><h1>Seus dados estão preservados</h1><p>Ao confirmar, todos os usuários e cadastros da conta serão disponibilizados novamente. Para impedir novas cobranças sem autorização, você escolherá o plano na próxima entrada.</p><p>Prazo atual de preservação: <strong><?= htmlspecialchars($deadline) ?></strong>.</p><form action="../actions/confirmar_reativacao.php" method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(),ENT_QUOTES,'UTF-8') ?>"><input type="hidden" name="token" value="<?= htmlspecialchars($token,ENT_QUOTES,'UTF-8') ?>"><button type="submit"><i class="fas fa-rotate-right"></i>&nbsp; Confirmar reativação</button></form><?php else: ?><i class="fas fa-link-slash"></i><h1>Link inválido ou expirado</h1><p>Solicite um novo link na tela de login. Contas que ultrapassaram o prazo de um ano não podem ser recuperadas.</p><a href="login.php">Voltar ao login</a><?php endif; ?></main></body></html>

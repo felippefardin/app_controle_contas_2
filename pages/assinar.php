@@ -130,6 +130,7 @@ if ($tenant_id && $user_id) {
                 <li><i class="fa-solid fa-check"></i> Gestão Financeira</li>
             </ul>
             <form action="../actions/checkout_plano.php" method="POST" onsubmit="prepararEnvio(this)">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="plano" value="basico">
                 <input type="hidden" name="cupom" class="hidden-cupom">
                 <input type="hidden" name="codigo_indicacao" class="hidden-codigo-indicacao">
@@ -148,6 +149,7 @@ if ($tenant_id && $user_id) {
                 <li><i class="fa-solid fa-check"></i> Suporte Prioritário</li>
             </ul>
             <form action="../actions/checkout_plano.php" method="POST" onsubmit="prepararEnvio(this)">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="plano" value="plus">
                 <input type="hidden" name="cupom" class="hidden-cupom">
                 <input type="hidden" name="codigo_indicacao" class="hidden-codigo-indicacao">
@@ -166,6 +168,7 @@ if ($tenant_id && $user_id) {
                 <li><i class="fa-solid fa-check"></i> Controle Completo</li>
             </ul>
             <form action="../actions/checkout_plano.php" method="POST" onsubmit="prepararEnvio(this)">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="plano" value="essencial">
                 <input type="hidden" name="cupom" class="hidden-cupom">
                 <input type="hidden" name="codigo_indicacao" class="hidden-codigo-indicacao">

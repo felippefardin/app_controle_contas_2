@@ -20,7 +20,7 @@ $id_usuario = get_data_owner_id();
 $id_lancamento = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
 
 if ($id_lancamento) {
-    $stmt = $conn->prepare("DELETE FROM caixa_diario WHERE id = ? AND usuario_id = ?");
+    $stmt = $conn->prepare("DELETE FROM caixa_diario WHERE id = ? AND usuario_id = ? AND tipo IN ('manual_entrada','manual_saida') AND data = CURDATE()");
     $stmt->bind_param("ii", $id_lancamento, $id_usuario);
     
     if ($stmt->execute()) {

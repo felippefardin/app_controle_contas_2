@@ -1,231 +1,125 @@
 <?php
 require_once '../includes/session_init.php';
 require_once '../database.php';
-require_once '../includes/utils.php'; // Importa utils
+require_once '../includes/utils.php';
+require_once '../includes/caixa_service.php';
 
-// 1. VERIFICA O LOGIN E PEGA A CONEXÃO CORRETA
-if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true) {
-    header('Location: ../pages/login.php?error=not_logged_in');
+if (empty($_SESSION['usuario_logado'])) {
+    header('Location: login.php');
     exit;
 }
 
 $conn = getTenantConnection();
-if ($conn === null) {
-    die("Falha ao conectar ao banco de dados do cliente.");
-}
+$ownerId = get_data_owner_id();
+$hoje = date('Y-m-d');
+$resumo = caixa_resumo($conn, $ownerId, $hoje);
+$caixaAberto = ($resumo['sessao']['status'] ?? '') === 'aberto';
 
-$id_usuario = get_data_owner_id();
+$stmt = $conn->prepare('SELECT id,data,valor,tipo,descricao,forma_pagamento,criado_em
+    FROM caixa_diario WHERE usuario_id=? ORDER BY data DESC, id DESC');
+$stmt->bind_param('i', $ownerId);
+$stmt->execute();
+$lancamentos = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
 
-// 2. AJUSTA A CONSULTA SQL PARA FILTRAR PELO USUÃRIO
-$lancamentos = [];
-$sql = "SELECT id, data, valor FROM caixa_diario WHERE usuario_id = ? ORDER BY data DESC";
+$rotulos = [
+    'abertura' => 'Abertura do caixa',
+    'venda' => 'Venda no PDV',
+    'manual_entrada' => 'Entrada manual',
+    'manual_saida' => 'Retirada manual',
+];
 
-$stmt = $conn->prepare($sql);
-if ($stmt) {
-    $stmt->bind_param("i", $id_usuario);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    if ($result) {
-        $lancamentos = $result->fetch_all(MYSQLI_ASSOC);
-    }
-    $stmt->close();
-}
-
-include('../includes/header.php');
-
-// ✅ EXIBE MENSAGEM FLUTUANTE CENTRALIZADA
+include '../includes/header.php';
 display_flash_message();
 ?>
-
-<style>
-    body { background-color: #121212; color: #eee; }
-    .container { width: 95%; max-width: 1200px; margin: 20px auto; background-color: #222; padding: 25px; border-radius: 8px; }
-    h2, h3 { color: #00bfff; }
-    
-    form, .search-container { background-color: #1f1f1f; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-    .form-group { margin-bottom: 15px; }
-    .form-group label { display: block; margin-bottom: 5px; }
-    .form-control, .form-control-date { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #444; background-color: #2c2c2c; color: #eee; }
-    
-    .btn-primary { background-color: #00bfff; padding: 10px 18px; border: none; cursor: pointer; border-radius: 5px; color: #fff; font-weight: bold; }
-    .btn-pdf { background-color: #2ecc71; padding: 10px 18px; border: none; color: white; cursor: pointer; border-radius: 5px; }
-    
-    .btn-edit { background-color: #17a2b8; color: white; padding: 6px 12px; border-radius: 5px; text-decoration: none; font-size: 14px; }
-    .btn-delete { background-color: #dc3545; color: white; padding: 6px 12px; border-radius: 5px; text-decoration: none; border:none; cursor: pointer; font-size: 14px; }
-    
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    table thead { background-color: #00bfff; color: #fff; }
-    table th, table td { padding: 12px; border: 1px solid #444; text-align: center; }
-    table tbody tr:hover { background-color: #3c3c3c; }
-
-    /* Modal */
-    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
-    .modal-content { background-color: #1f1f1f; padding: 25px; border-radius: 10px; width: 90%; max-width: 500px; position: relative; text-align: center; }
-    .close-btn { position: absolute; top: 10px; right: 15px; font-size: 28px; cursor: pointer; color: #aaa; }
-    
-    @media (max-width: 768px) {
-        .toggle-btn { display: block; width: 100%; margin-top: 15px; padding: 10px; background-color: #444; color: white; border-radius: 6px; text-align: center; cursor: pointer; }
-    }
-</style>
-
-<div class="container">
-
-    <h2>Lançamento de Caixa Diário</h2>
-
-    <form action="../actions/add_caixa_diario.php" method="post">
-        <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-
-        <div class="form-group">
-            <label for="data">Data:</label>
-            <input type="date" class="form-control" id="data" name="data" value="<?= date('Y-m-d'); ?>" required>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Movimentações do Caixa</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        body{background:#121212;color:#eee}.caixa-container{width:95%;max-width:1250px;margin:28px auto;background:#1e1e1e;padding:25px;border-radius:10px}
+        h1,h3{color:#00bfff}.summary-card{height:100%;padding:17px;border-radius:8px;background:#282828;border-left:5px solid #00bfff}
+        .summary-card strong{display:block;font-size:1.35rem}.form-control{background:#2c2c2c!important;color:#fff!important;border-color:#555!important}
+        .table{color:#eee}.table thead th{background:#087da8;border-color:#087da8}.table td{border-color:#444}
+        .entrada{color:#6ee7a0;font-weight:700}.saida{color:#ff8181;font-weight:700}.badge-status{font-size:.95rem}
+        .caixa-status-badge{display:inline-flex;align-items:center;margin-left:.35rem;padding:.25rem .7rem;border-radius:999px;font-weight:800;letter-spacing:.04em}
+        .caixa-status-aberto{background:#146c43;color:#fff!important;border:1px solid #75d5aa;box-shadow:0 0 0 2px rgba(20,108,67,.12)}
+        .caixa-status-fechado{background:#495057;color:#fff!important;border:1px solid #adb5bd}
+        html[data-app-theme="light"] body.light-mode .caixa-container .table tbody td,
+        html[data-app-theme="light"] body.light-mode .caixa-container .table tbody td *{color:#fff!important}
+    </style>
+</head>
+<body>
+<main class="caixa-container">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-money-bill-transfer"></i> Movimentações do Caixa</h1>
+        <div>
+            <a href="vendas.php" class="btn btn-info">Ir para o PDV</a>
+            <a href="fechamento_caixa.php" class="btn btn-warning">Fechamento</a>
         </div>
-
-        <div class="form-group">
-            <label for="valor">Valor (R$):</label>
-            <input type="number" step="0.01" class="form-control" id="valor" name="valor" placeholder="0.00" required>
-        </div>
-
-        <button type="submit" class="btn-primary">Salvar Lançamento</button>
-    </form>
-
-    <div class="search-container">
-        <h3>Filtrar por Período</h3>
-        <div class="form-group">
-            <label for="startDate">Data Inicial:</label>
-            <input type="date" id="startDate" class="form-control-date">
-        </div>
-        <div class="form-group">
-            <label for="endDate">Data Final:</label>
-            <input type="date" id="endDate" class="form-control-date">
-        </div>
-        <button class="btn-pdf" onclick="gerarPDFPeriodo()">Salvar PDF do Período</button>
     </div>
 
-    <hr>
+    <div class="alert <?= $caixaAberto ? 'alert-success' : 'alert-secondary' ?>">
+        Caixa de hoje:
+        <strong class="caixa-status-badge <?= $caixaAberto ? 'caixa-status-aberto' : 'caixa-status-fechado' ?>">
+            <?= $caixaAberto ? 'ABERTO' : (($resumo['sessao']['status'] ?? '') === 'fechado' ? 'FECHADO' : 'AINDA NÃO ABERTO') ?>
+        </strong>
+    </div>
 
-    <h3>Histórico de Lançamentos</h3>
+    <div class="row mb-4">
+        <div class="col-md-3 mb-2"><div class="summary-card">Saldo inicial<strong>R$ <?= number_format($resumo['valor_abertura'],2,',','.') ?></strong></div></div>
+        <div class="col-md-3 mb-2"><div class="summary-card">Vendas em dinheiro<strong>R$ <?= number_format($resumo['total_dinheiro'],2,',','.') ?></strong></div></div>
+        <div class="col-md-3 mb-2"><div class="summary-card">Ajustes em dinheiro<strong>R$ <?= number_format($resumo['total_manual'],2,',','.') ?></strong></div></div>
+        <div class="col-md-3 mb-2"><div class="summary-card">Dinheiro esperado<strong>R$ <?= number_format($resumo['saldo_dinheiro_esperado'],2,',','.') ?></strong></div></div>
+    </div>
 
-    <div id="tableWrapper" class="table-wrapper">
-        <table id="lancamentosTable">
-            <thead>
-                <tr>
-                    <th>Data</th>
-                    <th>Valor</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
+    <?php if ($caixaAberto): ?>
+    <form method="post" action="../actions/add_caixa_diario.php" class="p-3 mb-4 rounded" style="background:#282828">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+        <h3>Adicionar entrada ou retirada</h3>
+        <div class="form-row">
+            <div class="form-group col-md-3">
+                <label>Movimento</label>
+                <select name="tipo_movimento" class="form-control">
+                    <option value="entrada">Entrada de dinheiro</option>
+                    <option value="saida">Retirada de dinheiro</option>
+                </select>
+            </div>
+            <div class="form-group col-md-3"><label>Valor</label><input name="valor" class="form-control" inputmode="decimal" required placeholder="0,00"></div>
+            <div class="form-group col-md-4"><label>Descrição</label><input name="descricao" class="form-control" maxlength="255" required placeholder="Ex.: reforço de troco ou sangria"></div>
+            <div class="form-group col-md-2 d-flex align-items-end"><button class="btn btn-success btn-block">Salvar</button></div>
+        </div>
+    </form>
+    <?php else: ?>
+        <div class="alert alert-warning">Para adicionar dinheiro ou fazer uma retirada, primeiro abra o caixa no PDV.</div>
+    <?php endif; ?>
+
+    <h3>Histórico automático</h3>
+    <div class="table-responsive">
+        <table class="table table-dark table-hover">
+            <thead><tr><th>Data/hora</th><th>Origem</th><th>Descrição</th><th>Forma</th><th>Entrada</th><th>Saída</th></tr></thead>
             <tbody>
-                <?php if (!empty($lancamentos)): ?>
-                    <?php foreach ($lancamentos as $lancamento): ?>
-                        <tr>
-                            <td><?= date('d/m/Y', strtotime($lancamento['data'])); ?></td>
-                            <td>R$ <?= number_format($lancamento['valor'], 2, ',', '.'); ?></td>
-                            <td>
-                                <a href="editar_caixa_diario.php?id=<?= $lancamento['id']; ?>" class="btn-edit">
-                                    <i class="fas fa-pen"></i>
-                                </a>
-                                
-                                <button class="btn-delete" onclick="abrirModalExcluir(<?= $lancamento['id'] ?>)">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <tr><td colspan="3">Nenhum lançamento encontrado.</td></tr>
-                <?php endif; ?>
+            <?php foreach ($lancamentos as $item):
+                $saida = $item['tipo'] === 'manual_saida';
+            ?>
+                <tr>
+                    <td><?= date('d/m/Y H:i', strtotime($item['criado_em'] ?? $item['data'])) ?></td>
+                    <td><?= htmlspecialchars($rotulos[$item['tipo']] ?? ucfirst((string)$item['tipo']), ENT_QUOTES, 'UTF-8') ?></td>
+                    <td><?= htmlspecialchars($item['descricao'] ?: '-', ENT_QUOTES, 'UTF-8') ?></td>
+                    <td><?= htmlspecialchars(ucfirst(str_replace('_',' ',(string)($item['forma_pagamento'] ?: '-'))), ENT_QUOTES, 'UTF-8') ?></td>
+                    <td class="entrada"><?= !$saida ? 'R$ '.number_format((float)$item['valor'],2,',','.') : '-' ?></td>
+                    <td class="saida"><?= $saida ? 'R$ '.number_format((float)$item['valor'],2,',','.') : '-' ?></td>
+                </tr>
+            <?php endforeach; ?>
+            <?php if (!$lancamentos): ?><tr><td colspan="6" class="text-center">Nenhuma movimentação registrada.</td></tr><?php endif; ?>
             </tbody>
         </table>
     </div>
-</div>
-
-<div id="modalExcluir" class="modal">
-    <div class="modal-content">
-        <span class="close-btn" onclick="fecharModal()">&times;</span>
-        <h3 style="color: #dc3545;">Confirmar Exclusão</h3>
-        <p>Tem certeza que deseja excluir este lançamento?</p>
-        
-        <form action="../actions/excluir_caixa_diario.php" method="POST">
-            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-            <input type="hidden" name="id" id="idExcluir">
-            
-            <div style="margin-top: 20px;">
-                <button type="button" class="btn-edit" style="background:#555; border:none; cursor:pointer;" onclick="fecharModal()">Cancelar</button>
-                <button type="submit" class="btn-delete" style="cursor:pointer;">Sim, Excluir</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
-
-<script>
-// Filtros de Tabela
-const startDateInput = document.getElementById('startDate');
-const endDateInput = document.getElementById('endDate');
-const tableBody = document.getElementById('lancamentosTable').getElementsByTagName('tbody')[0];
-
-function filterTable() {
-    const startDate = startDateInput.value ? new Date(startDateInput.value) : null;
-    const endDate = endDateInput.value ? new Date(endDateInput.value) : null;
-
-    if (startDate) startDate.setUTCHours(0,0,0,0);
-    if (endDate) endDate.setUTCHours(23,59,59,999);
-
-    Array.from(tableBody.rows).forEach(row => {
-        const dateStr = row.cells[0].innerText.split('/');
-        const rowDate = new Date(`${dateStr[2]}-${dateStr[1]}-${dateStr[0]}`);
-        rowDate.setUTCHours(0,0,0,0);
-
-        let show = true;
-        if (startDate && rowDate < startDate) show = false;
-        if (endDate && rowDate > endDate) show = false;
-        row.style.display = show ? '' : 'none';
-    });
-}
-
-startDateInput.addEventListener('input', filterTable);
-endDateInput.addEventListener('input', filterTable);
-
-// PDF
-function gerarPDFPeriodo() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.text("Histórico de Lançamentos de Caixa", 14, 22);
-
-    const rows = [];
-    Array.from(tableBody.rows).forEach(row => {
-        if (row.style.display !== 'none') {
-            rows.push([row.cells[0].innerText, row.cells[1].innerText]);
-        }
-    });
-
-    if (rows.length === 0) return alert('Não há lançamentos visíveis.');
-
-    doc.autoTable({ head: [['Data', 'Valor']], body: rows, startY: 30 });
-    
-    const total = rows.reduce((acc, curr) => {
-        return acc + parseFloat(curr[1].replace('R$ ', '').replace('.', '').replace(',', '.'));
-    }, 0);
-
-    const finalY = doc.lastAutoTable.finalY + 10;
-    doc.text(`Valor Total: R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, 14, finalY);
-    doc.save('extrato_caixa.pdf');
-}
-
-// Modal
-function abrirModalExcluir(id) {
-    document.getElementById('idExcluir').value = id;
-    document.getElementById('modalExcluir').style.display = 'flex';
-}
-function fecharModal() {
-    document.getElementById('modalExcluir').style.display = 'none';
-}
-window.onclick = function(e) {
-    if(e.target == document.getElementById('modalExcluir')) fecharModal();
-}
-</script>
-
+</main>
 <?php require_once '../includes/footer.php'; ?>
+</body>
+</html>

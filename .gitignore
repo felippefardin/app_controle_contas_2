@@ -10,6 +10,7 @@ includes/config/nfe_config.php
 # Ignora arquivos dentro da pasta, mas mantem a pasta
 assets/uploads/*
 !assets/uploads/.gitkeep
+!assets/uploads/.htaccess
 assets/uploads/chat_files/*
 !assets/uploads/chat_files/.gitkeep
 comprovantes/*
@@ -22,12 +23,35 @@ Thumbs.db
 .idea/
 .vscode/
 .env
+.env.*
+!.env.example
+!.env.testing.example
+
+# Cópias locais de segurança não pertencem ao repositório nem à pasta pública
+/backup-codex-*/
+/.codex-backup-*/
+*.bak
+*.bak-*
+*.backup
+*.backup-*
+*.sql.err
+/backup_*.sql
+/repair_*.sql
+
+# Documentos privados e artefatos gerados em execução
+/notas_fiscais/*
+!/notas_fiscais/.gitkeep
+/storage/notas_fiscais/*
+!/storage/notas_fiscais/.gitkeep
+/tmp/*
+!/tmp/.gitkeep
 
 # --- Logs e Arquivos Temporários ---
 *.log
 logs/*.log
 error_log
 pages/webhook_log.txt
+/webhook.log
 
 # --- Arquivos de Teste e Debug que não devem ir para produção ---
 debug_*.php

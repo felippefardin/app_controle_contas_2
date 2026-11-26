@@ -94,7 +94,7 @@ if (isset($_GET['action'])) {
     }
 
     if ($_GET['action'] === 'search_produtos') {
-        $sql = "SELECT id, nome, preco_compra, quantidade_estoque FROM produtos WHERE nome LIKE ? AND id_usuario = ?";
+        $sql = "SELECT id, nome, preco_compra, quantidade_estoque FROM produtos WHERE nome LIKE ? AND id_usuario = ? AND deleted_at IS NULL";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("si", $term, $usuarioId);
         $stmt->execute();
@@ -112,6 +112,21 @@ if (isset($_GET['action'])) {
     echo json_encode(['results' => $response]);
     exit;
 }
+
+// Categorias de despesa disponíveis para o lançamento financeiro da compra.
+$categoriasDespesa = [];
+$categoriaPadraoId = 0;
+$stmtCategorias = $conn->prepare("SELECT id, nome FROM categorias WHERE id_usuario = ? AND tipo = 'despesa' ORDER BY nome ASC");
+$stmtCategorias->bind_param('i', $usuarioId);
+$stmtCategorias->execute();
+$resultadoCategorias = $stmtCategorias->get_result();
+while ($categoria = $resultadoCategorias->fetch_assoc()) {
+    $categoriasDespesa[] = $categoria;
+    if ($categoriaPadraoId === 0 && preg_match('/compra|estoque/i', $categoria['nome'])) {
+        $categoriaPadraoId = (int)$categoria['id'];
+    }
+}
+$stmtCategorias->close();
 
 include('../includes/header.php');
 // Limpa msg antigas erradas se existirem
@@ -158,9 +173,77 @@ display_flash_message();
         .table thead th { border-top: none; border-bottom: 2px solid #0af; }
         .table-bordered td, .table-bordered th { border: 1px solid #444; }
         .total-compra { font-size: 1.5rem; font-weight: bold; color: #28a745; }
+        .entrada-nota { border: 1px solid #3d556b; border-radius: 8px; background: #18232d; padding: 18px; margin-bottom: 22px; }
+        .entrada-nota .form-text { color: #c6d3df !important; }
+        .entrada-nota .btn-consultar-nfe { height: calc(1.5em + .75rem + 2px); display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+        .action-buttons { left: 20px !important; bottom: 70px !important; align-items: center !important; gap: 12px !important; }
+        .action-buttons > :is(a, button) { width: 50px !important; height: 50px !important; min-width: 50px !important; min-height: 50px !important; margin: 0 !important; flex: 0 0 50px !important; border-radius: 50% !important; box-sizing: border-box !important; }
         .modal-content { background-color: #222; color: #eee; border: 1px solid #444; }
         .modal-header, .modal-footer { border-color: #444; }
         .close { color: #eee; }
+
+        html[data-app-theme="light"] body.light-mode main .container {
+            background: #fff !important;
+            color: #172033 !important;
+            border: 1px solid #d9e2ec !important;
+            box-shadow: 0 10px 28px rgba(31, 45, 61, .12) !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container h1,
+        html[data-app-theme="light"] body.light-mode main .container h2,
+        html[data-app-theme="light"] body.light-mode main .container h4,
+        html[data-app-theme="light"] body.light-mode main .container label {
+            color: #172033 !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container .card.bg-dark {
+            background: #f7f9fc !important;
+            color: #172033 !important;
+            border-color: #cfd9e5 !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container .card-header {
+            background: #edf5ff !important;
+            border-color: #cfd9e5 !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container .form-control,
+        html[data-app-theme="light"] body.light-mode main .container .select2-selection--single {
+            background: #fff !important;
+            color: #172033 !important;
+            border-color: #b9c7d8 !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container .select2-selection__rendered {
+            color: #172033 !important;
+        }
+        html[data-app-theme="light"] body.light-mode .select2-dropdown,
+        html[data-app-theme="light"] body.light-mode .select2-results__option {
+            background: #fff !important;
+            color: #172033 !important;
+            border-color: #b9c7d8 !important;
+        }
+        html[data-app-theme="light"] body.light-mode .select2-results__option--highlighted {
+            background: #075dd8 !important;
+            color: #fff !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container .table thead th {
+            background: #075dd8 !important;
+            color: #fff !important;
+            border-color: #075dd8 !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container .table tbody td,
+        html[data-app-theme="light"] body.light-mode main .container .table tbody td * {
+            background: #fff !important;
+            color: #172033 !important;
+            border-color: #d9e2ec !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container .table tbody tr:hover td {
+            background: #edf5ff !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container .total-compra {
+            color: #137a3b !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container .entrada-nota {
+            background: #eef7ff !important; border-color: #b9d8f3 !important; color: #172033 !important;
+        }
+        html[data-app-theme="light"] body.light-mode main .container .entrada-nota .form-text { color: #425466 !important; }
+
         @media (max-width: 768px) {
             .container { padding: 15px; margin-top: 15px; width: 95%; }
             h1 { font-size: 1.5rem; }
@@ -174,6 +257,23 @@ display_flash_message();
     <h1><i class="fas fa-dolly"></i> Registrar Compra</h1>
 
     <form action="../actions/registrar_compra.php" method="POST" id="form-compra">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="fornecedor_importado[nome]" id="fornecedor_importado_nome">
+        <input type="hidden" name="fornecedor_importado[cnpj]" id="fornecedor_importado_cnpj">
+        <div class="entrada-nota">
+            <h2 class="h5"><i class="fas fa-barcode"></i> Importar NF-e (opcional)</h2>
+            <div class="form-row align-items-end mb-1">
+                <div class="form-group col-lg-9">
+                    <label for="chave_nfe_compra">Chave de acesso da NF-e</label>
+                    <input type="text" inputmode="numeric" autocomplete="off" class="form-control" id="chave_nfe_compra" maxlength="44" placeholder="Leia o código de barras ou digite os 44 números">
+                </div>
+                <div class="form-group col-lg-3">
+                    <button type="button" id="consultar-nfe" class="btn btn-info btn-block btn-consultar-nfe"><i class="fas fa-cloud-download-alt"></i> Baixar dados</button>
+                </div>
+            </div>
+            <small class="form-text mt-0">Leitores USB/Bluetooth preenchem este campo automaticamente. A importação consulta a SEFAZ com o certificado A1 da empresa.</small>
+            <div id="retorno-nfe" class="alert d-none mb-0" role="status" aria-live="polite"></div>
+        </div>
         <div class="form-group">
             <label for="fornecedor_id">Fornecedor</label>
             <div class="input-group">
@@ -224,6 +324,57 @@ display_flash_message();
         <div class="text-right mt-3">
             <h3 class="total-compra">Total: R$ <span id="total-geral">0.00</span></h3>
             <input type="hidden" name="valor_total" id="valor_total_hidden" value="0">
+        </div>
+
+        <div class="card bg-dark text-white mt-4 mb-4" id="dados-financeiros-compra">
+            <div class="card-header">
+                <h2 class="mb-0" style="border:none; padding:0; font-size:1.25rem; margin:0;"><i class="fas fa-file-invoice-dollar"></i> Dados financeiros</h2>
+            </div>
+            <div class="card-body">
+                <input type="hidden" name="gerar_conta_pagar" value="0">
+                <div class="custom-control custom-switch mb-3">
+                    <input type="checkbox" class="custom-control-input" id="gerar_conta_pagar" name="gerar_conta_pagar" value="1" checked>
+                    <label class="custom-control-label" for="gerar_conta_pagar">Gerar automaticamente em Contas a Pagar</label>
+                </div>
+
+                <div id="campos-conta-pagar">
+                    <div class="form-row">
+                        <div class="form-group col-md-4">
+                            <label for="numero_documento">Número da nota/documento</label>
+                            <input type="text" class="form-control" id="numero_documento" name="numero_documento" maxlength="20" placeholder="Ex.: NF-4587">
+                            <small class="form-text text-muted">Se ficar vazio, será gerado um número automático.</small>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label for="id_categoria_compra">Categoria da despesa</label>
+                            <select class="form-control" id="id_categoria_compra" name="id_categoria">
+                                <option value="">Compras de estoque (automática)</option>
+                                <?php foreach ($categoriasDespesa as $categoria): ?>
+                                    <option value="<?= (int)$categoria['id'] ?>" <?= (int)$categoria['id'] === $categoriaPadraoId ? 'selected' : '' ?>><?= htmlspecialchars($categoria['nome'], ENT_QUOTES, 'UTF-8') ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label for="data_vencimento">Primeiro vencimento</label>
+                            <input type="date" class="form-control" id="data_vencimento" name="data_vencimento" value="<?= date('Y-m-d') ?>">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="tipo_pagamento">Condição de pagamento</label>
+                            <select class="form-control" id="tipo_pagamento" name="tipo_pagamento">
+                                <option value="unica">Parcela única</option>
+                                <option value="parcelado">Parcelado</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-6" id="grupo-numero-parcelas" style="display:none;">
+                            <label for="numero_parcelas">Quantidade de parcelas</label>
+                            <input type="number" class="form-control" id="numero_parcelas" name="numero_parcelas" value="2" min="2" max="36">
+                        </div>
+                    </div>
+                    <div class="alert alert-info mb-0 py-2"><i class="fas fa-info-circle"></i> O fornecedor e o valor serão aproveitados desta compra. Nas compras parceladas, uma conta será criada para cada vencimento.</div>
+                </div>
+            </div>
         </div>
 
         <div class="form-group mt-4">
@@ -420,6 +571,70 @@ $(document).ready(function() {
         }
     });
 
+    function escapeHtml(valor) {
+        return $('<div>').text(valor == null ? '' : String(valor)).html();
+    }
+
+    function adicionarItemCompra(item, indice) {
+        var chaveLinha = Number(item.id_produto || 0) > 0 ? String(item.id_produto) : 'nfe-' + indice;
+        if ($('#compra-items').find(`tr[data-id="${chaveLinha}"]`).length > 0) return;
+        var qtd = Number(item.quantidade || 0);
+        var preco = Number(item.preco || 0);
+        var precisaCadastro = Number(item.id_produto || 0) <= 0;
+        var badge = precisaCadastro ? ' <span class="badge badge-warning">novo no estoque</span>' : '';
+        var row = `<tr data-id="${escapeHtml(chaveLinha)}">
+            <td class="align-middle">${escapeHtml(item.nome)}${badge}
+                <input type="hidden" name="produtos[${escapeHtml(chaveLinha)}][id]" value="${Number(item.id_produto || 0)}">
+                <input type="hidden" name="produtos[${escapeHtml(chaveLinha)}][importado]" value="${precisaCadastro ? 1 : 0}">
+                <input type="hidden" name="produtos[${escapeHtml(chaveLinha)}][codigo]" value="${escapeHtml(item.codigo)}">
+                <input type="hidden" name="produtos[${escapeHtml(chaveLinha)}][nome]" value="${escapeHtml(item.nome)}">
+                <input type="hidden" name="produtos[${escapeHtml(chaveLinha)}][ncm]" value="${escapeHtml(item.ncm)}">
+                <input type="hidden" name="produtos[${escapeHtml(chaveLinha)}][cfop]" value="${escapeHtml(item.cfop)}">
+            </td>
+            <td><input type="number" step="0.001" name="produtos[${escapeHtml(chaveLinha)}][quantidade]" class="form-control quantidade" value="${qtd}" min="0.001" required></td>
+            <td><input type="number" step="0.0001" name="produtos[${escapeHtml(chaveLinha)}][preco]" class="form-control preco" value="${preco.toFixed(4)}" min="0.0001" required></td>
+            <td class="subtotal align-middle">${(qtd * preco).toFixed(2)}</td>
+            <td class="align-middle text-center"><button type="button" class="btn btn-danger btn-sm remover-item"><i class="fas fa-trash"></i></button></td>
+        </tr>`;
+        $('#compra-items').append(row);
+    }
+
+    $('#consultar-nfe').on('click', function() {
+        var chave = $('#chave_nfe_compra').val().replace(/\D/g, '');
+        var retorno = $('#retorno-nfe');
+        if (chave.length !== 44) {
+            retorno.removeClass('d-none alert-success alert-info').addClass('alert-danger').text('Informe a chave completa da NF-e, com 44 dígitos.');
+            return;
+        }
+        var botao = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Consultando');
+        retorno.removeClass('d-none alert-danger alert-success').addClass('alert-info').text('Consultando a SEFAZ...');
+        $.ajax({url:'../actions/consultar_nfe_compra.php',method:'POST',dataType:'json',data:{chave_acesso:chave,csrf_token:$('input[name="csrf_token"]').val()}})
+        .done(function(data) {
+            $('#numero_documento').val('NF-' + data.nota.numero);
+            $('#fornecedor_importado_nome').val(data.fornecedor.nome || '');
+            $('#fornecedor_importado_cnpj').val(data.fornecedor.cnpj || '');
+            if (Number(data.fornecedor.id || 0) > 0) {
+                $('#fornecedor_id').append(new Option(data.fornecedor.nome, data.fornecedor.id, true, true)).trigger('change').prop('required', true);
+            } else {
+                $('#fornecedor_id').val(null).trigger('change').prop('required', false);
+            }
+            $('#compra-items').empty();
+            data.itens.forEach(adicionarItemCompra);
+            atualizarTotal();
+            retorno.removeClass('alert-info alert-danger').addClass('alert-success').text(data.message + (Number(data.fornecedor.id || 0) === 0 ? ' O fornecedor será cadastrado ao finalizar.' : ''));
+        }).fail(function(xhr) {
+            var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Não foi possível consultar a NF-e.';
+            retorno.removeClass('alert-info alert-success').addClass('alert-danger').text(msg);
+        }).always(function() {
+            botao.prop('disabled', false).html('<i class="fas fa-cloud-download-alt"></i> Baixar dados');
+        });
+    });
+
+    $('#chave_nfe_compra').on('input', function() {
+        this.value = this.value.replace(/\D/g, '').slice(0, 44);
+        if (this.value.length === 44) $('#consultar-nfe').trigger('click');
+    });
+
     // Adicionar produto
     $('#add-produto').on('click', function() {
         var produtoData = $('#produto_select').select2('data')[0];
@@ -474,6 +689,17 @@ $(document).ready(function() {
             e.preventDefault(); alert('Adicione pelo menos um produto.');
         }
     });
+
+    function atualizarCamposFinanceiros() {
+        var gerarConta = $('#gerar_conta_pagar').is(':checked');
+        $('#campos-conta-pagar').toggle(gerarConta);
+        $('#data_vencimento').prop('required', gerarConta);
+        var parcelado = gerarConta && $('#tipo_pagamento').val() === 'parcelado';
+        $('#grupo-numero-parcelas').toggle(parcelado);
+        $('#numero_parcelas').prop('required', parcelado);
+    }
+    $('#gerar_conta_pagar, #tipo_pagamento').on('change', atualizarCamposFinanceiros);
+    atualizarCamposFinanceiros();
 });
 </script>
 

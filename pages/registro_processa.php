@@ -19,12 +19,16 @@ try {
 }
 
 require_once __DIR__ . '/../includes/utils.php';
+require_once __DIR__ . '/../includes/migration_runner.php';
+require_once __DIR__ . '/../includes/cupom_service.php';
+require_once __DIR__ . '/../includes/indicacao_reward_service.php';
+require_once __DIR__ . '/../includes/lgpd_registration_terms.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use Dotenv\Dotenv;
 use Dompdf\Dompdf;
 
-define('TURNSTILE_SECRET_KEY', '0x4AAAAAACDq-BZPjGJTF8DhHDOEQ6NrWBw');
+define('TURNSTILE_SECRET_KEY', $_ENV['TURNSTILE_SECRET_KEY'] ?? '');
 
 // Inicializa a conexão com o banco master
 $conn = getMasterConnection();
@@ -83,6 +87,9 @@ $documento    = trim($_POST['documento'] ?? '');
 $telefone     = trim($_POST['telefone'] ?? '');
 $plano_post   = trim($_POST['plano'] ?? 'basico');
 $aceite_lgpd  = $_POST['aceite_lgpd'] ?? '0';
+$aceite_termos = $_POST['aceite_termos'] ?? '0';
+$aceite_privacidade = $_POST['aceite_privacidade'] ?? '0';
+$aceite_comunicacoes = $_POST['aceite_comunicacoes'] ?? '0';
 $turnstileToken = $_POST['cf-turnstile-response'] ?? ''; 
 $cupom_codigo = isset($_POST['cupom']) && !empty($_POST['cupom']) ? strtoupper(trim($_POST['cupom'])) : null;
 $codigo_indicacao_recebido = isset($_POST['codigo_indicacao']) && !empty($_POST['codigo_indicacao']) ? strtoupper(trim($_POST['codigo_indicacao'])) : null;
@@ -102,13 +109,23 @@ function return_error($msg, $data) {
     exit;
 }
 
-// if (!verificarTurnstile($turnstileToken)) return_error("Verificação de segurança falhou (Captcha).", $form_data);
-if ($aceite_lgpd !== '1') return_error("É obrigatório aceitar os Termos LGPD.", $form_data);
+if (!verificarTurnstile($turnstileToken)) return_error("Verificação de segurança falhou (Captcha).", $form_data);
+if ($aceite_lgpd !== '1' || $aceite_termos !== '1' || $aceite_privacidade !== '1') {
+    return_error('É necessário confirmar separadamente os Termos de Uso e o Aviso de Privacidade.', $form_data);
+}
 
 $plano_escolhido = ($plano_post === 'essencial') ? 'essencial' : (($plano_post === 'plus') ? 'plus' : 'basico');
 $dias_teste = ($plano_post === 'essencial') ? 30 : 15;
 
 if (!$nome || !$email || !$senha || !$documento) return_error("Preencha todos os campos.", $form_data);
+
+if ($cupom_codigo !== null) {
+    $validacaoCupom = validarCupomPassivo($conn, $cupom_codigo, 0);
+    if (!$validacaoCupom['ok']) {
+        return_error($validacaoCupom['msg'], $form_data);
+    }
+    $cupom_codigo = $validacaoCupom['cupom']['codigo'];
+}
 
 $senha_hash = password_hash($senha, PASSWORD_DEFAULT);
 $arquivoLgpdFisico = null;
@@ -144,9 +161,10 @@ try {
         $stmtIndicacao->bind_param('ii', $idIndicador, $new_usuario_id);
         $stmtIndicacao->execute();
         $stmtIndicacao->close();
+        sincronizarRecompensasIndicador($conn, $idIndicador);
     }
 
-    $tenantId = 'T' . substr(md5(uniqid($email, true)), 0, 32);
+    $tenantId = 'T' . substr(bin2hex(random_bytes(16)), 0, 31);
     $dbHost = $_ENV['DB_HOST'] ?? 'localhost';
     $dbDatabase = 'tenant_db_' . $new_usuario_id;
     $dbUser = 'dbuser_' . $new_usuario_id;
@@ -158,14 +176,26 @@ try {
     $new_tenant_id = $conn->insert_id;
     $stmtTenant->close();
 
+    if ($codigo_indicacao_recebido !== null) {
+        $stmtBeneficioIndicacao = $conn->prepare(
+            'UPDATE tenants SET indicacao_meses_gratis = 2 WHERE id = ?'
+        );
+        $stmtBeneficioIndicacao->bind_param('i', $new_tenant_id);
+        $stmtBeneficioIndicacao->execute();
+        $stmtBeneficioIndicacao->close();
+    }
+
     $conn->query("UPDATE usuarios SET tenant_id = '$tenantId' WHERE id = $new_usuario_id");
 
-    $rootConn = new mysqli($dbHost, $_ENV['DB_USER'], $_ENV['DB_PASSWORD']);
-    $rootConn->query("CREATE DATABASE IF NOT EXISTS `$dbDatabase` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci");
-    $rootConn->query("CREATE USER IF NOT EXISTS '$dbUser'@'localhost' IDENTIFIED BY '$dbPassword'");
-    $rootConn->query("GRANT ALL PRIVILEGES ON `$dbDatabase`.* TO '$dbUser'@'localhost'");
-    $rootConn->query("FLUSH PRIVILEGES");
-    $rootConn->close();
+    $provisionConn = new mysqli($dbHost, $_ENV['DB_USER'], $_ENV['DB_PASSWORD']);
+    try {
+        $provisionStmt = $provisionConn->prepare('CALL appcontrolepro_provisionamento.criar_empresa(?, ?)');
+        $provisionStmt->bind_param('is', $new_usuario_id, $dbPassword);
+        $provisionStmt->execute();
+        $provisionStmt->close();
+    } finally {
+        $provisionConn->close();
+    }
 
     // Todo tenant precisa receber sua estrutura antes do primeiro login.
     $tenantSchemaPath = __DIR__ . '/../includes/tenant_schema._sql';
@@ -181,6 +211,7 @@ try {
     while ($tenantConn->more_results() && $tenantConn->next_result()) {
         // Consome os resultados das instruções do arquivo SQL.
     }
+    run_migrations_for_connection($tenantConn, 'tenant');
     $tenantConn->query("DELETE FROM usuarios WHERE email = 'admin@cliente.com'");
     $stmtTenantUser = $tenantConn->prepare(
         "INSERT INTO usuarios (nome, tipo_pessoa, documento, telefone, email, senha, perfil, tipo, nivel_acesso, status, is_master, tenant_id)
@@ -197,43 +228,71 @@ try {
         throw new RuntimeException('Não foi possível criar a pasta dos termos LGPD.');
     }
 
-    $dataAceite = date('Y-m-d H:i:s');
+    $agoraBrasil = new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo'));
+    $dataAceite = $agoraBrasil->format('Y-m-d H:i:s');
+    $dataAceiteExibicao = $agoraBrasil->format('d/m/Y H:i:s') . ' (horário de Brasília)';
     $ipUsuario = $_SERVER['REMOTE_ADDR'] ?? 'não identificado';
+    $userAgentHash = !empty($_SERVER['HTTP_USER_AGENT']) ? hash('sha256', (string)$_SERVER['HTTP_USER_AGENT']) : null;
+    $versaoDocumento = lgpd_registration_version();
+    $preferenciasAceite = json_encode([
+        'termos_uso' => true,
+        'aviso_privacidade' => true,
+        'titularidade_dados' => true,
+        'comunicacoes_promocionais' => $aceite_comunicacoes === '1',
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $nomeArquivo = sprintf('lgpd_%d_%s_%s.pdf', $new_usuario_id, date('YmdHis'), bin2hex(random_bytes(4)));
     $arquivoLgpdFisico = $pastaLgpd . DIRECTORY_SEPARATOR . $nomeArquivo;
     $caminhoLgpdBanco = 'assets/uploads/contratos_lgpd/' . $nomeArquivo;
-    $hashConsentimento = hash('sha256', implode('|', [$new_usuario_id, $nome, $email, $documento, $ipUsuario, $dataAceite]));
+    $hashConsentimento = hash('sha256', implode('|', [$new_usuario_id, $nome, $email, $documento, $ipUsuario, $dataAceite, $versaoDocumento, $preferenciasAceite, $userAgentHash]));
 
-    $htmlLgpd = '<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><style>'
-        . 'body{font-family:DejaVu Sans,Arial,sans-serif;color:#222;font-size:12px;line-height:1.55}'
-        . 'h1{color:#087ea4;font-size:22px;border-bottom:2px solid #087ea4;padding-bottom:10px}'
-        . '.dados{background:#f4f7f8;border:1px solid #d8e1e5;padding:14px;margin:18px 0}'
-        . '.rodape{margin-top:28px;font-size:9px;color:#666;word-break:break-all}'
+    $secoesHtml = '';
+    foreach (lgpd_registration_sections() as $section) {
+        $secoesHtml .= '<section><h2>' . htmlspecialchars($section['title'], ENT_QUOTES, 'UTF-8') . '</h2><p>'
+            . htmlspecialchars($section['body'], ENT_QUOTES, 'UTF-8') . '</p></section>';
+    }
+
+    $htmlLgpd = '<!doctype html><html lang="pt-BR"><head>
+<?php session_idle_script(); ?><meta charset="UTF-8"><style>'
+        . '@page{margin:32px 42px 42px}body{font-family:DejaVu Sans,Arial,sans-serif;color:#243244;font-size:10.5px;line-height:1.5}'
+        . 'h1{color:#087ea4;font-size:21px;border-bottom:2px solid #087ea4;padding-bottom:9px;margin-bottom:5px}h2{font-size:12.5px;color:#0b6685;margin:12px 0 3px}'
+        . '.version{color:#66758a;font-size:9px;margin-bottom:13px}.intro{background:#eaf7fc;border-left:4px solid #087ea4;padding:11px 13px;margin-bottom:13px}'
+        . '.dados{background:#f4f7f8;border:1px solid #d8e1e5;padding:12px;margin:12px 0}.confirmacoes{background:#f7f9fc;border:1px solid #cfd9e4;padding:12px;margin-top:14px}'
+        . '.check{margin:5px 0}.check strong{color:#087ea4}.rodape{margin-top:18px;font-size:8px;color:#66758a;word-break:break-all;border-top:1px solid #d8e1e5;padding-top:8px}'
+        . '.page-footer{position:fixed;bottom:-25px;left:0;right:0;text-align:center;color:#8591a1;font-size:8px}section p{margin:0;text-align:left}'
         . '</style></head><body>'
-        . '<h1>Termo de Consentimento e Uso de Dados — LGPD</h1>'
-        . '<p>Em conformidade com a Lei nº 13.709/2018, o titular declara que leu e aceitou o tratamento dos dados fornecidos para cadastro, autenticação e funcionamento do sistema App Controle de Contas.</p>'
-        . '<p>Os dados não serão compartilhados com terceiros sem fundamento legal ou consentimento, e o titular poderá solicitar acesso, correção, exportação ou exclusão pelos canais de suporte.</p>'
+        . '<div class="page-footer">App Controle de Contas - Termos de Uso e Aviso de Privacidade - versão ' . htmlspecialchars($versaoDocumento, ENT_QUOTES, 'UTF-8') . '</div>'
+        . '<h1>Termos de Uso e Aviso de Privacidade - LGPD</h1>'
+        . '<div class="version">Documento versão ' . htmlspecialchars($versaoDocumento, ENT_QUOTES, 'UTF-8') . ' - Lei nº 13.709/2018</div>'
+        . '<div class="intro"><strong>Resumo:</strong> este comprovante registra, de forma clara e verificável, as condições do serviço, o tratamento dos dados pessoais e as escolhas feitas pelo titular no momento da criação da conta.</div>'
         . '<div class="dados"><strong>Titular:</strong> ' . htmlspecialchars($nome, ENT_QUOTES, 'UTF-8') . '<br>'
         . '<strong>E-mail:</strong> ' . htmlspecialchars($email, ENT_QUOTES, 'UTF-8') . '<br>'
         . '<strong>Documento:</strong> ' . htmlspecialchars($documento, ENT_QUOTES, 'UTF-8') . '<br>'
-        . '<strong>Data e hora do aceite:</strong> ' . htmlspecialchars($dataAceite, ENT_QUOTES, 'UTF-8') . '<br>'
+        . '<strong>Data e hora do aceite:</strong> ' . htmlspecialchars($dataAceiteExibicao, ENT_QUOTES, 'UTF-8') . '<br>'
         . '<strong>IP de origem:</strong> ' . htmlspecialchars($ipUsuario, ENT_QUOTES, 'UTF-8') . '</div>'
-        . '<p><strong>Manifestação:</strong> “Li, aceito e autorizo o tratamento dos meus dados conforme descrito neste termo.”</p>'
-        . '<div class="rodape"><strong>Identificador de integridade:</strong> ' . $hashConsentimento . '</div>'
+        . $secoesHtml
+        . '<div class="confirmacoes"><strong>Manifestação registrada:</strong><p>' . htmlspecialchars(lgpd_registration_manifestation(), ENT_QUOTES, 'UTF-8') . '</p>'
+        . '<div class="check"><strong>[CONFIRMADO]</strong> Termos de Uso.</div><div class="check"><strong>[CONFIRMADO]</strong> Aviso de Privacidade e direitos LGPD.</div>'
+        . '<div class="check"><strong>[CONFIRMADO]</strong> Veracidade e autorização para cadastro.</div>'
+        . '<div class="check"><strong>[' . ($aceite_comunicacoes === '1' ? 'ACEITO' : 'NÃO ACEITO') . ']</strong> Comunicações promocionais opcionais.</div></div>'
+        . '<div class="rodape"><strong>Identificador do aceite:</strong> ' . $hashConsentimento . '<br><strong>Identificador do navegador:</strong> ' . htmlspecialchars((string)$userAgentHash, ENT_QUOTES, 'UTF-8') . '</div>'
         . '</body></html>';
 
     $dompdf = new Dompdf();
     $dompdf->loadHtml($htmlLgpd, 'UTF-8');
     $dompdf->setPaper('A4', 'portrait');
     $dompdf->render();
-    if (file_put_contents($arquivoLgpdFisico, $dompdf->output()) === false) {
+    $pdfLgpd = $dompdf->output();
+    $hashDocumento = hash('sha256', $pdfLgpd);
+    if (file_put_contents($arquivoLgpdFisico, $pdfLgpd) === false) {
         throw new RuntimeException('Não foi possível salvar o PDF do termo LGPD.');
     }
 
     $tipoDocumento = 'LGPD_CADASTRO';
     $statusArquivo = 'ATIVO';
-    $stmtLgpd = $conn->prepare('INSERT INTO termos_consentimento (usuario_id, tipo_documento, caminho_arquivo, ip_usuario, data_aceite, status_arquivo) VALUES (?, ?, ?, ?, ?, ?)');
-    $stmtLgpd->bind_param('isssss', $new_usuario_id, $tipoDocumento, $caminhoLgpdBanco, $ipUsuario, $dataAceite, $statusArquivo);
+    $stmtLgpd = $conn->prepare('INSERT INTO termos_consentimento
+        (usuario_id, tipo_documento, caminho_arquivo, ip_usuario, data_aceite, status_arquivo, versao_documento, hash_documento, preferencias_json, user_agent_hash)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    $stmtLgpd->bind_param('isssssssss', $new_usuario_id, $tipoDocumento, $caminhoLgpdBanco, $ipUsuario, $dataAceite, $statusArquivo, $versaoDocumento, $hashDocumento, $preferenciasAceite, $userAgentHash);
     $stmtLgpd->execute();
     $termoLgpdId = $conn->insert_id;
     $stmtLgpd->close();

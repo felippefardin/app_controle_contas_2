@@ -1,60 +1,46 @@
 <?php
 require_once '../includes/session_init.php';
 require_once '../database.php';
-require_once '../includes/utils.php'; // Importa utils para Flash Messages
+require_once '../includes/utils.php';
+require_once '../includes/caixa_service.php';
 
-// 1. VERIFICA SE O USUÃRIO ESTÃ LOGADO
-if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true) {
+if (empty($_SESSION['usuario_logado']) || $_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: ../pages/login.php');
     exit;
 }
-
-// 2. VERIFICA SE O MÉTODO É POST
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    
-    // Verifica CSRF
-    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
-        set_flash_message('danger', 'Token de segurança inválido.');
-        header("Location: ../pages/lancamento_caixa.php");
-        exit;
-    }
-
-    $conn = getTenantConnection();
-    if ($conn === null) {
-        set_flash_message('danger', 'Erro de conexão com o banco de dados.');
-        header("Location: ../pages/lancamento_caixa.php");
-        exit;
-    }
-
-    $data = $_POST['data'];
-    $valor = $_POST['valor'];
-    
-    // ✅ CORREÇÃO DO ERRO: Usar get_data_owner_id() em vez de ['usuario_logado']['id']
-    $usuarioId = get_data_owner_id(); 
-
-    // 3. LÓGICA PARA INSERIR OU ATUALIZAR O CAIXA
-    $sql = "INSERT INTO caixa_diario (data, valor, usuario_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE valor = valor + VALUES(valor)";
-    
-    $stmt = $conn->prepare($sql);
-    if ($stmt === false) {
-        set_flash_message('danger', 'Erro ao preparar consulta.');
-        header("Location: ../pages/lancamento_caixa.php");
-        exit;
-    }
-
-    $stmt->bind_param("sdi", $data, $valor, $usuarioId);
-
-    if ($stmt->execute()) {
-        set_flash_message('success', 'Lançamento salvo com sucesso!');
-    } else {
-        set_flash_message('danger', 'Erro ao salvar lançamento: ' . $stmt->error);
-    }
-
-    $stmt->close();
-    header("Location: ../pages/lancamento_caixa.php");
-    exit;
-} else {
+if (!hash_equals((string)($_SESSION['csrf_token'] ?? ''), (string)($_POST['csrf_token'] ?? ''))) {
+    set_flash_message('danger', 'Sessão expirada. Atualize a página e tente novamente.');
     header('Location: ../pages/lancamento_caixa.php');
     exit;
 }
-?>
+
+try {
+    $conn = getTenantConnection();
+    $data = date('Y-m-d');
+    $valorTexto = str_replace(['R$', ' ', '.'], '', (string)($_POST['valor'] ?? ''));
+    $valor = (float)str_replace(',', '.', $valorTexto);
+    $tipo = ($_POST['tipo_movimento'] ?? '') === 'saida' ? 'manual_saida' : 'manual_entrada';
+    $descricao = trim((string)($_POST['descricao'] ?? ''));
+    $ownerId = get_data_owner_id();
+    $operatorId = (int)($_SESSION['usuario_id'] ?? 0);
+
+    if ($valor <= 0) throw new InvalidArgumentException('Informe um valor maior que zero.');
+    if ($descricao === '') throw new InvalidArgumentException('Informe a descrição do lançamento.');
+    $sessao = caixa_buscar_sessao($conn, $ownerId, $data);
+    if (!$sessao || $sessao['status'] !== 'aberto') {
+        throw new RuntimeException('Abra o caixa de hoje antes de adicionar um lançamento.');
+    }
+
+    $forma = 'dinheiro';
+    $aberturaId = (int)$sessao['id'];
+    $stmt = $conn->prepare('INSERT INTO caixa_diario (data,valor,tipo,descricao,usuario_id,forma_pagamento,abertura_id,criado_por) VALUES (?,?,?,?,?,?,?,?)');
+    $stmt->bind_param('sdssisii', $data, $valor, $tipo, $descricao, $ownerId, $forma, $aberturaId, $operatorId);
+    $stmt->execute();
+    $stmt->close();
+    set_flash_message('success', 'Lançamento incluído no caixa de hoje.');
+} catch (Throwable $e) {
+    set_flash_message('danger', $e->getMessage());
+}
+
+header('Location: ../pages/lancamento_caixa.php');
+exit;

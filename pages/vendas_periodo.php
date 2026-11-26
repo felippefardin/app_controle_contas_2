@@ -242,6 +242,18 @@ display_flash_message();
             background: #444; 
         }
 
+        html[data-app-theme="light"] body.light-mode main .container .filter-box .form-group label,
+        html[data-app-theme="light"] body.light-mode main .container .results-box .card-result h3,
+        html[data-app-theme="light"] body.light-mode main .container .results-box .card-result p,
+        html[data-app-theme="light"] body.light-mode table tbody td,
+        html[data-app-theme="light"] body.light-mode table tbody td * {
+            color: #fff !important;
+        }
+
+        html[data-app-theme="light"] body.light-mode main .container .results-box .card-comissao p {
+            color: #ffd54f !important;
+        }
+
         /* MEDIA QUERIES PARA MOBILE E TABLET */
         @media (max-width: 768px) {
             body {
@@ -340,6 +352,7 @@ display_flash_message();
                             <th>Vendedor</th>
                         <?php endif; ?>
                         <th>Valor</th>
+                        <th>Ação fiscal</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -353,6 +366,18 @@ display_flash_message();
                             <?php endif; ?>
                             
                             <td style="color: #28a745; font-weight: bold;">R$ <?= number_format($venda['valor_total'], 2, ',', '.') ?></td>
+                        <td>
+                            <form class="form-validacao-nfce" method="post" action="../actions/emitir_nfce.php">
+                                
+                                <input type="hidden" name="id_venda" value="<?= (int)$venda['id'] ?>">
+                                <input type="hidden" name="token_validacao_nfce" value="<?= htmlspecialchars($_SESSION['token_validacao_nfce'] ??= bin2hex(random_bytes(32)), ENT_QUOTES, 'UTF-8') ?>">
+                                <button type="submit" name="validar_nfce_local" value="1">Validar NFC-e localmente</button>
+                                <?php if (!empty($_SESSION['tenant_id']) && is_tenant_admin()): ?>
+                                    <button type="submit" name="enviar_nfce_homologacao" value="1">Enviar NFC-e em homologação</button>
+                                <?php endif; ?>
+                                <span role="status"></span>
+                            </form>
+                        </td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -370,6 +395,27 @@ display_flash_message();
 
 </div>
 
+<script>
+document.querySelectorAll('.form-validacao-nfce').forEach(form => {
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const button = event.submitter || form.querySelector('button');
+        const body = new FormData(form, button);
+        const status = form.querySelector('[role="status"]');
+        button.disabled = true;
+        status.textContent = 'Validando XML…';
+        try {
+            const response = await fetch(form.action, { method: 'POST', body });
+            const result = await response.json();
+            status.textContent = result.message || 'O servidor não retornou o resultado da validação.';
+        } catch (error) {
+            status.textContent = 'Não foi possível obter o resultado da validação.';
+        } finally {
+            button.disabled = false;
+        }
+    });
+});
+</script>
 <?php include('../includes/footer.php'); ?>
 
 </body>

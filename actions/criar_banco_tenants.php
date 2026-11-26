@@ -1,6 +1,7 @@
 <?php
 require_once '../database.php'; // Já inclui getMasterConnection()
 require_once '../includes/session_init.php'; // Para garantir
+require_once '../includes/migration_runner.php';
 
 /*
 // 🔹 Descomente esta parte se quiser proteger o script
@@ -19,13 +20,9 @@ echo "<h2>🔧 Reparo e Criação de Bancos de Tenants</h2>";
 $master = getMasterConnection(); // Conexão ROOT/MASTER
 
 // Caminho do arquivo de schema
-$schemaFile = __DIR__ . '/../includes/tenant_schema.sql';
-if (!file_exists($schemaFile)) {
-     // Fallback para o schema.sql na raiz (como em register_user.php)
-    $schemaFile = __DIR__ . '/../schema.sql';
-    if (!file_exists($schemaFile)) {
-        die("<p class='error'>❌ Arquivo de schema não encontrado em: <b>{$schemaFile}</b> ou <b>../schema.sql</b></p></body></html>");
-    }
+$schemaFile = __DIR__ . '/../includes/tenant_schema._sql';
+if (!is_readable($schemaFile)) {
+    die("<p class='error'>Arquivo de estrutura dos tenants não encontrado.</p></body></html>");
 }
 $schemaSql = file_get_contents($schemaFile);
 
@@ -121,6 +118,9 @@ try {
         }
         
         // 5️⃣ Verifica/Insere o usuário admin do tenant (o que se registrou)
+        run_migrations_for_connection($tenantConn, 'tenant');
+        echo "<span class='success'>Migrações do tenant verificadas.</span><br>";
+
         $stmtCheckUser = $tenantConn->prepare("SELECT id FROM usuarios WHERE email = ?");
         $stmtCheckUser->bind_param("s", $adminEmail);
         $stmtCheckUser->execute();

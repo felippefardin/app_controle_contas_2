@@ -11,6 +11,7 @@ if (!isset($_SESSION['super_admin'])) {
 
 $master_conn = getMasterConnection();
 $msg = "";
+if ($_SERVER['REQUEST_METHOD'] === 'POST') require_csrf();
 
 // ==========================================================
 // 1. CRIAR CUPOM (COM TRY-CATCH PARA ERRO DE DUPLICIDADE)
@@ -22,9 +23,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['ac
     $valor = floatval(str_replace(',', '.', $_POST['valor']));
     $limite_usos = trim($_POST['limite_usos'] ?? '') === '' ? null : max(1, intval($_POST['limite_usos']));
     $uso_unico_tenant = isset($_POST['uso_unico_tenant']) ? 1 : 0;
-    $aplicar_extras = isset($_POST['aplicar_extras']) ? 1 : 0;
-    // Se data estiver vazia, define como NULL
-    $data_exp = $modo_uso === 'passivo' && !empty($_POST['data_expiracao']) ? $_POST['data_expiracao'] : NULL;
+    $aplicar_extras = 0;
+    $tempo_indeterminado = isset($_POST['tempo_indeterminado']) ? 1 : 0;
+    $data_inicio = !$tempo_indeterminado && !empty($_POST['data_inicio']) ? $_POST['data_inicio'] : null;
+    $data_fim = !$tempo_indeterminado && !empty($_POST['data_fim']) ? $_POST['data_fim'] : null;
+    $data_exp = $data_fim;
     $desc = trim($_POST['descricao']);
 
     if (!in_array($modo_uso, ['passivo', 'interno'], true) || !in_array($tipo, ['porcentagem', 'valor_fixo'], true)) {
@@ -34,11 +37,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['ac
     }
 
     if ($msg === '') {
-    $stmt = $master_conn->prepare("INSERT INTO cupons_desconto (codigo, tipo_desconto, modo_uso, valor, limite_usos, uso_unico_tenant, aplicar_extras, data_expiracao, descricao) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $master_conn->prepare("INSERT INTO cupons_desconto
+        (codigo, tipo_desconto, modo_uso, valor, limite_usos, uso_unico_tenant, aplicar_extras,
+         data_expiracao, data_inicio, data_fim, tempo_indeterminado, descricao)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     
     // s = string, d = double (float)
     // Ordem: codigo(s), tipo(s), modo(s), valor(d), data(s), desc(s)
-    $stmt->bind_param("sssdiiiss", $codigo, $tipo, $modo_uso, $valor, $limite_usos, $uso_unico_tenant, $aplicar_extras, $data_exp, $desc);
+    $stmt->bind_param("sssdiiisssis", $codigo, $tipo, $modo_uso, $valor, $limite_usos, $uso_unico_tenant, $aplicar_extras, $data_exp, $data_inicio, $data_fim, $tempo_indeterminado, $desc);
 
     try {
         $stmt->execute();
@@ -65,19 +71,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['ac
     
     $data_inicio_promo = $_POST['data_inicio_promo'];
     $data_fim_promo    = $_POST['data_fim_promo'];
+    $promo_indeterminada = isset($_POST['promo_indeterminada']) ? 1 : 0;
+    if ($promo_indeterminada) $data_fim_promo = null;
 
-    if (empty($data_inicio_promo) || empty($data_fim_promo)) {
+    if (empty($data_inicio_promo) || (!$promo_indeterminada && empty($data_fim_promo))) {
         $msg = "<div class='alert error'>Você precisa definir as datas de início e fim.</div>";
-    } elseif (strtotime($data_fim_promo) < strtotime($data_inicio_promo)) {
+    } elseif (!$promo_indeterminada && strtotime($data_fim_promo) < strtotime($data_inicio_promo)) {
         $msg = "<div class='alert error'>A Data Fim não pode ser menor que a Data Início.</div>";
     } else {
         $count = 0;
         if (!empty($tenants_selecionados)) {
-            $stmtProm = $master_conn->prepare("INSERT INTO tenant_promocoes (tenant_id, cupom_id, data_inicio, data_fim, visualizado, ativo) VALUES (?, ?, ?, ?, 0, 1)");
+            $stmtProm = $master_conn->prepare("INSERT INTO tenant_promocoes (tenant_id, cupom_id, data_inicio, data_fim, tempo_indeterminado, visualizado, ativo) VALUES (?, ?, ?, ?, ?, 0, 1)");
             
             foreach ($tenants_selecionados as $t_id) {
                 try {
-                    $stmtProm->bind_param("iiss", $t_id, $cupom_id, $data_inicio_promo, $data_fim_promo);
+                    $stmtProm->bind_param("iissi", $t_id, $cupom_id, $data_inicio_promo, $data_fim_promo, $promo_indeterminada);
                     $stmtProm->execute();
                     $count++;
                 } catch (Exception $e) {
@@ -96,14 +104,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['ac
 // ==========================================================
 // 3. EXCLUIR
 // ==========================================================
-if (isset($_GET['excluir'])) {
-    $id = intval($_GET['excluir']);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'excluir') {
+    $id = intval($_POST['id'] ?? 0);
     try {
         $master_conn->query("DELETE FROM cupons_desconto WHERE id = $id");
         header("Location: cupom_desconto.php");
         exit;
     } catch (Exception $e) {
         $msg = "<div class='alert error'>Erro ao excluir: " . $e->getMessage() . "</div>";
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'desativar_cliente') {
+    $tenantDesativar = (int)($_POST['tenant_id'] ?? 0);
+    if ($tenantDesativar > 0) {
+        $stmt = $master_conn->prepare('UPDATE tenant_promocoes SET ativo=0 WHERE tenant_id=?');
+        $stmt->bind_param('i', $tenantDesativar); $stmt->execute(); $stmt->close();
+        $stmt = $master_conn->prepare('UPDATE tenants SET cupom_ativo_id=NULL, promocao_ativa_id=NULL WHERE id=?');
+        $stmt->bind_param('i', $tenantDesativar); $stmt->execute(); $stmt->close();
+        $msg = "<div class='alert success'>Desconto desativado. A cobrança normal será restaurada pela reconciliação automática.</div>";
     }
 }
 
@@ -119,11 +138,23 @@ $cupons_internos = $master_conn->query("SELECT * FROM cupons_desconto WHERE modo
 $clientes_res = $master_conn->query("SELECT id, nome_empresa, admin_email, status_assinatura FROM tenants WHERE status_assinatura IN ('ativo', 'trial') ORDER BY nome_empresa ASC");
 $clientes = [];
 while($row = $clientes_res->fetch_assoc()) { $clientes[] = $row; }
+$descontos_ativos = $master_conn->query("SELECT t.id, t.nome_empresa, t.admin_email,
+    COALESCE(cp.codigo, ci.codigo) codigo
+    FROM tenants t
+    LEFT JOIN cupons_desconto cp ON cp.id=t.cupom_ativo_id
+    LEFT JOIN tenant_promocoes tp ON tp.id=t.promocao_ativa_id AND tp.ativo=1
+    LEFT JOIN cupons_desconto ci ON ci.id=tp.cupom_id
+    WHERE t.cupom_ativo_id IS NOT NULL OR t.promocao_ativa_id IS NOT NULL
+    ORDER BY t.nome_empresa");
 ?>
 
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+<?php session_idle_script(); ?>
+<link rel="stylesheet" href="../../assets/css/universal-theme.css?v=20260813-admin">
+<script src="../../assets/js/global-theme.js?v=20260813-admin"></script>
+    <?php require __DIR__ . '/../../includes/csrf_client.php'; ?>
     <meta charset="UTF-8">
     <title>Gerenciar Cupons</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -199,10 +230,8 @@ while($row = $clientes_res->fetch_assoc()) { $clientes[] = $row; }
                     <label>Valor</label>
                     <input type="number" name="valor" step="0.01" placeholder="10.00" required>
                 </div>
-                <div style="flex: 1;">
-                    <label>Validade (Apenas Passivo)</label>
-                    <input type="date" name="data_expiracao">
-                </div>
+                <div style="flex: 1;"><label>Início da validade</label><input type="date" name="data_inicio"></div>
+                <div style="flex: 1;"><label>Término da validade</label><input type="date" name="data_fim"></div>
             </div>
             <div style="display:flex; gap:20px; flex-wrap:wrap; margin-top:15px; align-items:end;">
                 <div style="flex:1; min-width:220px;">
@@ -210,7 +239,7 @@ while($row = $clientes_res->fetch_assoc()) { $clientes[] = $row; }
                     <input type="number" name="limite_usos" min="1" placeholder="Sem limite">
                 </div>
                 <label style="flex:1; min-width:220px;"><input type="checkbox" name="uso_unico_tenant" value="1" checked style="width:auto;"> Uma utilização por cliente</label>
-                <label style="flex:1; min-width:220px;"><input type="checkbox" name="aplicar_extras" value="1" style="width:auto;"> Aplicar desconto também aos usuários extras</label>
+                <label style="flex:1; min-width:220px;"><input type="checkbox" name="tempo_indeterminado" value="1" style="width:auto;"> <i class="fas fa-infinity"></i> Ativo por tempo indeterminado</label>
             </div>
             <div class="form-group" style="margin-top: 15px;">
                 <label>Descrição</label>
@@ -243,15 +272,34 @@ while($row = $clientes_res->fetch_assoc()) { $clientes[] = $row; }
                             <button type="button" class="btn-promo" onclick="abrirModalPromo(<?= $c['id'] ?>, '<?= $c['codigo'] ?>', '<?= ($c['tipo_desconto']=='porcentagem' ? intval($c['valor']).'%' : 'R$'.$c['valor']) ?>')" title="Enviar Promoção">
                                 <i class="fas fa-paper-plane"></i> Enviar para Clientes
                             </button>
-                            <a href="?excluir=<?= $c['id'] ?>" onclick="return confirm('Excluir este cupom?')" style="color: #e74c3c; margin-left: 10px;" title="Excluir">
-                                <i class="fas fa-trash"></i>
-                            </a>
+                            <form method="post" style="display:inline" onsubmit="return confirm('Excluir este cupom?')">
+                                <input type="hidden" name="acao" value="excluir"><input type="hidden" name="id" value="<?= (int)$c['id'] ?>">
+                                <button type="submit" style="color:#e74c3c;margin-left:10px;background:none;border:0" title="Excluir"><i class="fas fa-trash"></i></button>
+                            </form>
                         </td>
                     </tr>
                     <?php endwhile; ?>
                 <?php else: ?>
                     <tr><td colspan="3" style="text-align:center; color:#666;">Nenhum cupom interno cadastrado.</td></tr>
                 <?php endif; ?>
+            </tbody>
+        </table>
+
+        <div class="section-title">Descontos ativos por cliente</div>
+        <table>
+            <thead><tr><th>Cliente</th><th>Cupom</th><th>Ação</th></tr></thead>
+            <tbody>
+            <?php if ($descontos_ativos && $descontos_ativos->num_rows): while ($d=$descontos_ativos->fetch_assoc()): ?>
+                <tr>
+                    <td><?= htmlspecialchars($d['nome_empresa']) ?><div style="font-size:.8rem;color:#aaa"><?= htmlspecialchars($d['admin_email']) ?></div></td>
+                    <td><?= htmlspecialchars($d['codigo'] ?? '-') ?></td>
+                    <td><form method="post" onsubmit="return confirm('Desativar desconto e retornar à mensalidade normal?')">
+                        <input type="hidden" name="acao" value="desativar_cliente">
+                        <input type="hidden" name="tenant_id" value="<?= (int)$d['id'] ?>">
+                        <button class="btn btn-save" type="submit"><i class="fas fa-ban"></i> Desativar</button>
+                    </form></td>
+                </tr>
+            <?php endwhile; else: ?><tr><td colspan="3">Nenhum desconto ativo.</td></tr><?php endif; ?>
             </tbody>
         </table>
 
@@ -278,16 +326,17 @@ while($row = $clientes_res->fetch_assoc()) { $clientes[] = $row; }
                             <?= ($c['tipo_desconto'] == 'porcentagem') ? intval($c['valor']) . '%' : 'R$ ' . number_format($c['valor'], 2, ',', '.') ?>
                         </td>
                         <td>
-                            <?= $c['data_expiracao'] ? date('d/m/Y', strtotime($c['data_expiracao'])) : 'Indeterminado' ?>
+                            <?= $c['tempo_indeterminado'] ? '<i class="fas fa-infinity"></i> Indeterminado' : (($c['data_inicio'] ? date('d/m/Y', strtotime($c['data_inicio'])) : 'Imediato') . ' até ' . ($c['data_fim'] ? date('d/m/Y', strtotime($c['data_fim'])) : 'sem término')) ?>
                         </td>
                         <td>
                             <?= intval($c['usos_realizados']) ?> / <?= $c['limite_usos'] === null ? '&infin;' : intval($c['limite_usos']) ?>
-                            <div style="font-size:.75rem;color:#aaa"><?= $c['uso_unico_tenant'] ? '1 por cliente' : 'reutilizÃ¡vel' ?> · <?= $c['aplicar_extras'] ? 'inclui extras' : 'somente plano' ?></div>
+                            <div style="font-size:.75rem;color:#aaa"><?= $c['uso_unico_tenant'] ? '1 por cliente' : 'reutilizÃ¡vel' ?> · somente plano</div>
                         </td>
                         <td>
-                            <a href="?excluir=<?= $c['id'] ?>" onclick="return confirm('Excluir este cupom?')" style="color: #e74c3c;" title="Excluir">
-                                <i class="fas fa-trash"></i>
-                            </a>
+                            <form method="post" style="display:inline" onsubmit="return confirm('Excluir este cupom?')">
+                                <input type="hidden" name="acao" value="excluir"><input type="hidden" name="id" value="<?= (int)$c['id'] ?>">
+                                <button type="submit" style="color:#e74c3c;background:none;border:0" title="Excluir"><i class="fas fa-trash"></i></button>
+                            </form>
                         </td>
                     </tr>
                     <?php endwhile; ?>
@@ -321,9 +370,10 @@ while($row = $clientes_res->fetch_assoc()) { $clientes[] = $row; }
                         </div>
                         <div style="flex:1;">
                             <label>Até a data:</label>
-                            <input type="date" name="data_fim_promo" required>
+                            <input type="date" name="data_fim_promo">
                         </div>
                     </div>
+                    <label style="display:block;margin-top:10px;"><input type="checkbox" name="promo_indeterminada" value="1" style="width:auto;"> <i class="fas fa-infinity"></i> Manter ativo até desativação manual pelo Master</label>
                     <small style="color:#999; display:block; margin-top:5px;">
                         * Todas as faturas geradas para os clientes selecionados dentro deste período receberão o desconto automaticamente.
                     </small>

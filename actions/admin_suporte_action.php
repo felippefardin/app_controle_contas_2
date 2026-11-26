@@ -26,6 +26,7 @@ function registrarHistoricoExterno(mysqli $conn, int $id, string $mensagem, stri
     $stmt->execute();
     $stmt->close();
 }
+require_csrf(true);
 
 try {
     if ($acao === 'responder_email') {

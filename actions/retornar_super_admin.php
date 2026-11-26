@@ -3,6 +3,12 @@
 // e inicia a sessão (a sessão do "tenant" personificado).
 require_once '../includes/session_init.php';
 
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    exit('Método não permitido.');
+}
+require_csrf();
+
 // 2. Verifica se há um backup da sessão do admin (prova de que estamos no modo de personificação)
 if (isset($_SESSION['super_admin_original'])) {
 
@@ -27,6 +33,8 @@ if (isset($_SESSION['super_admin_original'])) {
 
     // 6. Restaura a sessão do super_admin na NOVA sessão
     $_SESSION['super_admin'] = $admin_session;
+    session_regenerate_id(true);
+    $_SESSION['session_regenerated_at'] = time();
 
     // 7. Gera um novo token CSRF para a sessão de admin
     if (empty($_SESSION['csrf_token'])) {

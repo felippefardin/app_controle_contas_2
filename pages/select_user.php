@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../includes/profile_avatar.php';
 session_start();
 include('../database.php');
 
@@ -14,7 +15,7 @@ if ($conn->connect_error) {
 }
 
 // Consulta o usuário principal e os usuários secundários
-$stmt = $conn->prepare("SELECT id, nome, email, foto FROM usuarios WHERE id = ? OR owner_id = ? ORDER BY nome ASC");
+$stmt = $conn->prepare("SELECT id, nome, email, foto FROM usuarios WHERE deleted_at IS NULL AND (id = ? OR owner_id = ?) ORDER BY nome ASC");
 $stmt->bind_param("ii", $ownerId, $ownerId);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -33,6 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['select_user_id'])) {
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<link rel="stylesheet" href="../assets/css/universal-theme.css">
+<script src="../assets/js/global-theme.js"></script>
     <meta charset="UTF-8">
     <title>Selecionar Usuário</title>
     <style>
@@ -54,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['select_user_id'])) {
                 <?php foreach ($usuarios as $usuario_item): ?>
                     <li>
                         <button type="submit" name="select_user_id" value="<?= $usuario_item['id'] ?>">
-                            <img src="../img/usuarios/<?= htmlspecialchars($usuario_item['foto']) ?>" alt="Foto de Perfil">
+                            <img src="<?= htmlspecialchars(profile_image_url($usuario_item['foto']), ENT_QUOTES, 'UTF-8') ?>" referrerpolicy="no-referrer" alt="Foto de Perfil">
                             <?= htmlspecialchars($usuario_item['nome']) ?>
                         </button>
                     </li>

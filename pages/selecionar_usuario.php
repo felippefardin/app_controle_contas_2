@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../includes/profile_avatar.php';
 require_once '../includes/session_init.php';
 require_once '../database.php'; 
 
@@ -31,7 +32,7 @@ if (empty($email) && $id_usuario_atual) {
 }
 
 // ✅ 3. BUSCA TODOS OS USUÁRIOS DO CLIENTE
-$sql = "SELECT id, nome, nivel_acesso, foto FROM usuarios ORDER BY nome ASC";
+$sql = "SELECT id, nome, nivel_acesso, foto FROM usuarios WHERE deleted_at IS NULL ORDER BY nome ASC";
 $stmt = $conn->prepare($sql);
 $stmt->execute();
 $result_usuarios = $stmt->get_result();
@@ -47,6 +48,9 @@ if (isset($_GET['status']) && $_GET['status'] == 'email_enviado') {
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<?php session_idle_script(); ?>
+<link rel="stylesheet" href="../assets/css/universal-theme.css">
+<script src="../assets/js/global-theme.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Selecionar Usuário - App Controle de Contas</title>
@@ -214,11 +218,266 @@ if (isset($_GET['status']) && $_GET['status'] == 'email_enviado') {
                 font-size: 1rem;
             }
         }
-    </style>
+    
+/* ACP_LAYOUT_V2 */
+
+body {
+    --acp-bg: #060d1c;
+    --acp-card: #101b2e;
+    --acp-field: #182438;
+    --acp-text: #f1f5f9;
+    --acp-muted: #b4c0d2;
+    --acp-border: #34445b;
+    --acp-accent: #38bdf8;
+    --acp-selected: #142c44;
+
+    background:
+        radial-gradient(ellipse at top left,
+            #12345b 0%, transparent 45%),
+        radial-gradient(ellipse at bottom right,
+            #102d52 0%, transparent 45%),
+        var(--acp-bg) !important;
+
+    color: var(--acp-text);
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 24px;
+}
+
+html[data-theme="light"] body,
+body[data-theme="light"],
+html.light-mode body,
+body.light-mode,
+html.light body,
+body.light {
+    --acp-bg: #edf3fa;
+    --acp-card: #ffffff;
+    --acp-field: #f8fafc;
+    --acp-text: #172033;
+    --acp-muted: #475569;
+    --acp-border: #cbd5e1;
+    --acp-accent: #0284c7;
+    --acp-selected: #e0f2fe;
+
+    background:
+        radial-gradient(ellipse at top left,
+            #dbeafe 0%, transparent 50%),
+        var(--acp-bg) !important;
+}
+
+.selection-container {
+    width: 100%;
+    max-width: 540px;
+    padding: 36px;
+    box-sizing: border-box;
+    background: var(--acp-card) !important;
+    border: 1px solid var(--acp-border);
+    border-radius: 24px;
+    color: var(--acp-text);
+    box-shadow: 0 24px 70px rgba(0,0,0,.24);
+}
+
+.acp-login-icon {
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 18px;
+    border-radius: 18px;
+    border: 1px solid var(--acp-border);
+    background: var(--acp-selected);
+    color: var(--acp-accent);
+    font-size: 28px;
+}
+
+.selection-container h2 {
+    color: var(--acp-text) !important;
+    font-size: clamp(1.5rem, 4vw, 2rem);
+    font-weight: 700;
+    margin: 0 0 10px;
+}
+
+.acp-subtitle {
+    color: var(--acp-muted);
+    font-size: .95rem;
+    line-height: 1.6;
+    margin: 0 0 28px;
+}
+
+.selection-container .form-group {
+    margin-bottom: 22px;
+}
+
+.selection-container label {
+    color: var(--acp-text) !important;
+    font-size: .95rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.selection-container .user-list {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 34vh;
+    margin: 0;
+    padding: 3px;
+}
+
+.selection-container .user-item {
+    background: var(--acp-field);
+    border: 1px solid var(--acp-border);
+    border-radius: 13px;
+    padding: 14px 12px;
+    gap: 12px;
+    min-height: 52px;
+    transition: background .2s, border-color .2s;
+}
+
+.selection-container .user-item:last-child {
+    border-bottom: 1px solid var(--acp-border);
+}
+
+.selection-container .user-item:hover,
+.selection-container .user-item:has(input:checked) {
+    background: var(--acp-selected);
+    border-color: var(--acp-accent);
+}
+
+.selection-container .user-item label {
+    min-width: 0;
+    margin: 0;
+    font-size: .95rem;
+    overflow-wrap: anywhere;
+}
+
+.selection-container .user-item input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    margin: 0;
+    accent-color: var(--acp-accent);
+}
+
+.selection-container .user-item img {
+    width: 46px;
+    height: 46px;
+    margin-right: 12px;
+    flex-shrink: 0;
+    border: 1px solid var(--acp-border);
+}
+
+.acp-password-wrap {
+    position: relative;
+}
+
+.selection-container #senha {
+    display: block;
+    width: 100%;
+    height: 54px;
+    padding: 12px 52px 12px 15px;
+    border: 1px solid var(--acp-border);
+    border-radius: 11px;
+    background: var(--acp-field) !important;
+    color: var(--acp-text) !important;
+    font: inherit;
+    box-sizing: border-box;
+}
+
+.selection-container #senha:focus {
+    outline: 2px solid var(--acp-accent);
+    outline-offset: 2px;
+}
+
+.selection-container #toggleSenha {
+    position: absolute;
+    top: 50%;
+    right: 5px;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    background: transparent !important;
+    border: none;
+    color: var(--acp-muted) !important;
+    box-shadow: none;
+}
+
+.selection-container button[type="submit"] {
+    width: 100%;
+    min-height: 52px;
+    border-radius: 11px;
+    font-size: 1rem;
+    font-weight: 700;
+    background: #38bdf8 !important;
+    color: #082032 !important;
+    border: 1px solid transparent;
+}
+
+.selection-container button[type="submit"]:hover {
+    background: #7dd3fc !important;
+}
+
+.selection-container .acp-reset-form {
+    display: block !important;
+    margin-top: 14px;
+}
+
+.selection-container .btn-padrao-link {
+    width: 100%;
+    margin: 0 !important;
+    background: transparent !important;
+    border: 1px solid var(--acp-border) !important;
+    color: var(--acp-text) !important;
+}
+
+.selection-container .btn-padrao-link:hover {
+    background: var(--acp-selected) !important;
+    border-color: var(--acp-accent) !important;
+}
+
+.selection-container button:focus-visible,
+.selection-container input:focus-visible {
+    outline: 2px solid var(--acp-accent);
+    outline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+    body {
+        padding: 16px;
+    }
+
+    .selection-container {
+        padding: 24px 18px;
+        border-radius: 18px;
+    }
+
+    .selection-container .user-item {
+        gap: 8px;
+        padding: 12px 10px;
+    }
+
+    .selection-container .user-item img {
+        width: 40px;
+        height: 40px;
+        margin-right: 8px;
+    }
+}
+
+</style>
 </head>
 <body>
     <div class="selection-container">
-        <h2>Selecionar Usuário</h2>
+        <div class="acp-login-icon" aria-hidden="true">
+        <i class="fas fa-users"></i>
+    </div>
+    <h2>Selecionar Usuário</h2>
+    <p class="acp-subtitle">
+        Escolha o perfil e informe a senha para entrar no sistema.
+    </p>
         
         <?php if (isset($_SESSION['erro_selecao'])): ?>
             <div class="mensagem-erro"><?= htmlspecialchars($_SESSION['erro_selecao']); ?></div>
@@ -237,6 +496,9 @@ if (isset($_GET['status']) && $_GET['status'] == 'email_enviado') {
         <?php endif; ?>
 
         <form action="../actions/trocar_usuario.php" method="POST">
+    <input type="hidden" name="csrf_token"
+        value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+
             
             <div class="form-group">
                 <label>Acessar como:</label>
@@ -249,7 +511,7 @@ if (isset($_GET['status']) && $_GET['status'] == 'email_enviado') {
                             <input type="radio" name="usuario_id" id="user_<?= $usuario['id'] ?>" value="<?= $usuario['id'] ?>" <?= ($usuario['id'] === $id_usuario_atual) ? 'checked' : '' ?> required>
                             
                             <label for="user_<?= $usuario['id'] ?>">
-                                <img src="../img/usuarios/<?= htmlspecialchars($foto_usuario) ?>" alt="Foto de <?= htmlspecialchars($usuario['nome']) ?>">
+                                <img src="<?= htmlspecialchars(profile_image_url($foto_usuario), ENT_QUOTES, 'UTF-8') ?>" referrerpolicy="no-referrer" alt="Foto de <?= htmlspecialchars($usuario['nome']) ?>">
                                 <span>
                                     <?= htmlspecialchars($usuario['nome']) ?>
                                     <?= ($usuario['nivel_acesso'] === 'proprietario') ? ' (Principal)' : '' ?>
@@ -268,19 +530,28 @@ if (isset($_GET['status']) && $_GET['status'] == 'email_enviado') {
             
             <div class="form-group">
                 <label for="senha">Senha do usuário selecionado:</label>
-                <input type="password" name="senha" id="senha" required>
-                <i class="fas fa-eye toggle-password" id="toggleSenha"></i>
+                <div class="acp-password-wrap">
+        <input type="password" name="senha" id="senha"
+            autocomplete="current-password"
+            placeholder="Digite sua senha" required>
+                <button type="button"
+        class="fas fa-eye toggle-password"
+        id="toggleSenha"
+        aria-label="Mostrar senha"
+        aria-controls="senha"
+        aria-pressed="false"></button>
+    </div>
             </div>
             <button type="submit">Acessar Sistema</button>
         </form>
 
-       <a href="../actions/enviar_link_email_perfil.php?email=<?= urlencode($email) ?>&origem=selecionar_usuario" 
-          class="btn-padrao-link" 
-          style="background-color: #17a2b8; color: white; margin-left: 10px; display: inline-block; padding: 10px 15px; text-decoration: none; border-radius: 5px; margin-top: 15px;" 
-          
-          onclick="return confirm('Deseja enviar um link de redefinição de senha para o seu e-mail cadastrado (<?= htmlspecialchars($email ?? 'email.nao.encontrado@error.com') ?>)?');">
-          Redefinir por E-mail
-       </a>
+       <form action="../actions/enviar_link_email_perfil.php" method="post" class="acp-reset-form" onsubmit="return confirm('Deseja enviar um link de redefinição de senha para o seu e-mail cadastrado?');">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+          <button type="submit" class="btn-padrao-link">
+        <i class="fas fa-envelope" aria-hidden="true"></i>
+        Redefinir por E-mail
+    </button>
+       </form>
     </div>
 
     <script>
@@ -292,6 +563,9 @@ if (isset($_GET['status']) && $_GET['status'] == 'email_enviado') {
       inputSenha.setAttribute('type', tipo);
       toggleSenha.classList.toggle('fa-eye');
       toggleSenha.classList.toggle('fa-eye-slash');
+    toggleSenha.setAttribute('aria-pressed', tipo === 'text');
+    toggleSenha.setAttribute('aria-label',
+        tipo === 'text' ? 'Ocultar senha' : 'Mostrar senha');
     });
 
     // ✅ SCRIPT PARA FAZER A MENSAGEM SUMIR EM 3 SEGUNDOS

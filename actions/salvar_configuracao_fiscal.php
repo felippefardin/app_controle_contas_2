@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../includes/fiscal_a1.php';
 require_once '../includes/session_init.php';
 require_once '../database.php';
 require_once '../includes/utils.php'; // Utils para Flash Message
@@ -23,9 +24,14 @@ try {
     $ambiente=(int)($_POST['ambiente']??2);
     $regime=(int)($_POST['regime_tributario']??1);
     $serie=max(1,min(999,(int)($_POST['serie_nfce']??1)));
+    $larguraDanfe=(int)($_POST['impressora_largura']??80);
+    $impressaoAutomatica=isset($_POST['impressao_automatica'])?'1':'0';
+    $_POST['impressora_largura']=(string)$larguraDanfe;
+    $_POST['impressao_automatica']=$impressaoAutomatica;
     if(!cnpjValido($cnpj)) throw new Exception('CNPJ inválido.');
     if(!preg_match('/^[A-Z]{2}$/',$uf)||!preg_match('/^\d{7}$/',$codMun)||strlen($cep)!==8) throw new Exception('UF, CEP ou código IBGE inválido.');
     if(!in_array($ambiente,[1,2],true)||!in_array($regime,[1,2,3],true)) throw new Exception('Ambiente ou regime tributário inválido.');
+    if(!in_array($larguraDanfe,[58,80],true)) throw new Exception('Selecione uma largura de impressão válida.');
     if($ambiente===1&&!filter_var($_ENV['FISCAL_ALLOW_PRODUCTION']??false,FILTER_VALIDATE_BOOL)) throw new Exception('Produção bloqueada pelo servidor. Conclua a homologação antes da liberação.');
     $conn->begin_transaction();
 
@@ -49,17 +55,28 @@ try {
     $stmt->execute();
 
     // 2. Salva dados fiscais (KV Store)
-    $camposFiscais = ['regime_tributario', 'ambiente', 'csc_id', 'csc', 'serie_nfce'];
+    $camposFiscais = ['regime_tributario', 'ambiente', 'csc_id', 'csc', 'serie_nfce', 'impressora_largura', 'impressao_automatica'];
     $stmtKv = $conn->prepare("INSERT INTO configuracoes_tenant (chave, valor) VALUES (?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)");
 
     foreach ($camposFiscais as $chave) {
         if (isset($_POST[$chave]) && !($chave==='csc' && trim($_POST[$chave])==='')) {
-            $valor = $chave==='ambiente'?(string)$ambiente:($chave==='regime_tributario'?(string)$regime:($chave==='serie_nfce'?(string)$serie:trim($_POST[$chave])));
+            $valor = match ($chave) {
+                'ambiente' => (string) $ambiente,
+                'regime_tributario' => (string) $regime,
+                'serie_nfce' => (string) $serie,
+                'impressora_largura' => (string) $larguraDanfe,
+                'impressao_automatica' => $impressaoAutomatica,
+                default => trim((string) $_POST[$chave]),
+            };
             $stmtKv->bind_param("ss", $chave, $valor);
             $stmtKv->execute();
         }
     }
 
+    if (isset($_FILES['certificado_a1']) && $_FILES['certificado_a1']['error'] !== UPLOAD_ERR_NO_FILE) {
+        if (!is_tenant_admin()) throw new RuntimeException('Apenas administradores podem cadastrar o certificado A1.');
+        fiscal_a1_upload($cnpj, $_FILES['certificado_a1'], (string) ($_POST['certificado_a1_senha'] ?? ''));
+    }
     $conn->commit();
     
     // Mensagem de Sucesso

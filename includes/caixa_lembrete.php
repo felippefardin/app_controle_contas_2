@@ -29,6 +29,11 @@ try {
 <?php if ($caixaPendente): ?>
 <style>
 #caixaReminder{position:fixed;right:22px;bottom:22px;z-index:19990;width:min(430px,calc(100vw - 44px));background:#fff7df;color:#382b00;border:1px solid #e4ad18;border-left:6px solid #f0ad00;border-radius:10px;padding:18px;box-shadow:0 12px 38px rgba(0,0,0,.35);font-family:Arial,sans-serif}#caixaReminder h3{margin:0 0 8px;color:#7a5100;font-size:19px}#caixaReminder p{margin:5px 0;line-height:1.45}#caixaReminder .caixa-actions{display:flex;gap:9px;margin-top:14px;flex-wrap:wrap}#caixaReminder a,#caixaReminder button{border:0;border-radius:6px;padding:10px 13px;font-weight:700;cursor:pointer;text-decoration:none}#caixaReminder a{background:#087ea4;color:#fff}#caixaReminder button{background:#ded5bd;color:#382b00}
+#caixaReminder strong { color: inherit; }
+html[data-app-theme="dark"] #caixaReminder { background: #302611; color: #fff2cf; border-color: #c29426; }
+html[data-app-theme="dark"] #caixaReminder h3 { color: #ffd978; }
+html[data-app-theme="dark"] #caixaReminder .caixa-actions a { background: #75e2ff; color: #062633; }
+html[data-app-theme="dark"] #caixaReminder .caixa-actions button { background: #53452a; color: #fff2cf; }
 </style>
 <aside id="caixaReminder" role="alert" aria-live="assertive">
     <h3>Fechamento de caixa pendente</h3>

@@ -4,6 +4,11 @@ require_once '../includes/session_init.php';
 
 // 2. Carregar o banco de dados
 require_once '../database.php';
+require_csrf();
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    exit('Método não permitido.');
+}
 
 // 3. Define o fuso horário
 date_default_timezone_set('America/Sao_Paulo');
@@ -21,14 +26,8 @@ if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true 
 
 // ✅ CORREÇÃO CRÍTICA 1: PEGAR O E-MAIL DO GET (URL)
 // Isso resolve o erro "Invalid address" pois garante que o e-mail venha do clique do botão
-$email_usuario = $_GET['email'] ?? $_SESSION['email'] ?? null;
+$email_usuario = null;
 $id_usuario = $_SESSION['usuario_id']; // ID do usuário logado
-
-if (empty($email_usuario)) {
-    $_SESSION['erro_selecao'] = 'E-mail não identificado para envio.';
-    header('Location: ../pages/selecionar_usuario.php');
-    exit;
-}
 
 // 6. Pegar a conexão
 $conn = getTenantConnection(); 
@@ -50,15 +49,21 @@ if (empty($tenant_db_name)) {
 
 // 8. BUSCAR NOME DO USUÁRIO (Para o e-mail ficar bonito)
 $nome_usuario = 'Usuário'; // Valor padrão
-$stmt_nome = $conn->prepare("SELECT nome FROM usuarios WHERE id = ?");
+$stmt_nome = $conn->prepare("SELECT nome,email FROM usuarios WHERE id = ?");
 $stmt_nome->bind_param("i", $id_usuario);
 if ($stmt_nome->execute()) {
     $res_nome = $stmt_nome->get_result();
     if ($row = $res_nome->fetch_assoc()) {
         $nome_usuario = $row['nome'];
+        $email_usuario = $row['email'];
     }
 }
 $stmt_nome->close();
+if (empty($email_usuario)) {
+    $_SESSION['erro_selecao'] = 'E-mail não identificado para envio.';
+    header('Location: ../pages/selecionar_usuario.php');
+    exit;
+}
 
 // 9. Gerar e salvar o token
 $token = bin2hex(random_bytes(32));

@@ -4,14 +4,20 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/vendor/autoload.php';
-
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+if (!defined('APP_SKIP_SESSION') || APP_SKIP_SESSION !== true) {
+    require_once __DIR__ . '/includes/session_init.php';
 }
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 use Dotenv\Dotenv;
+
+function configureDatabaseTimezone(mysqli $conn): void
+{
+    // Mantém NOW(), CURRENT_TIMESTAMP e datas automáticas alinhados ao PHP.
+    $offset = (new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo')))->format('P');
+    $conn->query("SET time_zone = '" . $conn->real_escape_string($offset) . "'");
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -31,6 +37,11 @@ if (!file_exists($dotenvPath . '/.env')) {
 
 $dotenv = Dotenv::createImmutable($dotenvPath);
 $dotenv->safeLoad();
+require_once __DIR__ . '/includes/environment.php';
+
+$showErrors = env_bool('APP_DEBUG', !app_is_production());
+ini_set('display_errors', $showErrors ? '1' : '0');
+ini_set('display_startup_errors', $showErrors ? '1' : '0');
 
 /*
 |--------------------------------------------------------------------------
@@ -66,12 +77,18 @@ function getMasterConnection(): mysqli
         );
 
         $conn->set_charset('utf8mb4');
+        configureDatabaseTimezone($conn);
 
         return $conn;
 
     } catch (mysqli_sql_exception $e) {
 
         error_log($e->getMessage());
+
+        if (app_is_production()) {
+            http_response_code(503);
+            die('Serviço temporariamente indisponível.');
+        }
 
         die(
             "<h2>Erro ao conectar no banco MASTER</h2>
@@ -107,10 +124,17 @@ function getTenantConnection(): ?mysqli
         );
 
         $conn->set_charset('utf8mb4');
+        configureDatabaseTimezone($conn);
 
         return $conn;
 
     } catch (mysqli_sql_exception $e) {
+
+        error_log($e->getMessage());
+        if (app_is_production()) {
+            http_response_code(503);
+            die('Serviço temporariamente indisponível.');
+        }
 
         die(
             "<h2>Erro ao conectar no banco do Tenant</h2>

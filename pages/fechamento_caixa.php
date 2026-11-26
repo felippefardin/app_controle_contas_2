@@ -1,6 +1,7 @@
 <?php
 require_once '../includes/session_init.php';
 require_once '../database.php';
+require_once '../includes/caixa_service.php';
 include('../includes/header.php');
 
 if (!isset($_SESSION['usuario_logado'])) {
@@ -11,6 +12,7 @@ if (!isset($_SESSION['usuario_logado'])) {
 $conn = getTenantConnection();
 $id_usuario = get_data_owner_id();
 $data_selecionada = $_GET['data'] ?? date('Y-m-d');
+$resumo_caixa = caixa_resumo($conn, $id_usuario, $data_selecionada);
 
 $sql = "
     SELECT forma_pagamento, SUM(valor_total) AS total 
@@ -101,7 +103,8 @@ $stmt_fechamento->bind_param('is', $id_usuario, $data_selecionada);
 $stmt_fechamento->execute();
 $fechamento = $stmt_fechamento->get_result()->fetch_assoc();
 $stmt_fechamento->close();
-$caixa_fechado = $quantidade_vendas > 0 && $fechamento && $ultimo_venda_id <= (int)$fechamento['ultimo_venda_id'];
+$caixa_fechado = ($resumo_caixa['sessao']['status'] ?? '') === 'fechado';
+$caixa_aberto = ($resumo_caixa['sessao']['status'] ?? '') === 'aberto';
 $flash_caixa = $_SESSION['flash_caixa'] ?? '';
 unset($_SESSION['flash_caixa']);
 ?>
@@ -151,8 +154,15 @@ unset($_SESSION['flash_caixa']);
         <button type="submit" class="btn btn-primary">Buscar</button>
     </form>
 
+    <h4 class="mb-3">Resumo do dinheiro em caixa</h4>
+    <div class="row mb-3">
+        <div class="col-md-3"><div class="card-resumo forma-dinheiro"><strong>Saldo inicial</strong><span class="float-right">R$ <?= number_format($resumo_caixa['valor_abertura'],2,',','.') ?></span></div></div>
+        <div class="col-md-3"><div class="card-resumo forma-dinheiro"><strong>Vendas em dinheiro</strong><span class="float-right">R$ <?= number_format($resumo_caixa['total_dinheiro'],2,',','.') ?></span></div></div>
+        <div class="col-md-3"><div class="card-resumo forma-outros"><strong>Entradas/retiradas</strong><span class="float-right">R$ <?= number_format($resumo_caixa['total_manual'],2,',','.') ?></span></div></div>
+        <div class="col-md-3"><div class="card-resumo forma-pix"><strong>Dinheiro esperado</strong><span class="float-right">R$ <?= number_format($resumo_caixa['saldo_dinheiro_esperado'],2,',','.') ?></span></div></div>
+    </div>
     <h4 class="mb-3">Resumo por Forma de Pagamento</h4>
-    <?php if (count($totais) > 0): ?>
+    <?php if (true): ?>
         <?php foreach ($totais as $forma => $total): ?>
             <?php
                 $classe = 'forma-outros';
@@ -171,13 +181,15 @@ unset($_SESSION['flash_caixa']);
         <div class="mt-3 no-print">
             <?php if ($caixa_fechado): ?>
                 <div class="alert alert-success"><i class="fas fa-check-circle"></i> Caixa fechado em <?= date('d/m/Y H:i', strtotime($fechamento['fechado_em'])) ?>. Nenhuma venda nova pendente.</div>
-            <?php else: ?>
-                <div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> Este caixa ainda precisa ser confirmado. Se houver novas vendas depois do fechamento, confirme novamente.</div>
+            <?php elseif ($caixa_aberto && caixa_data_valida($data_selecionada) && $data_selecionada <= date('Y-m-d')): ?>
+                <div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> Confira os totais da data selecionada e confirme o fechamento deste caixa.</div>
                 <form method="post" action="../actions/fechar_caixa.php" onsubmit="return confirm('Confirmar o fechamento deste caixa? Os totais atuais serão registrados.');">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="data" value="<?= htmlspecialchars($data_selecionada, ENT_QUOTES, 'UTF-8') ?>">
                     <button type="submit" class="btn btn-warning btn-lg"><i class="fas fa-lock"></i> Confirmar fechamento do caixa</button>
                 </form>
+            <?php else: ?>
+                <div class="alert alert-secondary">Não existe caixa aberto nesta data.</div>
             <?php endif; ?>
         </div>
     <?php else: ?>

@@ -1,6 +1,9 @@
 <?php
 require_once '../includes/session_init.php';
 require_once '../database.php';
+require_once '../includes/audit.php';
+require_tenant_admin();
+require_csrf();
 
 header('Content-Type: application/json');
 
@@ -11,7 +14,7 @@ if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true)
 }
 
 $nivel = $_SESSION['nivel_acesso'] ?? 'padrao';
-if ($nivel !== 'admin' && $nivel !== 'master') {
+if (!in_array($nivel, ['admin', 'master', 'proprietario'], true)) {
     echo json_encode(['success' => false, 'message' => 'Permissão negada.']);
     exit;
 }
@@ -24,6 +27,7 @@ if (!$conn) {
 
 $acao = $_POST['acao'] ?? '';
 $id_usuario_atual = $_SESSION['usuario_id'];
+$ownerId = get_data_owner_id();
 
 try {
     // --- LÓGICA DE SALVAR (INSERIR OU EDITAR) ---
@@ -40,7 +44,7 @@ try {
         }
 
         // Verifica se e-mail já existe (excluindo o próprio usuário na edição)
-        $sql_check = "SELECT id FROM usuarios WHERE email = ? AND id != ?";
+        $sql_check = "SELECT id FROM usuarios WHERE email = ? AND id != ? AND deleted_at IS NULL";
         $check_id = $id ? $id : 0;
         $stmt = $conn->prepare($sql_check);
         $stmt->bind_param("si", $email, $check_id);
@@ -49,16 +53,19 @@ try {
             throw new Exception("Este e-mail já está em uso.");
         }
 
+        if ($id && $id === $ownerId) {
+            throw new Exception('O usuário proprietário não pode ser alterado por esta tela.');
+        }
         if ($id) {
             // --- ATUALIZAR EXISTENTE ---
             if (!empty($senha)) {
                 // Se forneceu senha nova
                 $hash = password_hash($senha, PASSWORD_DEFAULT);
-                $stmt = $conn->prepare("UPDATE usuarios SET nome=?, email=?, tipo=?, senha=? WHERE id=?");
+                $stmt = $conn->prepare("UPDATE usuarios SET nome=?, email=?, tipo=?, senha=? WHERE id=? AND deleted_at IS NULL");
                 $stmt->bind_param("ssssi", $nome, $email, $tipo, $hash, $id);
             } else {
                 // Mantém a senha antiga
-                $stmt = $conn->prepare("UPDATE usuarios SET nome=?, email=?, tipo=? WHERE id=?");
+                $stmt = $conn->prepare("UPDATE usuarios SET nome=?, email=?, tipo=? WHERE id=? AND deleted_at IS NULL");
                 $stmt->bind_param("sssi", $nome, $email, $tipo, $id);
             }
             $msg = "Usuário atualizado com sucesso!";
@@ -88,24 +95,21 @@ try {
     // --- LÓGICA DE EXCLUIR ---
     elseif ($acao === 'excluir') {
         $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
-        if (!$id || $id == $id_usuario_atual) {
+        if (!$id || $id == $id_usuario_atual || $id == $ownerId) {
             throw new Exception("ID inválido ou tentativa de excluir a si mesmo.");
         }
 
-        $stmt = $conn->prepare("DELETE FROM usuarios WHERE id = ?");
-        $stmt->bind_param("i", $id);
-        
-        if ($stmt->execute()) {
-            echo json_encode(['success' => true, 'message' => 'Usuário excluído com sucesso.']);
+        if (soft_delete_record($conn, 'usuarios', (int) $id)) {
+            echo json_encode(['success' => true, 'message' => 'Usuário movido para a lixeira.']);
         } else {
-            throw new Exception("Erro ao excluir usuário.");
+            throw new Exception("Erro ao mover usuário para a lixeira.");
         }
     }
 
     // --- LÓGICA DE TOGGLE STATUS (ATIVAR/DESATIVAR) ---
     elseif ($acao === 'toggle_status') {
         $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
-        if (!$id || $id == $id_usuario_atual) {
+        if (!$id || $id == $id_usuario_atual || $id == $ownerId) {
             throw new Exception("Operação inválida.");
         }
 

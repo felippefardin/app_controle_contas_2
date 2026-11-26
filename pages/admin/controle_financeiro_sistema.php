@@ -1,6 +1,7 @@
 <?php
 require_once '../../includes/session_init.php';
 include('../../database.php');
+require_once '../../includes/utils.php';
 
 // Proteção: Apenas super admin
 if (!isset($_SESSION['super_admin'])) {
@@ -85,10 +86,41 @@ while($row = $res_daily->fetch_assoc()) {
 $json_labels = json_encode($chart_labels);
 $json_pago = json_encode($chart_data_pago);
 $json_pendente = json_encode($chart_data_pendente);
+
+$sql_contas_financeiras = "
+    SELECT t.id, t.tenant_id, t.nome, t.nome_empresa, t.admin_email, t.plano_atual,
+           t.usuarios_extras, t.status_assinatura, t.desativada_em, t.exclusao_programada_em,
+           COALESCE(f.faturas_vencidas,0) faturas_vencidas,
+           COALESCE(f.valor_vencido,0) valor_vencido,
+           cm.criado_em ultima_cobranca_manual
+      FROM tenants t
+      LEFT JOIN (
+          SELECT tenant_id, COUNT(*) faturas_vencidas, SUM(valor) valor_vencido
+            FROM faturas_assinatura
+           WHERE status='pendente' AND data_vencimento<CURDATE()
+           GROUP BY tenant_id
+      ) f ON f.tenant_id COLLATE utf8mb4_unicode_ci=t.tenant_id COLLATE utf8mb4_unicode_ci
+      LEFT JOIN (
+          SELECT tenant_id, MAX(criado_em) criado_em
+            FROM cobrancas_manuais
+           GROUP BY tenant_id
+      ) cm ON cm.tenant_id COLLATE utf8mb4_unicode_ci=t.tenant_id COLLATE utf8mb4_unicode_ci
+     WHERE t.status_assinatura IN ('desativado_temporario','exclusao_em_processamento','vencido','suspenso','inativo','cancelado','pendente','trial_expired')
+        OR COALESCE(f.faturas_vencidas,0)>0
+     ORDER BY (t.status_assinatura='desativado_temporario') DESC, COALESCE(f.valor_vencido,0) DESC, t.id DESC";
+$res_contas_financeiras = $master_conn->query($sql_contas_financeiras);
+$financeRows = [];
+while ($res_contas_financeiras && ($row = $res_contas_financeiras->fetch_assoc())) $financeRows[] = $row;
+$pausedTotal = count(array_filter($financeRows, fn($row) => in_array($row['status_assinatura'], ['desativado_temporario','exclusao_em_processamento'], true)));
+$overdueTotal = count(array_filter($financeRows, fn($row) => (int)$row['faturas_vencidas']>0 || in_array($row['status_assinatura'], ['vencido','suspenso','inativo','cancelado','pendente','trial_expired'], true)));
+$overdueValue = array_sum(array_map(fn($row) => (float)$row['valor_vencido'], $financeRows));
 ?>
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+<?php session_idle_script(); ?>
+<link rel="stylesheet" href="../../assets/css/universal-theme.css?v=20260813-admin">
+<script src="../../assets/js/global-theme.js?v=20260813-admin"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controle Financeiro & Usuários</title>
@@ -142,6 +174,16 @@ $json_pendente = json_encode($chart_data_pendente);
 
         .btn-voltar { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 20px; color: #aaa; text-decoration: none; transition: 0.2s; }
         .btn-voltar:hover { color: #fff; }
+        .finance-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin:18px 0; }
+        .finance-summary .card { text-align:left; }
+        .status-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border-radius:999px; font-size:.78rem; font-weight:800; }
+        .status-chip.paused { background:rgba(255,193,7,.14); color:#ffd45b; }
+        .status-chip.overdue { background:rgba(255,70,90,.14); color:#ff8797; }
+        .btn-charge { background:#7b4dff; border:0; color:#fff; border-radius:5px; padding:9px 12px; font-weight:700; cursor:pointer; white-space:nowrap; }
+        .btn-charge:hover { background:#926fff; }
+        .financial-note { color:#aeb9ca; line-height:1.5; margin:0 0 16px; }
+        .table-scroll { overflow-x:auto; border:1px solid #333; border-radius:8px; }
+        @media (max-width: 800px) { .finance-summary { grid-template-columns:1fr; } }
     </style>
 </head>
 <body>
@@ -153,6 +195,7 @@ $json_pendente = json_encode($chart_data_pendente);
 
     <div class="container">
         <a href="dashboard.php" class="btn-voltar"><i class="fas fa-arrow-left"></i> Voltar ao Dashboard</a>
+        <?php display_flash_message(); ?>
 
         <h1>Panorama Geral do Sistema</h1>
 
@@ -260,6 +303,46 @@ $json_pendente = json_encode($chart_data_pendente);
                 <div class="card-label">Previsão Total</div>
             </div>
         </div>
+
+        <section id="contas-financeiras" style="scroll-margin-top:20px;">
+            <h2><i class="fas fa-file-invoice-dollar"></i> Contas desativadas e inadimplentes</h2>
+            <p class="financial-note">As contas pausadas aparecem somente para acompanhamento. Para pendencias de pagamento, o master pode gerar um novo link seguro de regularizacao e enviá-lo ao e-mail cadastrado.</p>
+            <div class="finance-summary">
+                <div class="card border-gray"><div class="card-label">Desativadas temporariamente</div><div class="card-value"><?= $pausedTotal ?></div></div>
+                <div class="card border-red"><div class="card-label">Contas com pendencia</div><div class="card-value"><?= $overdueTotal ?></div></div>
+                <div class="card border-orange"><div class="card-label">Total em faturas vencidas</div><div class="card-value">R$ <?= number_format($overdueValue, 2, ',', '.') ?></div></div>
+            </div>
+            <div class="table-scroll">
+                <table>
+                    <thead><tr><th>Conta</th><th>Situacao</th><th>Plano</th><th>Pendencia</th><th>Prazo/Ultima acao</th><th>Acao</th></tr></thead>
+                    <tbody>
+                    <?php if (!$financeRows): ?>
+                        <tr><td colspan="6" style="text-align:center;color:#8b96a8;padding:28px;">Nenhuma conta desativada ou inadimplente.</td></tr>
+                    <?php else: foreach ($financeRows as $financial):
+                        $isPaused = in_array($financial['status_assinatura'], ['desativado_temporario','exclusao_em_processamento'], true);
+                        $hasDebt = (int)$financial['faturas_vencidas']>0 || in_array($financial['status_assinatura'], ['vencido','suspenso','inativo','cancelado','pendente','trial_expired'], true);
+                    ?>
+                        <tr>
+                            <td><strong><?= htmlspecialchars($financial['nome_empresa'] ?: $financial['nome'] ?: 'Sem nome') ?></strong><br><small><?= htmlspecialchars($financial['admin_email']) ?></small></td>
+                            <td><span class="status-chip <?= $isPaused ? 'paused' : 'overdue' ?>"><i class="fas <?= $isPaused ? 'fa-pause-circle' : 'fa-triangle-exclamation' ?>"></i><?= $isPaused ? 'Pausa voluntaria' : htmlspecialchars($financial['status_assinatura']) ?></span></td>
+                            <td><?= htmlspecialchars(ucfirst((string)$financial['plano_atual'])) ?> + <?= (int)$financial['usuarios_extras'] ?> extra(s)</td>
+                            <td><?= (int)$financial['faturas_vencidas'] ?> fatura(s)<br><strong>R$ <?= number_format((float)$financial['valor_vencido'], 2, ',', '.') ?></strong></td>
+                            <td><?php if ($isPaused): ?>Exclusao em:<br><strong><?= !empty($financial['exclusao_programada_em']) ? date('d/m/Y', strtotime($financial['exclusao_programada_em'])) : '-' ?></strong><?php else: ?>Ultima cobranca manual:<br><strong><?= !empty($financial['ultima_cobranca_manual']) ? date('d/m/Y H:i', strtotime($financial['ultima_cobranca_manual'])) : 'Nunca' ?></strong><?php endif; ?></td>
+                            <td>
+                                <?php if (!$isPaused && $hasDebt): ?>
+                                    <form method="post" action="../../actions/admin_gerar_cobranca_manual.php" onsubmit="return confirm('Cancelar a tentativa automatica anterior e enviar um novo link de regularizacao para o e-mail cadastrado?');">
+                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+                                        <input type="hidden" name="tenant_id" value="<?= (int)$financial['id'] ?>">
+                                        <button type="submit" class="btn-charge"><i class="fas fa-paper-plane"></i> Gerar cobranca</button>
+                                    </form>
+                                <?php else: ?><span style="color:#8994a5">Somente acompanhamento</span><?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </section>
 
         <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-top: 30px;">
             <div style="flex: 2; min-width: 400px; background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333;">

@@ -3,6 +3,7 @@ require_once '../includes/session_init.php';
 require_once '../includes/check_plan.php';
 require_once '../database.php';
 require_once '../includes/utils.php'; // Importa utils para o Flash Message e CSS
+require_once '../includes/caixa_service.php';
 
 // ----------------------------
 // 1. VERIFICA SE USUÃRIO ESTÃ LOGADO
@@ -22,6 +23,18 @@ if ($conn === null) {
 // ----------------------------
 $id_usuario = get_data_owner_id();
 $perfil     = $_SESSION['nivel_acesso'];
+$sessao_caixa = caixa_buscar_sessao($conn, $id_usuario, date('Y-m-d'));
+$caixa_aberto = $sessao_caixa && $sessao_caixa['status'] === 'aberto';
+$ambiente_nfce = 2;
+$stmtAmbienteNfce = $conn->prepare("SELECT valor FROM configuracoes_tenant WHERE chave = 'ambiente' LIMIT 1");
+if ($stmtAmbienteNfce && $stmtAmbienteNfce->execute()) {
+    $ambienteSalvo = $stmtAmbienteNfce->get_result()->fetch_column();
+    if (in_array((int) $ambienteSalvo, [1, 2], true)) {
+        $ambiente_nfce = (int) $ambienteSalvo;
+    }
+}
+$stmtAmbienteNfce?->close();
+$token_nfce = $_SESSION['token_validacao_nfce'] ??= bin2hex(random_bytes(32));
 
 // ----------------------------
 // 3. BLOCO AJAX PARA BUSCAS
@@ -29,6 +42,35 @@ $perfil     = $_SESSION['nivel_acesso'];
 if (isset($_GET['action'])) {
     $term = "%" . ($_GET['term'] ?? '') . "%";
     $response = [];
+
+    if ($_GET['action'] === 'search_barcode') {
+        $codigo = trim((string)($_GET['codigo'] ?? ''));
+        header('Content-Type: application/json; charset=UTF-8');
+        if ($codigo === '') {
+            echo json_encode(['found' => false, 'message' => 'Informe ou leia um codigo de barras.']);
+            exit;
+        }
+        $stmt = $conn->prepare("SELECT id, codigo, nome, preco_venda, quantidade_estoque
+                                FROM produtos
+                                WHERE codigo = ? AND id_usuario = ? AND deleted_at IS NULL
+                                LIMIT 1");
+        $stmt->bind_param('si', $codigo, $id_usuario);
+        $stmt->execute();
+        $produto = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$produto) {
+            echo json_encode(['found' => false, 'message' => 'Codigo nao cadastrado para esta empresa.']);
+            exit;
+        }
+        echo json_encode(['found' => true, 'product' => [
+            'id' => (int)$produto['id'],
+            'codigo' => $produto['codigo'],
+            'text' => $produto['nome'] . ' (Estoque: ' . $produto['quantidade_estoque'] . ')',
+            'preco_venda' => (float)$produto['preco_venda'],
+            'estoque' => (int)$produto['quantidade_estoque']
+        ]]);
+        exit;
+    }
 
     if ($_GET['action'] === 'search_clientes') {
         $sql = "SELECT id, nome 
@@ -44,17 +86,17 @@ if (isset($_GET['action'])) {
     }
 
     if ($_GET['action'] === 'search_produtos') {
-        $sql = "SELECT id, nome, preco_venda, quantidade_estoque 
+        $sql = "SELECT id, codigo, nome, preco_venda, quantidade_estoque 
                 FROM produtos 
-                WHERE nome LIKE ? AND id_usuario = ?";
+                WHERE (nome LIKE ? OR codigo LIKE ?) AND id_usuario = ? AND deleted_at IS NULL";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("si", $term, $id_usuario);
+        $stmt->bind_param("ssi", $term, $term, $id_usuario);
         $stmt->execute();
         $result = $stmt->get_result();
         while ($row = $result->fetch_assoc()) {
             $response[] = [
                 'id'          => $row['id'],
-                'text'        => $row['nome'] . " (Estoque: " . $row['quantidade_estoque'] . ")",
+                'text'        => ($row['codigo'] ? $row['codigo'] . ' - ' : '') . $row['nome'] . " (Estoque: " . $row['quantidade_estoque'] . ")",
                 'preco_venda' => $row['preco_venda'],
                 'estoque'     => $row['quantidade_estoque']
             ];
@@ -406,6 +448,40 @@ label {
     transition: width 0.6s ease;
 }
 
+/* Meta de vendas no modo claro */
+html[data-app-theme="light"] body.light-mode .meta-widget {
+    background-color: #f8fafc !important;
+    color: #172033 !important;
+    border-color: #d9e1eb !important;
+    box-shadow: 0 6px 18px rgba(20, 41, 70, 0.08);
+}
+
+html[data-app-theme="light"] body.light-mode .meta-header-titulo,
+html[data-app-theme="light"] body.light-mode .meta-header-editar {
+    color: #075dd8 !important;
+}
+
+html[data-app-theme="light"] body.light-mode .meta-header-editar:hover {
+    color: #003f9b !important;
+}
+
+html[data-app-theme="light"] body.light-mode .meta-header-valores {
+    color: #172033 !important;
+}
+
+html[data-app-theme="light"] body.light-mode .meta-status {
+    color: #5d6878 !important;
+}
+
+html[data-app-theme="light"] body.light-mode .meta-status.atingida {
+    color: #15803d !important;
+}
+
+html[data-app-theme="light"] body.light-mode .meta-widget .progress {
+    background-color: #e7edf5 !important;
+    border-color: #cbd5e1 !important;
+}
+
 /* =========================================
    MEDIA QUERIES (RESPONSIVIDADE)
 ========================================= */
@@ -456,11 +532,302 @@ label {
     }
 }
 
+/* Select2 insere as listas de clientes e produtos diretamente no body.
+   Estas regras garantem contraste correto quando o tema claro está ativo. */
+html[data-app-theme="light"] .select2-container--default .select2-selection--single,
+html[data-app-theme="light"] .select2-container--default .select2-search--dropdown .select2-search__field,
+html[data-app-theme="light"] .select2-container--default .select2-dropdown {
+    background-color: #ffffff !important;
+    color: #172033 !important;
+    border-color: #b8c5d6 !important;
+}
+
+html[data-app-theme="light"] .select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: #172033 !important;
+}
+
+html[data-app-theme="light"] .select2-container--default .select2-selection--single .select2-selection__placeholder {
+    color: #667085 !important;
+}
+
+html[data-app-theme="light"] .select2-container--default .select2-results__option {
+    background-color: #ffffff !important;
+    color: #172033 !important;
+}
+
+html[data-app-theme="light"] .select2-container--default .select2-results__option--selected {
+    background-color: #e6f0ff !important;
+    color: #12345b !important;
+}
+
+html[data-app-theme="light"] .select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background-color: #075dd8 !important;
+    color: #ffffff !important;
+}
+
+html[data-app-theme="light"] .select2-container--default .select2-results__message,
+html[data-app-theme="light"] .select2-container--default .select2-results__option[aria-disabled="true"] {
+    color: #667085 !important;
+}
+
+/* =========================================
+   CONTRASTE COMPLETO POR TEMA
+========================================= */
+html[data-app-theme="light"] body.light-mode {
+    background-color: #eef3f9 !important;
+    color: #172033 !important;
+}
+
+html[data-app-theme="light"] body.light-mode > .container {
+    background-color: #ffffff !important;
+    color: #172033 !important;
+    border: 1px solid #d5deea !important;
+    box-shadow: 0 10px 28px rgba(20, 41, 70, .12) !important;
+}
+
+html[data-app-theme="light"] body.light-mode :is(h1, h2) {
+    color: #075dad !important;
+    border-bottom-color: #1597d4 !important;
+}
+
+html[data-app-theme="light"] body.light-mode :is(label, legend, .total-venda, .meta-header-valores) {
+    color: #172033 !important;
+}
+
+html[data-app-theme="light"] body.light-mode :is(small, .text-muted, .form-text) {
+    color: #556274 !important;
+}
+
+html[data-app-theme="light"] body.light-mode :is(.form-control, select, textarea) {
+    background-color: #ffffff !important;
+    color: #172033 !important;
+    border-color: #aebccd !important;
+}
+
+html[data-app-theme="light"] body.light-mode :is(.form-control, textarea)::placeholder {
+    color: #667085 !important;
+    opacity: 1 !important;
+}
+
+html[data-app-theme="light"] body.light-mode select option {
+    background-color: #ffffff !important;
+    color: #172033 !important;
+}
+
+html[data-app-theme="light"] body.light-mode :is(.card.bg-dark, .modal-content) {
+    background-color: #ffffff !important;
+    color: #172033 !important;
+    border-color: #d5deea !important;
+}
+
+html[data-app-theme="light"] body.light-mode :is(.card-header, .modal-header, .modal-footer) {
+    background-color: #eaf5fc !important;
+    color: #075dad !important;
+    border-color: #c8d9e8 !important;
+}
+
+html[data-app-theme="light"] body.light-mode .modal-content .close {
+    color: #172033 !important;
+    opacity: .8 !important;
+}
+
+html[data-app-theme="light"] body.light-mode .table-responsive {
+    background-color: #ffffff !important;
+    border: 1px solid #d5deea !important;
+}
+
+html[data-app-theme="light"] body.light-mode .table tbody tr,
+html[data-app-theme="light"] body.light-mode .table tbody td {
+    background-color: #ffffff !important;
+    color: #172033 !important;
+    border-color: #d5deea !important;
+}
+
+html[data-app-theme="light"] body.light-mode .table tbody tr:hover,
+html[data-app-theme="light"] body.light-mode .table tbody tr:hover td {
+    background-color: #edf5ff !important;
+    color: #102a4c !important;
+}
+
+html[data-app-theme="light"] body.light-mode .alert-box {
+    background-color: #ffffff !important;
+    color: #172033 !important;
+    border: 1px solid #d5deea;
+    box-shadow: 0 8px 24px rgba(20, 41, 70, .18);
+}
+
+html[data-app-theme="light"] body.light-mode .btn-fechar-alert {
+    color: #344054 !important;
+}
+
+html[data-app-theme="light"] body.light-mode .alert-secondary {
+    background-color: #eef2f7 !important;
+    color: #243247 !important;
+    border-color: #cbd5e1 !important;
+}
+
+html[data-app-theme="light"] body.light-mode .alert-warning {
+    background-color: #fff4ce !important;
+    color: #5b3a00 !important;
+    border-color: #e4b84a !important;
+}
+
+html[data-app-theme="light"] .caixa-status-alert {
+    background-color: #d9f2e2 !important;
+    color: #14532d !important;
+    border-color: #70bd89 !important;
+}
+
+html[data-app-theme="light"] .caixa-status-alert :is(.caixa-status-texto, .caixa-saldo-inicial, i) {
+    color: #14532d !important;
+}
+
+html[data-app-theme="light"] .caixa-status-alert .btn-movimentacoes {
+    background-color: #166534 !important;
+    color: #ffffff !important;
+    border-color: #166534 !important;
+    font-weight: 600;
+}
+
+html[data-app-theme="light"] .caixa-status-alert .btn-movimentacoes:hover,
+html[data-app-theme="light"] .caixa-status-alert .btn-movimentacoes:focus {
+    background-color: #0f4d27 !important;
+    color: #ffffff !important;
+    border-color: #0f4d27 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode {
+    background-color: #0f1115 !important;
+    color: #edf4fc !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode > .container {
+    background-color: #191c22 !important;
+    color: #edf4fc !important;
+    border: 1px solid #374151 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode :is(h1, h2) {
+    color: #4fd1ff !important;
+    border-bottom-color: #2fbce9 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode :is(label, legend, .total-venda, .meta-header-valores) {
+    color: #edf4fc !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode :is(small, .text-muted, .form-text, .meta-status) {
+    color: #b8c5d6 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode :is(.form-control, select, textarea),
+html[data-app-theme="dark"] .select2-container--default :is(.select2-selection--single, .select2-search__field, .select2-dropdown) {
+    background-color: #252a33 !important;
+    color: #f1f5f9 !important;
+    border-color: #526071 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode :is(.form-control, textarea)::placeholder,
+html[data-app-theme="dark"] .select2-container--default .select2-selection__placeholder {
+    color: #aab6c5 !important;
+    opacity: 1 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode select option,
+html[data-app-theme="dark"] .select2-container--default .select2-results__option {
+    background-color: #252a33 !important;
+    color: #f1f5f9 !important;
+}
+
+html[data-app-theme="dark"] .select2-container--default .select2-selection__rendered {
+    color: #f1f5f9 !important;
+}
+
+html[data-app-theme="dark"] .select2-container--default .select2-results__option--selected {
+    background-color: #334155 !important;
+    color: #ffffff !important;
+}
+
+html[data-app-theme="dark"] .select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background-color: #087cba !important;
+    color: #ffffff !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode :is(.card.bg-dark, .modal-content, .table-responsive) {
+    background-color: #191c22 !important;
+    color: #edf4fc !important;
+    border-color: #374151 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode :is(.card-header, .modal-header, .modal-footer) {
+    background-color: #202b38 !important;
+    color: #4fd1ff !important;
+    border-color: #405065 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode .modal-content .close {
+    color: #ffffff !important;
+    opacity: .9 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode .table tbody tr,
+html[data-app-theme="dark"] body.dark-mode .table tbody td {
+    background-color: #232831 !important;
+    color: #edf4fc !important;
+    border-color: #455164 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode .table tbody tr:hover,
+html[data-app-theme="dark"] body.dark-mode .table tbody tr:hover td {
+    background-color: #2d3745 !important;
+    color: #ffffff !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode .alert-box {
+    background-color: #20252e !important;
+    color: #f1f5f9 !important;
+    border-top: 1px solid #455164;
+    border-right: 1px solid #455164;
+    border-bottom: 1px solid #455164;
+}
+
+html[data-app-theme="dark"] .caixa-status-alert {
+    background-color: #173d29 !important;
+    color: #e1f8e9 !important;
+    border-color: #3b8f5b !important;
+}
+
+html[data-app-theme="dark"] .caixa-status-alert :is(.caixa-status-texto, .caixa-saldo-inicial, i) {
+    color: #e1f8e9 !important;
+}
+
+html[data-app-theme="dark"] .caixa-status-alert .btn-movimentacoes {
+    background-color: #2f9e5b !important;
+    color: #ffffff !important;
+    border-color: #58c77e !important;
+    font-weight: 600;
+}
+
+html[data-app-theme="dark"] .caixa-status-alert .btn-movimentacoes:hover,
+html[data-app-theme="dark"] .caixa-status-alert .btn-movimentacoes:focus {
+    background-color: #3abf6d !important;
+    color: #071d10 !important;
+    border-color: #70df98 !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode .btn-fechar-alert {
+    color: #d7e0ea !important;
+}
+
+html[data-app-theme="dark"] body.dark-mode :is(.btn-warning, .btn-info) {
+    color: #111827 !important;
+}
 </style>
 <div class="container">
 
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1><i class="fas fa-cash-register"></i> Caixa de Vendas (PDV)</h1>
+        <a href="vendas_periodo.php" class="btn btn-secondary">Validar NFC-e de venda registrada</a>
         <a href="fechamento_caixa.php" class="btn btn-info">
             <i class="fas fa-print"></i> Fechamento de Caixa
         </a>
@@ -489,7 +856,27 @@ label {
 
     <div id="alert-container"></div>
 
-    <form id="form-venda">
+    <?php if ($caixa_aberto): ?>
+        <div class="alert alert-success caixa-status-alert d-flex justify-content-between align-items-center">
+            <span class="caixa-status-texto"><i class="fas fa-lock-open"></i> Caixa aberto hoje com saldo inicial de
+                <strong class="caixa-saldo-inicial">R$ <?= number_format((float)$sessao_caixa['valor_abertura'], 2, ',', '.') ?></strong>.
+            </span>
+            <a class="btn btn-sm btn-outline-light btn-movimentacoes" href="lancamento_caixa.php">Ver movimentações</a>
+        </div>
+    <?php elseif ($sessao_caixa && $sessao_caixa['status'] === 'fechado'): ?>
+        <div class="alert alert-secondary">
+            <i class="fas fa-lock"></i> O caixa de hoje já foi fechado. Um novo caixa poderá ser aberto amanhã.
+        </div>
+    <?php else: ?>
+        <div class="alert alert-warning d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-exclamation-triangle"></i> Abra o caixa para começar as vendas de hoje.</span>
+            <button type="button" class="btn btn-success" data-toggle="modal" data-target="#modalAbrirCaixa">
+                <i class="fas fa-lock-open"></i> Abrir caixa
+            </button>
+        </div>
+    <?php endif; ?>
+
+    <form id="form-venda"<?= $caixa_aberto ? '' : ' style="opacity:.45;pointer-events:none"' ?>>
 
         <div class="form-group">
             <label for="cliente_id">Cliente</label>
@@ -506,6 +893,20 @@ label {
         <div class="card bg-dark text-white mb-4">
             <div class="card-header"><h2>Adicionar Produtos</h2></div>
             <div class="card-body">
+                <div class="form-group">
+                    <label for="barcode_input"><i class="fas fa-barcode"></i> Código de barras / SKU (opcional)</label>
+                    <div class="input-group">
+                        <input type="text" id="barcode_input" class="form-control"
+                               placeholder="Leia com o aparelho ou digite o código e pressione Enter"
+                               autocomplete="off">
+                        <div class="input-group-append">
+                            <button type="button" id="buscar-barcode" class="btn btn-info" title="Buscar código">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <small class="form-text text-muted">Leitores USB e Bluetooth funcionam automaticamente neste campo.</small>
+                </div>
                 <div class="form-row align-items-end">
                     <div class="form-group col-md-8">
                         <label for="produto_select">Produto</label>
@@ -561,12 +962,47 @@ label {
             <button type="button" id="btn-recibo" class="btn btn-primary btn-lg mr-2">
                 <i class="fas fa-receipt"></i> Finalizar e Gerar Recibo
             </button>
-            <button type="button" id="btn-nfe" class="btn btn-warning btn-lg">
-                <i class="fas fa-vial"></i> Finalizar e Testar NFC-e (Local)
-            </button>
+            <?php if (is_tenant_admin()): ?>
+                <button type="button" id="btn-nfe" class="btn btn-warning btn-lg">
+                    <i class="fas fa-file-invoice"></i>
+                    Finalizar e Enviar NFC-e à SEFAZ (<?= $ambiente_nfce === 1 ? 'Produção' : 'Homologação' ?>)
+                </button>
+                <small class="d-block mt-2 text-muted">
+                    A venda será registrada e a NFC-e será transmitida à SEFAZ no ambiente fiscal configurado.
+                </small>
+            <?php endif; ?>
         </div>
 
     </form>
+
+    <div class="modal fade" id="modalAbrirCaixa" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content bg-dark text-light">
+                <form method="post" action="../actions/abrir_caixa.php">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="fas fa-cash-register"></i> Abrir caixa de hoje</h5>
+                        <button type="button" class="close text-light" data-dismiss="modal"><span>&times;</span></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                        <div class="form-group">
+                            <label>Dinheiro inicial em caixa (opcional)</label>
+                            <input type="text" name="valor_abertura" class="form-control" value="0,00" inputmode="decimal">
+                            <small class="text-muted">Pode abrir com zero. Se houver troco ou fundo de caixa, informe o valor.</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Observação (opcional)</label>
+                            <input type="text" name="observacao" class="form-control" maxlength="255" placeholder="Ex.: fundo de troco">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-success">Confirmar abertura</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 
 <?php if ($perfil === 'admin' || $perfil === 'proprietario'): ?>
@@ -877,7 +1313,7 @@ $(document).ready(function() {
        SELECT2 PRODUTOS
        ================================== */
     $('#produto_select').select2({
-        placeholder: 'Pesquisar produto pelo nome...',
+        placeholder: 'Pesquisar produto pelo nome ou codigo...',
         ajax: {
             url: 'vendas.php?action=search_produtos',
             dataType: 'json',
@@ -924,6 +1360,65 @@ $(document).ready(function() {
     /* ================================
        ALTERAÇÃO DE QUANTIDADE
        ================================== */
+    function buscarCodigoDeBarras() {
+        const campo = $('#barcode_input');
+        const codigo = campo.val().trim();
+        if (!codigo) return;
+        $.getJSON('vendas.php', { action: 'search_barcode', codigo: codigo })
+            .done(function(data) {
+                if (!data.found) {
+                    showAlert(data.message || 'Produto nao encontrado.', 'warning');
+                    campo.select().focus();
+                    return;
+                }
+                const produto = data.product;
+                const produtoId = produto.id;
+                const produtoNome = produto.text.split(' (Estoque:')[0];
+                const precoVenda = parseFloat(produto.preco_venda || 0).toFixed(2);
+                const estoque = parseInt(produto.estoque);
+                const existente = $(`#venda-items tr[data-id="${produtoId}"]`);
+                if (estoque <= 0) {
+                    showAlert('Este produto esta sem estoque.', 'danger');
+                    campo.val('').focus();
+                    return;
+                }
+                if (existente.length > 0) {
+                    const quantidade = existente.find('.quantidade');
+                    const atual = parseInt(quantidade.val() || 0);
+                    if (atual >= estoque) {
+                        showAlert('Quantidade maxima disponivel em estoque atingida.', 'warning');
+                    } else {
+                        quantidade.val(atual + 1).trigger('input');
+                    }
+                    campo.val('').focus();
+                    return;
+                }
+                const row = `
+                    <tr data-id="${produtoId}" data-preco="${precoVenda}">
+                        <td>${produtoNome}</td>
+                        <td><input type="number" class="form-control quantidade" value="1" min="1" max="${estoque}"></td>
+                        <td class="preco-unitario">R$ ${precoVenda}</td>
+                        <td class="subtotal">R$ ${precoVenda}</td>
+                        <td><button type="button" class="btn btn-danger btn-sm remover-item"><i class="fas fa-trash"></i></button></td>
+                    </tr>`;
+                $('#venda-items').append(row);
+                atualizarTotal();
+                campo.val('').focus();
+            })
+            .fail(function() {
+                showAlert('Nao foi possivel consultar o codigo.', 'danger');
+                campo.focus();
+            });
+    }
+
+    $('#barcode_input').on('keydown', function(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            buscarCodigoDeBarras();
+        }
+    });
+    $('#buscar-barcode').on('click', buscarCodigoDeBarras);
+
     $('#venda-items').on('input', '.quantidade', function() {
 
         const tr = $(this).closest('tr');
@@ -1061,27 +1556,31 @@ $(document).ready(function() {
     });
 
     /* ================================
-       EMITIR NF-e (MODO TESTE / MOCK)
+       EMITIR NFC-e NA SEFAZ
        ================================== */
     function emitirNFe(vendaId) {
 
-        const urlEmissao = '../actions/testar_emissao_mock.php';
+        const urlEmissao = '../actions/emitir_nfce.php';
 
-        showAlert('â³ Gerando NFC-e de Simulação...', 'info');
+        showAlert('Transmitindo NFC-e à SEFAZ. Aguarde a autorização...', 'info');
 
         fetch(urlEmissao, {
             method: 'POST',
-            body: new URLSearchParams({ id_venda: vendaId })
+            body: new URLSearchParams({
+                id_venda: vendaId,
+                emitir_nfce_sefaz: '1',
+                token_validacao_nfce: <?= json_encode($token_nfce, JSON_UNESCAPED_SLASHES) ?>
+            })
         })
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                showAlert('✅ SIMULAÇÃO: NFC-e gerada com sucesso! Chave Fictícia: ' + data.chave, 'success');
+                showAlert(data.message || 'NFC-e autorizada pela SEFAZ.', 'success');
                 setTimeout(() => {
                     window.open('../actions/gerar_danfe.php?chave=' + data.chave, '_blank');
                 }, 1500);
             } else
-                showAlert('âŒ Erro na simulação da NFC-e: ' + data.message, 'danger');
+                showAlert('A NFC-e não foi autorizada: ' + data.message, 'danger');
         })
         .catch(err => {
             console.error(err);
@@ -1101,8 +1600,6 @@ $(document).ready(function() {
 
 });
 </script>
-
-<?php include('../includes/footer.php'); ?>
 
 </body>
 </html>

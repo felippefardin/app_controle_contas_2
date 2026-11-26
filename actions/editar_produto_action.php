@@ -28,7 +28,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id = intval($_POST['id']);
     
     // ADICIONADO: Captura do código
-    $codigo = !empty($_POST['codigo']) ? $_POST['codigo'] : null;
+    $codigo = trim((string)($_POST['codigo'] ?? ''));
+    $codigo = $codigo !== '' ? $codigo : null;
     
     $nome = $_POST['nome'];
     $descricao = $_POST['descricao'] ?? '';
@@ -41,6 +42,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $ncm = $_POST['ncm'] ?? null;
     $cfop = $_POST['cfop'] ?? null;
+
+    if ($codigo !== null) {
+        $check = $conn->prepare("SELECT id FROM produtos WHERE id_usuario=? AND codigo=? AND id<>? AND deleted_at IS NULL LIMIT 1");
+        $check->bind_param('isi', $id_usuario, $codigo, $id);
+        $check->execute();
+        $duplicado = $check->get_result()->fetch_assoc();
+        $check->close();
+        if ($duplicado) {
+            set_flash_message('warning', 'Este código de barras/SKU já está cadastrado em outro produto.');
+            header('Location: ../pages/controle_estoque.php');
+            exit;
+        }
+    }
 
     // ADICIONADO: codigo = ? no SQL
     $sql = "UPDATE produtos 

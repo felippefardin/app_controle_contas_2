@@ -40,30 +40,6 @@ try {
             $faturas[] = $row;
         }
         $stmt->close();
-    } else {
-        // DADOS DE SIMULAÇÃO (ATUALIZADOS)
-        $faturas = [
-            [
-                'id' => 999, 
-                'data_vencimento' => date('Y-m-d'), 
-                'data_pagamento' => date('Y-m-d'), 
-                'valor_original' => 59.90, // Preço Cheio
-                'desconto' => 10.00,       // Desconto
-                'valor' => 49.90,          // Pago
-                'status' => 'pago', 
-                'forma_pagamento' => 'pix'
-            ],
-            [
-                'id' => 888, 
-                'data_vencimento' => date('Y-m-d', strtotime('-1 month')), 
-                'data_pagamento' => date('Y-m-d', strtotime('-1 month')), 
-                'valor_original' => 59.90,
-                'desconto' => 0.00,
-                'valor' => 59.90, 
-                'status' => 'pago', 
-                'forma_pagamento' => 'cartao'
-            ]
-        ];
     }
 } catch (Exception $e) {
     error_log("Erro ao buscar histórico: " . $e->getMessage());
@@ -99,6 +75,19 @@ include('../includes/header.php');
 
         .btn-recibo { background-color: #333; color: #fff; border: 1px solid #555; padding: 8px 15px; border-radius: 5px; text-decoration: none; transition: 0.3s; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 5px; }
         .btn-recibo:hover { background-color: #00bfff; color: #000; border-color: #00bfff; }
+
+        html[data-app-theme="light"] #conteudo-principal .btn-recibo {
+            background-color: var(--app-accent);
+            border-color: var(--app-accent);
+            color: #fff !important;
+        }
+        html[data-app-theme="light"] #conteudo-principal .btn-recibo i {
+            color: inherit !important;
+        }
+        html[data-app-theme="light"] #conteudo-principal .btn-recibo:is(:hover, :focus-visible) {
+            background-color: #06679b;
+            border-color: #06679b;
+        }
         
         .btn-voltar { color: #aaa; text-decoration: none; display: flex; align-items: center; gap: 8px; transition: 0.3s; }
         .btn-voltar:hover { color: #fff; }
@@ -106,6 +95,23 @@ include('../includes/header.php');
         .text-original { text-decoration: line-through; color: #777; font-size: 0.85rem; margin-right: 5px; }
         .text-final { color: #fff; font-weight: bold; }
         .discount-tag { font-size: 0.75rem; color: #2ecc71; display: block; }
+    
+        /* Recibo visivel no celular */
+        @media (max-width: 768px) {
+            .table-responsive { overflow-x: auto; }
+            .table-responsive th:last-child,
+            .table-responsive td:last-child {
+                position: sticky;
+                right: 0;
+                background-color: #1e1e1e;
+                box-shadow: -3px 0 6px rgba(0, 0, 0, 0.25);
+            }
+            .table-responsive .btn-recibo {
+                min-height: 44px;
+                box-sizing: border-box;
+                white-space: nowrap;
+            }
+        }
     </style>
 </head>
 <body>
@@ -160,7 +166,7 @@ include('../includes/header.php');
                                 <span class="text-final">R$ <?= number_format($vlrFinal, 2, ',', '.') ?></span>
                             <?php endif; ?>
                         </td>
-                        <td style="text-transform: capitalize;"><?= $fat['forma_pagamento'] ?? '-' ?></td>
+                        <td style="text-transform: capitalize;"><?= htmlspecialchars((string) ($fat['forma_pagamento'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                         <td>
                             <?php if ($fat['status'] === 'pago'): ?>
                                 <span class="badge badge-pago">Pago</span>

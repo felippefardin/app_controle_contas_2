@@ -1,4 +1,8 @@
 <?php
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit("Somente CLI.\n");
+}
 // Carrega dependências e inicializa banco de dados
 require_once __DIR__ . '/../database.php';
 require_once __DIR__ . '/../vendor/autoload.php'; // Carrega Dotenv e PHPMailer via Composer

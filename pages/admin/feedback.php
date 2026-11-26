@@ -2,6 +2,8 @@
 require_once '../../includes/session_init.php';
 include('../../database.php');
 
+require_super_admin();
+
 // Verifique permissão admin
 
 $conn = getMasterConnection();
@@ -10,6 +12,10 @@ $result = $conn->query("SELECT * FROM feedbacks ORDER BY criado_em DESC");
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<?php session_idle_script(); ?>
+<link rel="stylesheet" href="../../assets/css/universal-theme.css?v=20260813-admin">
+<script src="../../assets/js/global-theme.js?v=20260813-admin"></script>
+    <?php require __DIR__ . '/../../includes/csrf_client.php'; ?>
     <meta charset="UTF-8">
     <title>Gerenciar Feedbacks</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">

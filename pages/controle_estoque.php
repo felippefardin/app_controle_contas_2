@@ -20,7 +20,7 @@ $perfil     = $_SESSION['nivel_acesso'];
 require_once '../includes/header.php';
 
 // 3. QUERY
-$where = ["id_usuario = " . intval($usuarioId)];
+$where = ["deleted_at IS NULL", "id_usuario = " . intval($usuarioId)];
 $sql = "SELECT * FROM produtos";
 if (!empty($where)) {
     $sql .= " WHERE " . implode(" AND ", $where);
@@ -53,6 +53,8 @@ display_flash_message();
         .table thead th { background-color: #0af; color: #fff; }
         .table tbody tr { background-color: #2c2c2c; }
         .table tbody tr:hover { background-color: #3c3c3c; }
+        html[data-app-theme="light"] body.light-mode .table tbody td,
+        html[data-app-theme="light"] body.light-mode .table tbody td * { color: #fff !important; }
         .modal-content { background-color: #222; border: 1px solid #444; }
         .modal-header, .modal-footer { border-color: #444; }
         .close { color: #fff; text-shadow: none; opacity: 0.7; }
@@ -92,7 +94,10 @@ display_flash_message();
                 <div class="form-row">
                     <div class="form-group col-md-3">
                         <label for="codigo">Código/SKU</label>
-                        <input type="text" class="form-control" name="codigo" placeholder="Cód. Opcional">
+                        <input type="text" class="form-control barcode-field" id="produto_codigo" name="codigo"
+                               placeholder="Leia ou digite o código (opcional)" autocomplete="off"
+                               onkeydown="if(event.key==='Enter'){event.preventDefault();this.form.elements['nome'].focus();}">
+                        <small class="form-text text-muted">Código de barras/SKU. Compatível com leitor USB/Bluetooth.</small>
                     </div>
 
                     <div class="form-group col-md-5"> <label for="nome">Nome do Produto</label>
@@ -204,7 +209,7 @@ display_flash_message();
                 </button>
             </div>
             <div class="modal-body">
-                Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita.
+                Deseja mover este produto para a lixeira? Ele poderá ser restaurado.
             </div>
             <div class="modal-footer">
                 <form action="../actions/excluir_produto_action.php" method="POST">

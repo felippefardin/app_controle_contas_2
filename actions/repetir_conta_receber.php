@@ -18,7 +18,7 @@ if (!$contaId || $repetirVezes <= 0) {
 }
 
 // Busca original
-$stmt = $conn->prepare("SELECT * FROM contas_receber WHERE id = ? AND usuario_id = ?");
+$stmt = $conn->prepare("SELECT * FROM contas_receber WHERE id = ? AND usuario_id = ? AND deleted_at IS NULL");
 $stmt->bind_param("ii", $contaId, $id_usuario);
 $stmt->execute();
 $contaOriginal = $stmt->get_result()->fetch_assoc();

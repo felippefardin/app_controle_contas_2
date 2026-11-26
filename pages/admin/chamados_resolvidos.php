@@ -8,6 +8,9 @@ if (!isset($_SESSION['super_admin'])) {
     exit;
 }
 
+// Abrir o arquivo confirma a leitura dos chamados resolvidos exibidos até agora.
+$_SESSION['master_arquivo_visualizado_em'] = date('Y-m-d H:i:s');
+
 $master_conn = getMasterConnection();
 
 // --- CONSULTA APENAS OS RESOLVIDOS ---
@@ -24,6 +27,9 @@ $result_chamados = $master_conn->query($sql_chamados);
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+<?php session_idle_script(); ?>
+<link rel="stylesheet" href="../../assets/css/universal-theme.css?v=20260813-admin">
+<script src="../../assets/js/global-theme.js?v=20260813-admin"></script>
     <meta charset="UTF-8">
     <title>Chamados Resolvidos</title>
     <!-- <link rel="stylesheet" href="../../assets/css/style.css"> -->

@@ -3,8 +3,9 @@ require_once '../includes/session_init.php';
 require_once '../database.php';
 
 if (!isset($_SESSION['usuario_logado'])) { header('Location: ../pages/login.php'); exit; }
+require_csrf();
 
-$id_conta = (int)$_GET['id'];
+$id_conta = (int)($_POST['id'] ?? 0);
 $conn = getTenantConnection();
 
 if ($id_conta > 0) {

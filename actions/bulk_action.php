@@ -2,10 +2,12 @@
 // actions/bulk_action.php
 require_once '../includes/session_init.php';
 require_once '../database.php';
+require_once '../includes/audit.php';
 
 if (!isset($_SESSION['usuario_logado'])) {
     die(json_encode(['status' => 'error', 'message' => 'Não autorizado']));
 }
+require_csrf(true);
 
 $conn = getTenantConnection();
 $data = json_decode(file_get_contents('php://input'), true);
@@ -18,6 +20,12 @@ if (!$data || empty($data['ids'])) {
 $ids = $data['ids']; // Array de IDs
 $tipo = $data['tipo']; // 'pagar', 'receber'
 $acao = $data['acao']; // 'baixar', 'excluir'
+if (!in_array($tipo, ['pagar', 'receber'], true) || !in_array($acao, ['baixar', 'excluir'], true)) {
+    echo json_encode(['status' => 'error', 'message' => 'Ação inválida.']);
+    exit;
+}
+$permission = $tipo === 'pagar' ? 'contas_pagar.php' : 'contas_receber.php';
+require_page_permission($permission, true);
 $ids_sanitized = implode(',', array_map('intval', $ids));
 
 // CONFIGURAÇÃO DA QUERY
@@ -36,11 +44,14 @@ if ($acao === 'baixar') {
     // mas para manter simples e não alterar o fluxo complexo, focamos no status.
     
 } elseif ($acao === 'excluir') {
-    // Para Excluir
     $tabela = ($tipo === 'pagar') ? 'contas_pagar' : 'contas_receber';
-    $sql = "DELETE FROM $tabela WHERE id IN ($ids_sanitized) AND usuario_id = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", get_data_owner_id());
+    $ownerId = get_data_owner_id();
+    $changed = 0;
+    foreach (array_unique(array_map('intval', $ids)) as $id) {
+        if ($id > 0 && soft_delete_record($conn, $tabela, $id, $ownerId)) $changed++;
+    }
+    echo json_encode(['status' => 'success', 'message' => $changed . ' registro(s) movido(s) para a lixeira.']);
+    exit;
 }
 
 if ($stmt->execute()) {

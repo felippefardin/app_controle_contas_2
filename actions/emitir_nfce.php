@@ -1,8 +1,9 @@
 <?php
-require_once '../vendor/autoload.php';
-require_once '../database.php'; 
-require_once '../includes/session_init.php'; // Garante sessão correta
-require_once '../includes/config/nfe_config.php';
+require_once __DIR__ . '/../includes/session_init.php';
+require_once __DIR__ . '/../database.php';
+require_once __DIR__ . '/../includes/utils.php';
+require_once __DIR__ . '/../includes/fiscal_a1.php';
+require_once __DIR__ . '/../includes/config/nfe_config.php';
 
 use NFePHP\NFe\Make;
 use NFePHP\NFe\Tools;
@@ -41,16 +42,40 @@ if (!$id_venda) {
 
 try {
     log_nfce("🔹 Iniciando emissão para venda #{$id_venda}");
-    $conn->begin_transaction();
+    $emissaoSefaz = isset($_POST['emitir_nfce_sefaz']) || isset($_POST['enviar_nfce_homologacao']);
+    $homologacaoPiloto = isset($_POST['enviar_nfce_homologacao']);
+    $somenteValidacao = isset($_POST['validar_nfce_local']);
+    if ($emissaoSefaz) {
+        if (empty($_SESSION['tenant_id']) || !is_tenant_admin()) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'A emissão de NFC-e está disponível apenas para administradores da empresa.']);
+            exit;
+        }
+    }
+    if ($somenteValidacao || $emissaoSefaz) {
+        $token = $_SESSION['token_validacao_nfce'] ?? '';
+        $enviado = $_POST['token_validacao_nfce'] ?? '';
+        if ($token === '' || !is_string($enviado) || !hash_equals($token, $enviado)) {
+            http_response_code(403);
+            echo json_encode(['message' => 'Sessão do teste expirada. Atualize o relatório.']);
+            exit;
+        }
+    }
+    $validacaoLocal = !$emissaoSefaz && ($somenteValidacao || is_file('/etc/appcontrolepro-nfce-validacao-local'));
+    if ($validacaoLocal) {
+        $conn->begin_transaction(MYSQLI_TRANS_START_READ_ONLY);
+    } else {
+        $conn->begin_transaction();
+    }
 
     // 3ï¸âƒ£ Carrega Configurações (Híbrido: Tabela Antiga + Nova)
     
     // A. Busca dados cadastrais (CNPJ, Endereço) da tabela 'empresa_config'
     // Assumimos que existe apenas 1 configuração por Tenant (LIMIT 1)
-    $stmtConfig = $conn->query("SELECT * FROM empresa_config LIMIT 1");
+    $stmtConfig = $conn->query("SELECT * FROM empresa_config LIMIT 1" . ($emissaoSefaz ? " FOR UPDATE" : ""));
     $empresaConfig = $stmtConfig->fetch_assoc();
 
-    if (!$empresaConfig) {
+    if (!$empresaConfig && !$validacaoLocal) {
         throw new Exception("Dados da empresa (CNPJ, Endereço) não encontrados em 'empresa_config'.");
     }
 
@@ -64,26 +89,72 @@ try {
     }
 
     // Ajustes manuais de compatibilidade
+    $empresaConfig = (array) $empresaConfig;
     $empresaConfig['ambiente'] = (int)($empresaConfig['ambiente'] ?? 2);
+    if ($validacaoLocal) {
+        if (empty($empresaConfig['cnpj']) || empty($empresaConfig['razao_social']) || empty($empresaConfig['uf'])) {
+            $empresaConfig = array_replace($empresaConfig ?? [], [
+                'cnpj' => '99999999000191', 'razao_social' => 'Emitente Ficticio',
+                'fantasia' => 'Teste local', 'ie' => '999999999',
+                'logradouro' => 'Rua de Teste', 'numero' => '1', 'bairro' => 'Centro',
+                'municipio' => 'Vitoria', 'uf' => 'ES', 'cep' => '29010000',
+                'cod_municipio' => '3205309', 'regime_tributario' => 1,
+            ]);
+        }
+        $empresaConfig['ambiente'] = 2;
+        $empresaConfig['csc'] = str_repeat('A', 36);
+        $empresaConfig['csc_id'] = '000001';
+    }
     $tpAmb = $empresaConfig['ambiente'];
+    $homologacaoPiloto = $emissaoSefaz && $tpAmb === 2;
+    if ($emissaoSefaz && (empty($empresaConfig['csc']) || empty($empresaConfig['csc_id']))) {
+        throw new RuntimeException('Configure o CSC e o ID CSC do ambiente selecionado antes de emitir.');
+    }
     if ($tpAmb === 1 && !filter_var($_ENV['FISCAL_ALLOW_PRODUCTION'] ?? false, FILTER_VALIDATE_BOOL)) throw new Exception('Produção bloqueada até a homologação ser validada.');
 
     // 4ï¸âƒ£ Atualiza Numeração
     $novo_numero_nf = (int)($empresaConfig['ultimo_numero_nfce'] ?? 0) + 1;
-    $conn->query("UPDATE empresa_config SET ultimo_numero_nfce = $novo_numero_nf WHERE id = " . (int)$empresaConfig['id']);
+    if (!$validacaoLocal && !$homologacaoPiloto) {
+        $conn->query("UPDATE empresa_config SET ultimo_numero_nfce = $novo_numero_nf WHERE id = " . (int)$empresaConfig['id']);
+    }
     log_nfce("🔢 Número NF reservado: {$novo_numero_nf}");
 
     // 5ï¸âƒ£ Configuração do NFePHP
+    if ($emissaoSefaz) {
+        $jaEnviada = $conn->prepare("SELECT id FROM notas_fiscais WHERE id_venda = ? AND ambiente = ? AND status IN ('em_envio', 'autorizada') LIMIT 1");
+        $jaEnviada->bind_param('ii', $id_venda, $tpAmb);
+        $jaEnviada->execute();
+        if ($jaEnviada->get_result()->fetch_row()) {
+            throw new RuntimeException('Esta venda já possui uma NFC-e enviada neste ambiente. Consulte o resultado antes de tentar novamente.');
+        }
+        $seriePiloto = (int) ($empresaConfig['serie_nfce'] ?? 1);
+        $numero = $conn->prepare('SELECT COALESCE(MAX(numero), 0) + 1 FROM notas_fiscais WHERE ambiente = ? AND serie = ?');
+        $numero->bind_param('ii', $tpAmb, $seriePiloto);
+        $numero->execute();
+        $novo_numero_nf = (int) $numero->get_result()->fetch_row()[0];
+    }
     $configJson = getConfigJson($empresaConfig); // Usa função do seu include
     
     // Verifica certificado
-    $certPath = __DIR__ . '/../' . ($empresaConfig['certificado_a1_path'] ?? '');
-    if (!file_exists($certPath)) {
-        throw new Exception("Certificado Digital não encontrado no caminho: $certPath");
+    if ($validacaoLocal) {
+        $senhaTeste = bin2hex(random_bytes(16));
+        $chaveTeste = openssl_pkey_new(['private_key_bits' => 2048]);
+        $pedidoTeste = $chaveTeste
+            ? openssl_csr_new(['commonName' => 'Validacao local do PDV'], $chaveTeste)
+            : false;
+        $certificadoTeste = $pedidoTeste
+            ? openssl_csr_sign($pedidoTeste, null, $chaveTeste, 1)
+            : false;
+        if (!$certificadoTeste || !openssl_pkcs12_export(
+            $certificadoTeste, $pfxTeste, $chaveTeste, $senhaTeste
+        )) {
+            throw new RuntimeException('Falha ao gerar o certificado do teste local.');
+        }
+        $certificate = Certificate::readPfx($pfxTeste, $senhaTeste);
+    } else {
+        $certificate = fiscal_a1_load($empresaConfig);
     }
-    $certificadoContent = file_get_contents($certPath);
-    
-    $tools = new Tools($configJson, Certificate::readPfx($certificadoContent, $empresaConfig['certificado_senha']));
+    $tools = new Tools($configJson, $certificate);
     $tools->model('65'); // NFC-e
 
     // 6ï¸âƒ£ Busca Venda e Itens
@@ -172,6 +243,9 @@ try {
         $std->qCom = $item['quantidade'];
         $std->vUnCom = number_format($item['preco_unitario'], 2, '.', '');
         $std->vProd = number_format($item['subtotal'], 2, '.', '');
+        $std->uTrib = $std->uCom;
+        $std->qTrib = $std->qCom;
+        $std->vUnTrib = $std->vUnCom;
         $std->indTot = 1;
         $nfe->tagprod($std);
 
@@ -188,6 +262,9 @@ try {
     
     $stdPag = new \stdClass();
     $stdPag->vTroco = null; 
+    if ($validacaoLocal || $homologacaoPiloto) {
+        $nfe->tagtransp((object) ['modFrete' => 9]);
+    }
     $nfe->tagpag($stdPag);
 
     $stdDetPag = new \stdClass();
@@ -199,11 +276,33 @@ try {
     // 8ï¸âƒ£ Assinatura e Envio
     $xml = $nfe->getXML();
     $xmlAssinado = $tools->signNFe($xml);
+    if ($validacaoLocal) {
+        $conn->rollback();
+        echo json_encode([
+            'success' => false,
+            'validacao_local' => true,
+            'xml_valido' => true,
+            'message' => 'Teste local concluído: XML do PDV assinado. Nenhuma nota foi emitida.',
+        ]);
+        exit;
+    }
+
     log_nfce("ðŸ” XML assinado com sucesso.");
 
+    if ($emissaoSefaz) {
+        if (!preg_match('/Id="NFe([0-9]{44})"/', $xmlAssinado, $matches)) {
+            throw new RuntimeException('Não foi possível identificar a chave do XML assinado.');
+        }
+        $chavePiloto = $matches[1];
+        $reserva = $conn->prepare("INSERT INTO notas_fiscais (id_venda, numero, serie, modelo, ambiente, status, chave_acesso) VALUES (?, ?, ?, 65, ?, 'em_envio', ?)");
+        $reserva->bind_param('iiiis', $id_venda, $novo_numero_nf, $seriePiloto, $tpAmb, $chavePiloto);
+        $reserva->execute();
+        $idTentativa = $conn->insert_id;
+        $conn->commit();
+    }
     $resp = $tools->sefazEnviaLote([$xmlAssinado], (string)random_int(1,999999999), 1);
     
-    $st = new Tools($configJson, Certificate::readPfx($certificadoContent, $empresaConfig['certificado_senha']));
+    $st = new Tools($configJson, $certificate);
     $stdCl = json_decode(json_encode(simplexml_load_string($resp)));
     
     if (isset($stdCl->protNFe->infProt->cStat) && $stdCl->protNFe->infProt->cStat == 100) {
@@ -220,19 +319,31 @@ try {
 
         // Grava no banco
         $serie=(int)($empresaConfig['serie_nfce']??1);
-        $stmtNota = $conn->prepare("INSERT INTO notas_fiscais (id_venda,numero,serie,modelo,ambiente,status,chave_acesso,protocolo,xml_path,data_emissao) VALUES (?,?,?,65,?,'autorizada',?,?,?,NOW())");
-        $stmtNota->bind_param("iiiisss", $id_venda,$novo_numero_nf,$serie,$tpAmb,$chave,$prot,$xmlPath);
+        if ($emissaoSefaz) {
+            if ($chave !== $chavePiloto) throw new RuntimeException('A chave retornada difere da chave enviada.');
+            $stmtNota = $conn->prepare("UPDATE notas_fiscais SET status='autorizada', protocolo=?, xml_path=?, data_emissao=NOW() WHERE id=?");
+            $stmtNota->bind_param('ssi', $prot, $xmlPath, $idTentativa);
+        } else {
+            $stmtNota = $conn->prepare("INSERT INTO notas_fiscais (id_venda,numero,serie,modelo,ambiente,status,chave_acesso,protocolo,xml_path,data_emissao) VALUES (?,?,?,65,?,'autorizada',?,?,?,NOW())");
+            $stmtNota->bind_param("iiiisss", $id_venda,$novo_numero_nf,$serie,$tpAmb,$chave,$prot,$xmlPath);
+        }
         $stmtNota->execute();
 
         $conn->commit();
-        echo json_encode(['success' => true, 'message' => 'Nota emitida!', 'chave' => $chave]);
+        $nomeAmbiente = $tpAmb === 1 ? 'produção' : 'homologação';
+        echo json_encode(['success' => true, 'message' => 'NFC-e autorizada pela SEFAZ em ' . $nomeAmbiente . '. Chave: ' . $chave, 'chave' => $chave, 'ambiente' => $tpAmb]);
     } else {
         // Erro na SEFAZ
         $motivo = $stdCl->protNFe->infProt->xMotivo ?? $stdCl->xMotivo ?? 'Erro desconhecido';
+        if ($emissaoSefaz && isset($idTentativa)) {
+            $retorno = $conn->prepare("UPDATE notas_fiscais SET mensagem_erro=? WHERE id=?");
+            $retorno->bind_param('si', $motivo, $idTentativa);
+            $retorno->execute();
+        }
         throw new Exception("Rejeição SEFAZ: $motivo");
     }
 
-} catch (Exception $e) {
+} catch (Throwable $e) {
     $conn->rollback();
     log_nfce("âŒ ERRO FATAL: " . $e->getMessage());
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);

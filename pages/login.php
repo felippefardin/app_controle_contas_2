@@ -7,10 +7,15 @@ if (isset($_SESSION['usuario_logado']) && $_SESSION['usuario_logado'] === true) 
     header('Location: home.php');
     exit;
 }
+$temaAtual = $_SESSION['tema_preferencia'] ?? $_COOKIE['tema_preferencia'] ?? 'dark';
+if (!in_array($temaAtual, ['light', 'dark'], true)) $temaAtual = 'dark';
 ?>
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-app-theme="<?= htmlspecialchars($temaAtual, ENT_QUOTES, 'UTF-8') ?>">
 <head>
+<?php session_idle_script(); ?>
+<link rel="stylesheet" href="../assets/css/universal-theme.css?v=20260731-theme-button-v3">
+<script src="../assets/js/global-theme.js?v=20260903-cookie-5"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - App Controle</title>
@@ -148,14 +153,12 @@ display_flash_message();
     <span class="support-tooltip-login">Fale com seu parceiro</span>
 </div>
 
-<div class="floating-icon" id="btnFeedback" data-bs-toggle="modal" data-bs-target="#modalFeedback">
-    <i class="fa-solid fa-comment-dots"></i>
-    <span class="tooltip-custom">Deixe seu feedback</span>
-</div>
-
 <div class="login-container">
     <h2><i class="fa-solid fa-right-to-bracket"></i> Login</h2>
 
+    <?php if (($_GET['erro'] ?? '') === 'inatividade'): ?>
+        <p role="status">Sua sessão foi encerrada após 40 minutos de inatividade. Entre novamente para continuar.</p>
+    <?php endif; ?>
     <form action="../actions/login.php" method="POST">
         <label for="email">E-mail</label>
         <input type="email" id="email" name="email" required autofocus>
@@ -177,46 +180,6 @@ display_flash_message();
         <a href="#" data-bs-toggle="modal" data-bs-target="#modalReativarConta">
             <i class="fas fa-sync-alt"></i> Reativar Minha Assinatura
         </a>
-    </div>
-</div>
-
-<div class="modal fade" id="modalFeedback" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content bg-dark text-white">
-            <div class="modal-header border-secondary">
-                <h5 class="modal-title text-warning">Seu Feedback</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="formFeedbackLogin">
-                    <div style="display: flex; align-items: center; margin-top: 15px;">
-                        <input type="checkbox" id="anonimo" name="anonimo" style="width: auto; margin: 0; cursor: pointer;">
-                        <label for="anonimo" style="margin-left: 10px; margin-top: 0; cursor: pointer; font-weight: normal;">
-                            Enviar anonimamente
-                        </label>
-                    </div>
-                    <div id="dadosIdentificacaoFeed">
-                        <input type="text" name="nome" class="form-control mb-2 bg-secondary text-white border-0" placeholder="Seu Nome">
-                        <input type="email" name="email" class="form-control mb-2 bg-secondary text-white border-0" placeholder="E-mail">
-                        <input type="text" name="whatsapp" class="form-control mb-2 bg-secondary text-white border-0" placeholder="WhatsApp">
-                    </div>
-                    <div class="mb-3">
-                        <label>Pontuação:</label>
-                        <select name="pontuacao" class="form-select bg-secondary text-white border-0">
-                            <option value="5">⭐⭐⭐⭐⭐ Excelente</option>
-                            <option value="4">⭐⭐⭐⭐ Muito Bom</option>
-                            <option value="3">⭐⭐⭐ Bom</option>
-                            <option value="2">⭐⭐ Regular</option>
-                            <option value="1">⭐ Ruim</option>
-                        </select>
-                    </div>
-                    <textarea name="descricao" class="form-control bg-secondary text-white border-0" rows="3" placeholder="Deixe sua opinião..." required></textarea>
-                </form>
-            </div>
-            <div class="modal-footer border-secondary">
-                <button type="button" id="btnEnviarFeedback" class="btn btn-warning text-dark w-100" onclick="enviarFeedback()">Enviar Feedback</button>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -276,6 +239,7 @@ display_flash_message();
             <div class="modal-body">
                 <p class="mb-3">Informe seu e-mail para receber o link de reativação.</p>
                 <form action="../actions/solicitar_reativacao.php" method="POST">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
                     <label>E-mail</label>
                     <input type="email" name="email_reativacao" class="form-control" required>
                     <button type="submit" class="btn btn-primary w-100 mt-3">Enviar Link de Reativação</button>
@@ -287,38 +251,6 @@ display_flash_message();
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    document.getElementById('anonimoFeedback').addEventListener('change', function() {
-        document.getElementById('dadosIdentificacaoFeed').style.display = this.checked ? 'none' : 'block';
-    });
-
-    function enviarFeedback() {
-        const btn = document.getElementById('btnEnviarFeedback');
-        const originalText = btn.innerText;
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
-
-        const formData = new FormData(document.getElementById('formFeedbackLogin'));
-        
-        fetch('../actions/enviar_feedback_publico.php', { method: 'POST', body: formData })
-        .then(r => r.json())
-        .then(data => {
-             if(data.status === 'success') {
-                alert(data.msg);
-                location.reload();
-            } else {
-                alert(data.msg || 'Erro desconhecido.');
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            alert('Erro ao enviar feedback.');
-        })
-        .finally(() => {
-            btn.disabled = false;
-            btn.innerText = originalText;
-        });
-    }
-
     // --- Lógica Suporte (Novo) ---
     const canalPreferido = document.getElementById('canalPreferido');
     const suporteEmail = document.getElementById('suporteEmail');

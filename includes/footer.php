@@ -1,3 +1,11 @@
+<?php
+// Algumas páginas legadas ainda podem solicitar o rodapé mais de uma vez.
+// Mantém os atalhos, modais e scripts globais como instância única.
+if (defined('APP_FOOTER_RENDERED')) {
+    return;
+}
+define('APP_FOOTER_RENDERED', true);
+?>
     </main>
 
 <?php
@@ -35,7 +43,7 @@ if (file_exists(__DIR__ . '/../pages/calendario.php')) {
 ================================ -->
 <footer class="footer-app">
     <p>
-        &copy; <?= date('Y') ?> App Controle de Contas. Desenvolvido por Felippe Fardin.
+        &copy; <?= date('Y') ?> App Controle de Contas. Desenvolvido por Felippe Andreata DEV.
         <a href="../pages/tutorial.php">Tutorial</a>
         <a href="../pages/suporte.php">Suporte</a>
         <a href="../pages/protecao_de_dados.php">Proteção de Dados</a>
@@ -88,9 +96,10 @@ if (file_exists(__DIR__ . '/../pages/calendario.php')) {
     flex-direction: column;
     gap: 12px;
     z-index: 1002;
+    align-items: center;
 }
 
-.action-buttons a {
+.action-buttons > :is(a, button) {
     background-color: transparent;
     color: rgba(255, 255, 255, 0.35);
     width: 50px;
@@ -108,11 +117,24 @@ if (file_exists(__DIR__ . '/../pages/calendario.php')) {
         color 0.3s ease,
         transform 0.2s ease,
         box-shadow 0.3s ease;
+    box-sizing: border-box;
+    flex: 0 0 50px;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 /* ===============================
    HOVER AZUL (CALC / CALENDÁRIO)
 ================================ */
+/* Mantém os atalhos visíveis no tema claro. */
+html[data-app-theme="light"] .action-buttons a,
+body.light-mode .action-buttons a {
+    background-color: rgba(255, 255, 255, 0.92);
+    color: #344054;
+    border-color: #cbd5e1;
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.14);
+}
+
 #abrir-calculadora:hover,
 #abrir-calendario:hover {
     background-color: #007bff;

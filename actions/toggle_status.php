@@ -2,6 +2,8 @@
 // actions/toggle_status.php
 require_once '../includes/session_init.php';
 require_once '../database.php';
+require_tenant_admin();
+require_csrf();
 
 // Verifica se o usuário está logado e tem permissão
 if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true) {
@@ -15,7 +17,7 @@ if ($nivel !== 'admin' && $nivel !== 'master' && $nivel !== 'proprietario') {
     exit;
 }
 
-$id_usuario_alvo = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+$id_usuario_alvo = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
 $id_usuario_logado = get_data_owner_id();
 
 if (!$id_usuario_alvo) {
@@ -33,7 +35,7 @@ $conn = getTenantConnection();
 
 try {
     // Busca status atual
-    $stmt = $conn->prepare("SELECT status FROM usuarios WHERE id = ?");
+    $stmt = $conn->prepare("SELECT status,email FROM usuarios WHERE id = ? AND deleted_at IS NULL");
     $stmt->bind_param("i", $id_usuario_alvo);
     $stmt->execute();
     $res = $stmt->get_result();
@@ -48,6 +50,13 @@ try {
         $update->bind_param("si", $novo_status, $id_usuario_alvo);
         
         if ($update->execute()) {
+            $master = getMasterConnection();
+            $tenantId = (string)($_SESSION['tenant_id'] ?? '');
+            $sync = $master->prepare("UPDATE usuarios SET status=? WHERE email=? AND tenant_id=?");
+            $sync->bind_param('sss', $novo_status, $user['email'], $tenantId);
+            $sync->execute();
+            $sync->close();
+            $master->close();
             $msg = ($novo_status === 'ativo') ? 'Usuário ativado com sucesso' : 'Usuário inativado com sucesso';
             header("Location: ../pages/usuarios.php?sucesso=1&msg=$msg");
         } else {
